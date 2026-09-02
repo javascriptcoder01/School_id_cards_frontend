@@ -10,6 +10,9 @@ import {
   CreditCard,
   Sparkles,
   User,
+  UserCheck,
+  Printer,
+  Eye,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
@@ -19,7 +22,7 @@ export const Sidebar = () => {
   const userRole = useSelector(selectUserRole);
   const isOpen = useSelector(selectSidebarOpen);
 
-  // Navigation Configuration
+  // Navigation Configuration with Granular Role-Based Access
   const navItems = [
     {
       label: 'Dashboard',
@@ -38,6 +41,13 @@ export const Sidebar = () => {
       path: ROUTES.USERS,
       icon: Users,
       roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
+    },
+    // College Admin Specific
+    {
+      label: 'Operator Assignments',
+      path: ROUTES.OPERATOR_ASSIGNMENTS,
+      icon: UserCheck,
+      roles: ['COLLEGE_ADMIN'],
     },
     {
       label: 'Students',
@@ -63,6 +73,45 @@ export const Sidebar = () => {
       icon: Sparkles,
       roles: ['COLLEGE_ADMIN'],
     },
+    // Operator Specific Navigation
+    {
+      label: 'Assigned Students',
+      path: ROUTES.OPERATOR_STUDENTS,
+      icon: GraduationCap,
+      roles: ['OPERATOR'],
+    },
+    {
+      label: 'Bulk Import',
+      path: ROUTES.OPERATOR_STUDENT_IMPORT,
+      icon: FileSpreadsheet,
+      roles: ['OPERATOR'],
+    },
+    {
+      label: 'Templates',
+      path: ROUTES.OPERATOR_TEMPLATES,
+      icon: CreditCard,
+      roles: ['OPERATOR'],
+    },
+    {
+      label: 'ID Card Preview',
+      path: ROUTES.OPERATOR_ID_CARD_PREVIEW,
+      icon: Eye,
+      roles: ['OPERATOR'],
+    },
+    {
+      label: 'ID Generations',
+      path: ROUTES.OPERATOR_ID_CARD_GENERATIONS,
+      icon: Sparkles,
+      roles: ['OPERATOR'],
+    },
+    // Super Admin Print Center
+    {
+      label: 'Print Center',
+      path: ROUTES.SUPER_ADMIN_PRINT_CENTER,
+      icon: Printer,
+      roles: ['SUPER_ADMIN'],
+    },
+    // Account Settings (All Authenticated)
     {
       label: 'My Account',
       path: ROUTES.ACCOUNT,
@@ -99,13 +148,13 @@ export const Sidebar = () => {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`
                   }
-                  title={item.label}
+                  title={!isOpen ? item.label : undefined}
                 >
-                  <Icon className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  <Icon className="w-5 h-5 shrink-0" />
                   {isOpen && <span>{item.label}</span>}
                 </NavLink>
               );
@@ -113,10 +162,11 @@ export const Sidebar = () => {
           </nav>
         </div>
 
+        {/* Sidebar Footer */}
         {isOpen && (
-          <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 text-xs text-slate-400">
-            <p className="font-semibold text-slate-300">School ID Cards</p>
-            <p className="text-[11px] mt-0.5 text-slate-400">Security & Account Foundation</p>
+          <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 text-xs text-slate-400">
+            <p className="font-semibold text-slate-300">School ID System</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Enterprise Release v2.0</p>
           </div>
         )}
       </div>

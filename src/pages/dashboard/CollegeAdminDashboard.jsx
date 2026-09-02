@@ -1,20 +1,43 @@
-import React from 'react';
-import { GraduationCap, CreditCard, Sparkles, CheckCircle2 } from 'lucide-react';
-import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx';
+import React, { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { CheckCircle2, RefreshCw } from 'lucide-react';
 import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import GenerationStatusSummary from '../../components/dashboard/GenerationStatusSummary.jsx';
+import CollegeProgressOverview from '../../components/dashboard/CollegeProgressOverview.jsx';
+import OperatorClassProgressTable from '../../components/dashboard/OperatorClassProgressTable.jsx';
+import { loadCollegeProgressRequested } from '../../features/collegeProgress/collegeProgressSlice.js';
+import {
+  selectCollegeProgressSummary,
+  selectCollegeProgressOperators,
+  selectCollegeProgressLoading,
+  selectCollegeProgressError,
+} from '../../features/collegeProgress/collegeProgressSelectors.js';
 
 export const CollegeAdminDashboard = ({
   user,
-  summary,
+  summary: fallbackSummary,
   generationStats,
-  isLoading,
+  isLoading: isDashboardLoading,
 }) => {
-  const totalStudents = summary?.totalStudents ?? 0;
-  const totalTemplates = summary?.totalTemplates ?? 0;
-  const totalGenerations = summary?.totalGenerations ?? 0;
-  const completedGenerations = summary?.completedGenerations ?? 0;
+  const dispatch = useDispatch();
+
+  const progressSummary = useSelector(selectCollegeProgressSummary);
+  const operators = useSelector(selectCollegeProgressOperators);
+  const isProgressLoading = useSelector(selectCollegeProgressLoading);
+  const progressError = useSelector(selectCollegeProgressError);
+
+  useEffect(() => {
+    dispatch(loadCollegeProgressRequested());
+  }, [dispatch]);
+
+  const handleRefreshProgress = () => {
+    if (!isProgressLoading) {
+      dispatch(loadCollegeProgressRequested());
+    }
+  };
+
+  const activeSummary = Object.keys(progressSummary).length > 0 ? progressSummary : fallbackSummary;
 
   return (
     <div className="space-y-8">
@@ -31,54 +54,42 @@ export const CollegeAdminDashboard = ({
               Welcome back, {user?.name || 'College Admin'}
             </h1>
             <p className="text-indigo-200 text-sm mt-1">
-              Student roster management, ID card design layouts, and generation job tracking
+              Real-time progress tracking, class operator assignments, and batch ID generation
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/10 text-right">
-            <span className="text-[11px] text-indigo-200 uppercase font-semibold tracking-wider block">Assigned College</span>
-            <span className="text-base font-extrabold text-white tracking-wide">
-              {user?.collegeId ? `College #${String(user.collegeId).slice(-6)}` : 'Institutional Workspace'}
-            </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRefreshProgress}
+              disabled={isProgressLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-bold backdrop-blur-md transition-all cursor-pointer shadow-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isProgressLoading ? 'animate-spin text-indigo-300' : ''}`} />
+              <span>{isProgressLoading ? 'Updating...' : 'Refresh Progress'}</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardStatCard
-          title="Total Students"
-          value={totalStudents}
-          icon={GraduationCap}
-          subtitle="Enrolled student records"
-          colorScheme="indigo"
-          isLoading={isLoading}
+      {/* College Progress Overview Grid */}
+      <DashboardSection
+        title="College Progress & Operational Insights"
+        subtitle="Real-time aggregation of student data completion and ID card generation across your institution"
+      >
+        <CollegeProgressOverview
+          summary={activeSummary}
+          isLoading={isProgressLoading || isDashboardLoading}
         />
-        <DashboardStatCard
-          title="ID Card Templates"
-          value={totalTemplates}
-          icon={CreditCard}
-          subtitle="Configured card layouts"
-          colorScheme="purple"
-          isLoading={isLoading}
-        />
-        <DashboardStatCard
-          title="Generation Jobs"
-          value={totalGenerations}
-          icon={Sparkles}
-          subtitle="Total card printing batches"
-          colorScheme="blue"
-          isLoading={isLoading}
-        />
-        <DashboardStatCard
-          title="Completed Jobs"
-          value={completedGenerations}
-          icon={CheckCircle2}
-          subtitle="Finished card exports"
-          colorScheme="emerald"
-          isLoading={isLoading}
-        />
-      </div>
+      </DashboardSection>
+
+      {/* Operator and Class Breakdown Table */}
+      <DashboardSection
+        title="Class Roster & Operator Progress"
+        subtitle="Detailed status breakdown per assigned class teacher and section"
+      >
+        <OperatorClassProgressTable operators={operators} />
+      </DashboardSection>
 
       {/* Quick Actions */}
       <DashboardSection
@@ -100,4 +111,3 @@ export const CollegeAdminDashboard = ({
 };
 
 export default CollegeAdminDashboard;
-

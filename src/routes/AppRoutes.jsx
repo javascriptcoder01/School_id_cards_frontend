@@ -35,6 +35,20 @@ const GenerationDetailPage = lazy(() => import('../pages/idCardGeneration/Genera
 const GenerationOutputPage = lazy(() => import('../pages/idCardOutput/GenerationOutputPage.jsx'));
 const PublicVerificationPage = lazy(() => import('../pages/idCardVerification/PublicVerificationPage.jsx'));
 
+// Batch 17 Lazy Loaded Feature Pages
+const OperatorAssignmentsPage = lazy(() => import('../pages/operatorAssignments/OperatorAssignmentsPage.jsx'));
+const OperatorStudentListPage = lazy(() => import('../pages/operator/OperatorStudentListPage.jsx'));
+const OperatorStudentCreatePage = lazy(() => import('../pages/operator/OperatorStudentCreatePage.jsx'));
+const OperatorStudentEditPage = lazy(() => import('../pages/operator/OperatorStudentEditPage.jsx'));
+const OperatorStudentBulkImportPage = lazy(() => import('../pages/operator/OperatorStudentBulkImportPage.jsx'));
+const OperatorTemplateListPage = lazy(() => import('../pages/operator/OperatorTemplateListPage.jsx'));
+const OperatorTemplateDetailPage = lazy(() => import('../pages/operator/OperatorTemplateDetailPage.jsx'));
+const OperatorIdCardPreviewPage = lazy(() => import('../pages/operator/OperatorIdCardPreviewPage.jsx'));
+const OperatorGenerationListPage = lazy(() => import('../pages/operator/OperatorGenerationListPage.jsx'));
+const OperatorCreateGenerationPage = lazy(() => import('../pages/operator/OperatorCreateGenerationPage.jsx'));
+const SuperAdminPrintCenterPage = lazy(() => import('../pages/superAdmin/SuperAdminPrintCenterPage.jsx'));
+const CollegePrintDetailsPage = lazy(() => import('../pages/superAdmin/CollegePrintDetailsPage.jsx'));
+
 // Helper wrapper to ensure Suspense fallback on all lazy-loaded routes
 const withSuspense = (Component) => (
   <Suspense fallback={<RouteLoader />}>
@@ -244,6 +258,108 @@ export const AppRoutes = () => {
           element={
             <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
               {withSuspense(GenerationDetailPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Operator Assignment Route (COLLEGE_ADMIN only) */}
+        <Route
+          path={ROUTES.OPERATOR_ASSIGNMENTS}
+          element={
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+              {withSuspense(OperatorAssignmentsPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Operator Workspace Routes (OPERATOR only) */}
+        <Route
+          path={ROUTES.OPERATOR_STUDENTS}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorStudentListPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_STUDENTS_NEW}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorStudentCreatePage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_STUDENT_EDIT}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorStudentEditPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_STUDENT_IMPORT}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorStudentBulkImportPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_TEMPLATES}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorTemplateListPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_TEMPLATE_DETAIL}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorTemplateDetailPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_ID_CARD_PREVIEW}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorIdCardPreviewPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_ID_CARD_GENERATIONS}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorGenerationListPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.OPERATOR_ID_CARD_GENERATE}
+          element={
+            <RoleRoute allowedRoles={['OPERATOR']}>
+              {withSuspense(OperatorCreateGenerationPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Super Admin Central Print Center Routes (SUPER_ADMIN only) */}
+        <Route
+          path={ROUTES.SUPER_ADMIN_PRINT_CENTER}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(SuperAdminPrintCenterPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.SUPER_ADMIN_PRINT_COLLEGE_DETAIL}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(CollegePrintDetailsPage)}
             </RoleRoute>
           }
         />

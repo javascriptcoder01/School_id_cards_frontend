@@ -21,6 +21,11 @@
     "test:template-designer": "vitest run templateDesigner templateCanvas fieldPalette propertiesPanel designerToolbar templateLivePreview",
     "test:production-hardening": "vitest run routeLazyLoading appErrorBoundary performanceHardening requestLifecycle accessibilityHardening securityHardening",
     "test:final-integration": "vitest run integrationApiContract authLifecycleIntegration roleAccessMatrix directRouteRefresh sessionFailureHandling tenantIsolationIntegration endToEndWorkflow environmentReadiness finalReleaseSecurity",
+    "test:operator-assignments": "vitest run operatorAssignment",
+    "test:operator-workspace": "vitest run operator",
+    "test:college-progress": "vitest run collegeProgress",
+    "test:super-admin-print": "vitest run superAdminPrint",
+    "test:batch17": "vitest run operatorAssignment operator collegeProgress superAdminPrint",
     "lint": "oxlint",
     "preview": "vite preview"
   },

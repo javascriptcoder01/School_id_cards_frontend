@@ -10,6 +10,10 @@ import watchIdCardOutput from '../features/idCardOutput/idCardOutputSaga.js';
 import watchIdCardVerification from '../features/idCardVerification/idCardVerificationSaga.js';
 import watchDashboard from '../features/dashboard/dashboardSaga.js';
 import watchAccount from '../features/account/accountSaga.js';
+import watchOperatorAssignments from '../features/operatorAssignments/operatorAssignmentSaga.js';
+import watchOperator from '../features/operator/operatorSaga.js';
+import watchCollegeProgress from '../features/collegeProgress/collegeProgressSaga.js';
+import watchSuperAdminPrint from '../features/superAdminPrint/superAdminPrintSaga.js';
 
 export function* rootSaga() {
   yield all([
@@ -24,6 +28,10 @@ export function* rootSaga() {
     fork(watchIdCardVerification),
     fork(watchDashboard),
     fork(watchAccount),
+    fork(watchOperatorAssignments),
+    fork(watchOperator),
+    fork(watchCollegeProgress),
+    fork(watchSuperAdminPrint),
   ]);
 }
 
