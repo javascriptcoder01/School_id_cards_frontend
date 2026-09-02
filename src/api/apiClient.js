@@ -3,13 +3,7 @@ import { getAuthToken, clearAuthStorage } from '../utils/storage.js';
 import { normalizeApiError } from './apiError.js';
 
 export const getApiBaseUrl = () => {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
-  if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {
-    return '/api';
-  }
-  return 'http://localhost:5000/api';
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 };
 
 /**
