@@ -1,0 +1,22 @@
+/**
+ * Dashboard & Analytics Constants
+ */
+
+export const DASHBOARD_TYPES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  COLLEGE_ADMIN: 'COLLEGE_ADMIN',
+  OPERATOR: 'OPERATOR',
+};
+
+export const DASHBOARD_WIDGET_STATUS = {
+  IDLE: 'IDLE',
+  LOADING: 'LOADING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+};
+
+export default {
+  DASHBOARD_TYPES,
+  DASHBOARD_WIDGET_STATUS,
+};
+

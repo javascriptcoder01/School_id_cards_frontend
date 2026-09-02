@@ -1,0 +1,20 @@
+/**
+ * ID Card QR Verification Constants
+ */
+
+export const VERIFICATION_STATUS = {
+  IDLE: 'IDLE',
+  VERIFYING: 'VERIFYING',
+  VERIFIED: 'VERIFIED',
+  INVALID: 'INVALID',
+  REVOKED: 'REVOKED',
+  FAILED: 'FAILED',
+};
+
+export const VERIFICATION_STATUS_VALUES = Object.values(VERIFICATION_STATUS);
+
+export default {
+  VERIFICATION_STATUS,
+  VERIFICATION_STATUS_VALUES,
+};
+

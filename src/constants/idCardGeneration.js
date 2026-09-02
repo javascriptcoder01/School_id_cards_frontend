@@ -1,0 +1,18 @@
+/**
+ * ID Card Generation Constants
+ */
+
+export const GENERATION_STATUS = {
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+};
+
+export const GENERATION_STATUS_VALUES = Object.values(GENERATION_STATUS);
+
+export default {
+  GENERATION_STATUS,
+  GENERATION_STATUS_VALUES,
+};
+
