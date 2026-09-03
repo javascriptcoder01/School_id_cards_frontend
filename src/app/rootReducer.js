@@ -16,6 +16,7 @@ import operatorAssignmentReducer from '../features/operatorAssignments/operatorA
 import operatorReducer from '../features/operator/operatorSlice.js';
 import collegeProgressReducer from '../features/collegeProgress/collegeProgressSlice.js';
 import superAdminPrintReducer from '../features/superAdminPrint/superAdminPrintSlice.js';
+import printRequestReducer from '../features/printRequests/printRequestSlice.js';
 
 export const rootReducer = combineReducers({
   auth: authReducer,
@@ -35,6 +36,7 @@ export const rootReducer = combineReducers({
   operator: operatorReducer,
   collegeProgress: collegeProgressReducer,
   superAdminPrint: superAdminPrintReducer,
+  printRequests: printRequestReducer,
 });
 
 export default rootReducer;

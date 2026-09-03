@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Lock, Shield, Building, Eye, EyeOff, Save } from 'lucide-react';
+import { User, Mail, Lock, Shield, Building, Eye, EyeOff, Save, BookOpen, Layers, Bookmark } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
@@ -26,6 +26,9 @@ export const UserForm = ({
     password: '',
     role: isSuperAdmin ? ROLES.COLLEGE_ADMIN : ROLES.OPERATOR,
     collegeId: '',
+    subjectName: '',
+    className: '',
+    sectionName: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +42,9 @@ export const UserForm = ({
         password: '',
         role: initialValues.role || (isSuperAdmin ? ROLES.COLLEGE_ADMIN : ROLES.OPERATOR),
         collegeId: initialValues.collegeId || '',
+        subjectName: initialValues.subjectName || '',
+        className: initialValues.className || '',
+        sectionName: initialValues.sectionName || '',
       });
     }
   }, [initialValues, isSuperAdmin]);
@@ -90,6 +96,16 @@ export const UserForm = ({
       newErrors.collegeId = 'Target College ID is required';
     }
 
+    if (formData.subjectName && formData.subjectName.trim().length > 100) {
+      newErrors.subjectName = 'Subject name cannot exceed 100 characters';
+    }
+    if (formData.className && formData.className.trim().length > 100) {
+      newErrors.className = 'Class name cannot exceed 100 characters';
+    }
+    if (formData.sectionName && formData.sectionName.trim().length > 50) {
+      newErrors.sectionName = 'Section name cannot exceed 50 characters';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -99,6 +115,7 @@ export const UserForm = ({
     if (isLoading) return;
 
     if (validate()) {
+      const isOperatorRole = isSuperAdmin ? formData.role === ROLES.OPERATOR : true;
       const payload = {
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -114,6 +131,24 @@ export const UserForm = ({
         if (isSuperAdmin) {
           if (formData.role) payload.role = formData.role;
           if (formData.collegeId) payload.collegeId = formData.collegeId.trim();
+        }
+      }
+
+      if (isOperatorRole) {
+        if (formData.subjectName?.trim()) {
+          payload.subjectName = formData.subjectName.trim();
+        } else if (isEdit) {
+          payload.subjectName = null;
+        }
+        if (formData.className?.trim()) {
+          payload.className = formData.className.trim();
+        } else if (isEdit) {
+          payload.className = null;
+        }
+        if (formData.sectionName?.trim()) {
+          payload.sectionName = formData.sectionName.trim();
+        } else if (isEdit) {
+          payload.sectionName = null;
         }
       }
 
@@ -314,6 +349,102 @@ export const UserForm = ({
               {errors.collegeId && (
                 <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.collegeId}</p>
               )}
+            </div>
+          )}
+
+          {/* Operator Scope Assignment (Subject, Class, Section) */}
+          {(isSuperAdmin ? formData.role === ROLES.OPERATOR : true) && (
+            <div className="sm:col-span-2 pt-4 border-t border-slate-100 space-y-4">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Operator Assignment Details
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500">
+                Configure classroom and subject responsibilities for this Operator (Optional).
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Subject Name */}
+                <div>
+                  <label
+                    htmlFor="user-subject"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                  >
+                    Subject Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Bookmark className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="user-subject"
+                      type="text"
+                      value={formData.subjectName}
+                      disabled={isLoading}
+                      onChange={(e) => handleChange('subjectName', e.target.value)}
+                      placeholder="e.g. Mathematics"
+                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.subjectName ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+                        }`}
+                    />
+                  </div>
+                  {errors.subjectName && (
+                    <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.subjectName}</p>
+                  )}
+                </div>
+
+                {/* Class Name */}
+                <div>
+                  <label
+                    htmlFor="user-class"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                  >
+                    Class / Grade
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="user-class"
+                      type="text"
+                      value={formData.className}
+                      disabled={isLoading}
+                      onChange={(e) => handleChange('className', e.target.value)}
+                      placeholder="e.g. 10th"
+                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.className ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+                        }`}
+                    />
+                  </div>
+                  {errors.className && (
+                    <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.className}</p>
+                  )}
+                </div>
+
+                {/* Section Name */}
+                <div>
+                  <label
+                    htmlFor="user-section"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                  >
+                    Section
+                  </label>
+                  <input
+                    id="user-section"
+                    type="text"
+                    value={formData.sectionName}
+                    disabled={isLoading}
+                    onChange={(e) => handleChange('sectionName', e.target.value)}
+                    placeholder="e.g. A"
+                    className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.sectionName ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+                      }`}
+                  />
+                  {errors.sectionName && (
+                    <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.sectionName}</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

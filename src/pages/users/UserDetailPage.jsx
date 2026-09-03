@@ -126,8 +126,8 @@ export const UserDetailPage = () => {
               </h1>
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${user.isActive
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}
               >
                 {user.isActive ? (
@@ -192,6 +192,31 @@ export const UserDetailPage = () => {
               {user.collegeId || <span className="font-sans text-slate-400 italic">System-wide</span>}
             </span>
           </div>
+
+          {user.role === ROLES.OPERATOR && (
+            <>
+              <div className="flex flex-col gap-1 py-1 border-b border-slate-50 pb-3">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Assigned Subject</span>
+                <span className="font-medium text-slate-900">
+                  {user.subjectName || <span className="text-slate-400 italic">Not specified</span>}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 py-1 border-b border-slate-50 pb-3">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Assigned Class</span>
+                <span className="font-medium text-slate-900">
+                  {user.className || <span className="text-slate-400 italic">Not specified</span>}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 py-1 border-b border-slate-50 pb-3">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Assigned Section</span>
+                <span className="font-medium text-slate-900">
+                  {user.sectionName || <span className="text-slate-400 italic">Not specified</span>}
+                </span>
+              </div>
+            </>
+          )}
 
           {user.createdAt && (
             <div className="flex flex-col gap-1 py-1">

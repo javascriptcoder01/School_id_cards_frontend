@@ -24,6 +24,7 @@ import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx'
 import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import OperatorScopeBadge from '../../components/operator/OperatorScopeBadge.jsx';
+import OperatorStudentProgress from '../../components/dashboard/OperatorStudentProgress.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 
 export const OperatorDashboard = ({ user }) => {
@@ -109,6 +110,33 @@ export const OperatorDashboard = ({ user }) => {
         )}
       </div>
 
+      {/* Real-time Operator Student & Print Progress */}
+      <DashboardSection
+        title="Student Completion & Print Workflow"
+        subtitle="Real-time aggregation of student profile completeness, ID card generations, and multi-tier print requests"
+      >
+        <OperatorStudentProgress
+          studentsSummary={
+            dashboard?.students || {
+              total: summary.totalStudents ?? 0,
+              complete: summary.completedStudents ?? 0,
+              pending: summary.pendingStudents ?? 0,
+            }
+          }
+          idCardsSummary={
+            dashboard?.idCards || {
+              generated: summary.generatedCards ?? 0,
+              pendingGeneration: summary.pendingCards ?? 0,
+            }
+          }
+          printRequestsSummary={
+            dashboard?.printRequests || summary.printRequests || {}
+          }
+          assignment={dashboard?.assignment || (assignments.length > 0 ? assignments[0] : null)}
+          isLoading={isLoading}
+        />
+      </DashboardSection>
+
       {/* Operational Status Summary KPI Grid */}
       <DashboardSection
         title="Operational Status"
@@ -117,7 +145,7 @@ export const OperatorDashboard = ({ user }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <DashboardStatCard
             title="Total Assigned Students"
-            value={summary.totalStudents ?? 0}
+            value={dashboard?.students?.total ?? summary.totalStudents ?? 0}
             icon={Users}
             subtitle="Students across your classes"
             colorScheme="indigo"
@@ -125,7 +153,7 @@ export const OperatorDashboard = ({ user }) => {
           />
           <DashboardStatCard
             title="Information Completed"
-            value={summary.completedStudents ?? 0}
+            value={dashboard?.students?.complete ?? summary.completedStudents ?? 0}
             icon={CheckCircle2}
             subtitle="Ready for ID card generation"
             colorScheme="emerald"
@@ -133,7 +161,7 @@ export const OperatorDashboard = ({ user }) => {
           />
           <DashboardStatCard
             title="Information Pending"
-            value={summary.pendingStudents ?? 0}
+            value={dashboard?.students?.pending ?? summary.pendingStudents ?? 0}
             icon={AlertCircle}
             subtitle="Missing photo or required fields"
             colorScheme="amber"
@@ -141,7 +169,7 @@ export const OperatorDashboard = ({ user }) => {
           />
           <DashboardStatCard
             title="Generated ID Cards"
-            value={summary.generatedCards ?? 0}
+            value={dashboard?.idCards?.generated ?? summary.generatedCards ?? 0}
             icon={Sparkles}
             subtitle="Successfully rendered cards"
             colorScheme="indigo"
@@ -149,7 +177,7 @@ export const OperatorDashboard = ({ user }) => {
           />
           <DashboardStatCard
             title="Pending Generation"
-            value={summary.pendingCards ?? 0}
+            value={dashboard?.idCards?.pendingGeneration ?? summary.pendingCards ?? 0}
             icon={Clock}
             subtitle="Cards awaiting batch rendering"
             colorScheme="blue"

@@ -2,12 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Edit3, CheckCircle, XCircle, GraduationCap, Mail, Phone, Hash } from 'lucide-react';
 import { getStudentDetailRoute, getStudentEditRoute } from '../../constants/routes.js';
+import StudentCompletionMetric from './StudentCompletionMetric.jsx';
 import EmptyState from '../common/EmptyState.jsx';
 import Loader from '../common/Loader.jsx';
 
 /**
  * StudentTable Component
- * Renders the list of students with responsive table design, status toggling, and action links
+ * Renders the list of students with responsive table design, status toggling, completion indicators, and action links
  */
 export const StudentTable = ({
   students = [],
@@ -15,6 +16,10 @@ export const StudentTable = ({
   canEdit = true,
   statusLoadingId = null,
   onStatusToggle,
+  selectable = false,
+  selectedIds = [],
+  onSelectToggle,
+  onSelectAll,
 }) => {
   if (isLoading) {
     return <Loader message="Fetching students list..." />;
@@ -30,15 +35,29 @@ export const StudentTable = ({
     );
   }
 
+  const allSelected = students.length > 0 && students.every((s) => selectedIds.includes(s.id));
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse" aria-label="Students Directory">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              {selectable && (
+                <th className="py-3.5 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(e) => onSelectAll && onSelectAll(e.target.checked)}
+                    aria-label="Select all students"
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </th>
+              )}
               <th className="py-3.5 px-4 sm:px-6">Student</th>
               <th className="py-3.5 px-4">Class & Section</th>
               <th className="py-3.5 px-4">Roll Number</th>
+              <th className="py-3.5 px-4">Completion</th>
               <th className="py-3.5 px-4">Contact</th>
               <th className="py-3.5 px-4 text-center">Status</th>
               <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
@@ -51,8 +70,22 @@ export const StudentTable = ({
               return (
                 <tr
                   key={student.id}
-                  className="hover:bg-slate-50/80 transition-colors group"
+                  className={`hover:bg-slate-50/80 transition-colors group ${selectedIds.includes(student.id) ? 'bg-indigo-50/30' : ''
+                    }`}
                 >
+                  {/* Selectable Checkbox */}
+                  {selectable && (
+                    <td className="py-4 px-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(student.id)}
+                        onChange={() => onSelectToggle && onSelectToggle(student.id)}
+                        aria-label={`Select ${student.name}`}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
+                  )}
+
                   {/* Student Name & ID */}
                   <td className="py-4 px-4 sm:px-6">
                     <div className="flex items-center gap-3">
@@ -107,6 +140,11 @@ export const StudentTable = ({
                     )}
                   </td>
 
+                  {/* Completion Status */}
+                  <td className="py-4 px-4">
+                    <StudentCompletionMetric student={student} />
+                  </td>
+
                   {/* Contact */}
                   <td className="py-4 px-4 text-slate-600 text-xs">
                     <div className="space-y-0.5">
@@ -132,8 +170,8 @@ export const StudentTable = ({
                   <td className="py-4 px-4 text-center">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${student.isActive
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}
                     >
                       {student.isActive ? (
@@ -182,8 +220,8 @@ export const StudentTable = ({
                           disabled={isToggling}
                           onClick={() => onStatusToggle(student.id, !student.isActive)}
                           className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 ${student.isActive
-                              ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
-                              : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                            ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
+                            : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
                             }`}
                           title={student.isActive ? 'Deactivate student' : 'Activate student'}
                         >

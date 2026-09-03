@@ -13,10 +13,13 @@ import {
   selectImportError,
 } from '../../features/studentImport/studentImportSelectors.js';
 import { ROUTES } from '../../constants/routes.js';
+import { ROLES } from '../../constants/roles.js';
+import { selectCurrentUser, selectUserRole } from '../../features/auth/authSelectors.js';
 import BulkImportUploader from '../../components/studentImport/BulkImportUploader.jsx';
 import ImportProgress from '../../components/studentImport/ImportProgress.jsx';
 import ImportSummary from '../../components/studentImport/ImportSummary.jsx';
 import ImportErrorsTable from '../../components/studentImport/ImportErrorsTable.jsx';
+import OperatorAssignmentBanner from '../../components/students/OperatorAssignmentBanner.jsx';
 
 export const StudentBulkImportPage = () => {
   const dispatch = useDispatch();
@@ -25,6 +28,10 @@ export const StudentBulkImportPage = () => {
   const isLoading = useSelector(selectImportLoading);
   const importResult = useSelector(selectImportResult);
   const errorMessage = useSelector(selectImportError);
+
+  const currentUser = useSelector(selectCurrentUser);
+  const userRole = useSelector(selectUserRole);
+  const isOperator = userRole === ROLES.OPERATOR || currentUser?.role === ROLES.OPERATOR;
 
   const [selectedFile, setSelectedFile] = useState(null);
 
@@ -75,9 +82,21 @@ export const StudentBulkImportPage = () => {
           Student Bulk Import
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Import multiple student records into your college repository using a CSV or Excel spreadsheet
+          {isOperator
+            ? 'Bulk import students into your assigned class roster using a CSV or spreadsheet'
+            : 'Import multiple student records into your college repository using a CSV or Excel spreadsheet'}
         </p>
       </div>
+
+      {/* Operator Assignment Scope Banner */}
+      {isOperator && (
+        <OperatorAssignmentBanner
+          subjectName={currentUser?.subjectName}
+          className={currentUser?.className}
+          sectionName={currentUser?.sectionName || currentUser?.section}
+          operatorName={currentUser?.name}
+        />
+      )}
 
       {/* Lifecycle Section 1: Progress Banner */}
       <ImportProgress status={status} errorMessage={errorMessage} />

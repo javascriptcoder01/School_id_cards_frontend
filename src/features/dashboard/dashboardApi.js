@@ -70,11 +70,12 @@ export const getSuperAdminSummary = async () => {
 };
 
 export const getCollegeAdminSummary = async () => {
-  const [studentsRes, templatesRes, generationsRes, summaryRes] = await Promise.allSettled([
+  const [studentsRes, templatesRes, generationsRes, summaryRes, operatorProgressRes] = await Promise.allSettled([
     apiClient.get('/students', { params: { limit: 5 } }),
     apiClient.get('/templates', { params: { limit: 5 } }),
     apiClient.get('/id-cards/generations', { params: { limit: 10 } }),
     apiClient.get('/id-cards/summary'),
+    apiClient.get('/dashboard/college-operator-progress'),
   ]);
 
   const studentsData =
@@ -93,8 +94,13 @@ export const getCollegeAdminSummary = async () => {
     summaryRes.status === 'fulfilled'
       ? summaryRes.value?.data?.data?.summary || summaryRes.value?.data?.summary || null
       : null;
+  const operatorProgressData =
+    operatorProgressRes.status === 'fulfilled'
+      ? operatorProgressRes.value?.data?.data || operatorProgressRes.value?.data || null
+      : null;
 
   const totalStudents =
+    operatorProgressData?.summary?.totalStudents ??
     studentsData?.pagination?.total ??
     studentsData?.pagination?.totalItems ??
     (Array.isArray(studentsData?.students) ? studentsData.students.length : 0);
@@ -116,7 +122,6 @@ export const getCollegeAdminSummary = async () => {
     generationsData?.pagination?.totalItems ??
     (Array.isArray(generationsData?.generations) ? generationsData.generations.length : 0);
 
-  // Fallback calculation from list if dedicated summary endpoint was not available
   if (!backendSummary) {
     completedCount = 0;
     pendingCount = 0;
@@ -141,13 +146,23 @@ export const getCollegeAdminSummary = async () => {
     createdAt: g.createdAt || g.requestedAt,
   }));
 
+  const summary = {
+    totalStudents,
+    totalTemplates,
+    totalGenerations,
+    completedGenerations: completedCount,
+  };
+
+  if (operatorProgressData?.summary) {
+    summary.totalOperators = operatorProgressData.summary.totalOperators ?? 0;
+    summary.completedStudents = operatorProgressData.summary.completedStudents ?? 0;
+    summary.pendingStudents = operatorProgressData.summary.pendingStudents ?? 0;
+    summary.pendingPrintRequests = operatorProgressData.summary.pendingPrintRequests ?? 0;
+  }
+
   return {
-    summary: {
-      totalStudents,
-      totalTemplates,
-      totalGenerations,
-      completedGenerations: completedCount,
-    },
+    summary,
+    operatorProgress: operatorProgressData?.operators || [],
     activity: recentGenerations.map((g) => ({
       type: 'GENERATION_JOB',
       title: `Generation Job: ${g.templateName} (${g.status})`,
@@ -168,14 +183,33 @@ export const getCollegeAdminSummary = async () => {
 };
 
 export const getOperatorSummary = async () => {
-  return {
-    summary: {
+  try {
+    const response = await apiClient.get('/dashboard/operator-summary');
+    const data = response.data?.data || response.data || {};
+    const baseSummary = {
       operationalStatus: 'ACTIVE',
       accessLevel: 'READ_ONLY',
-    },
-    activity: [],
-    generationStats: null,
-  };
+    };
+    if (data.summary) {
+      Object.assign(baseSummary, data.summary);
+    }
+    return {
+      summary: baseSummary,
+      assignment: data.assignment || null,
+      activity: [],
+      generationStats: null,
+    };
+  } catch {
+    return {
+      summary: {
+        operationalStatus: 'ACTIVE',
+        accessLevel: 'READ_ONLY',
+      },
+      assignment: null,
+      activity: [],
+      generationStats: null,
+    };
+  }
 };
 
 export default {

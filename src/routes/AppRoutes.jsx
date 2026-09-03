@@ -35,7 +35,7 @@ const GenerationDetailPage = lazy(() => import('../pages/idCardGeneration/Genera
 const GenerationOutputPage = lazy(() => import('../pages/idCardOutput/GenerationOutputPage.jsx'));
 const PublicVerificationPage = lazy(() => import('../pages/idCardVerification/PublicVerificationPage.jsx'));
 
-// Batch 17 Lazy Loaded Feature Pages
+// Batch 17 & 18 Lazy Loaded Feature Pages
 const OperatorAssignmentsPage = lazy(() => import('../pages/operatorAssignments/OperatorAssignmentsPage.jsx'));
 const OperatorStudentListPage = lazy(() => import('../pages/operator/OperatorStudentListPage.jsx'));
 const OperatorStudentCreatePage = lazy(() => import('../pages/operator/OperatorStudentCreatePage.jsx'));
@@ -48,6 +48,9 @@ const OperatorGenerationListPage = lazy(() => import('../pages/operator/Operator
 const OperatorCreateGenerationPage = lazy(() => import('../pages/operator/OperatorCreateGenerationPage.jsx'));
 const SuperAdminPrintCenterPage = lazy(() => import('../pages/superAdmin/SuperAdminPrintCenterPage.jsx'));
 const CollegePrintDetailsPage = lazy(() => import('../pages/superAdmin/CollegePrintDetailsPage.jsx'));
+const PrintRequestsPage = lazy(() => import('../pages/printRequests/PrintRequestsPage.jsx'));
+const PrintRequestDetailPage = lazy(() => import('../pages/printRequests/PrintRequestDetailPage.jsx'));
+const OperatorGenerateCardsPage = lazy(() => import('../pages/idCards/OperatorGenerateCardsPage.jsx'));
 
 // Helper wrapper to ensure Suspense fallback on all lazy-loaded routes
 const withSuspense = (Component) => (
@@ -152,11 +155,11 @@ export const AppRoutes = () => {
           }
         />
 
-        {/* Student Management Routes (COLLEGE_ADMIN only) */}
+        {/* Student Management Routes (COLLEGE_ADMIN & OPERATOR) */}
         <Route
           path={ROUTES.STUDENTS}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(StudentListPage)}
             </RoleRoute>
           }
@@ -164,7 +167,7 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.STUDENT_IMPORT}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(StudentBulkImportPage)}
             </RoleRoute>
           }
@@ -172,7 +175,7 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.STUDENTS_NEW}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(CreateStudentPage)}
             </RoleRoute>
           }
@@ -180,7 +183,7 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.STUDENT_DETAIL}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(StudentDetailPage)}
             </RoleRoute>
           }
@@ -188,7 +191,7 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.STUDENT_EDIT}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(EditStudentPage)}
             </RoleRoute>
           }
@@ -228,11 +231,11 @@ export const AppRoutes = () => {
           }
         />
 
-        {/* ID Card Generation Job Management Routes (COLLEGE_ADMIN only) */}
+        {/* ID Card Generation Job Management Routes (COLLEGE_ADMIN & OPERATOR) */}
         <Route
           path={ROUTES.ID_CARD_GENERATIONS}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(GenerationListPage)}
             </RoleRoute>
           }
@@ -240,15 +243,23 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.ID_CARD_GENERATION_NEW}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(CreateGenerationPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.ID_CARD_GENERATE}
+          element={
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
+              {withSuspense(OperatorGenerateCardsPage)}
             </RoleRoute>
           }
         />
         <Route
           path={ROUTES.ID_CARD_OUTPUT}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(GenerationOutputPage)}
             </RoleRoute>
           }
@@ -256,7 +267,7 @@ export const AppRoutes = () => {
         <Route
           path={ROUTES.ID_CARD_GENERATION_DETAIL}
           element={
-            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
               {withSuspense(GenerationDetailPage)}
             </RoleRoute>
           }
@@ -356,10 +367,36 @@ export const AppRoutes = () => {
           }
         />
         <Route
+          path={ROUTES.ADMIN_PRINT_REQUESTS}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(SuperAdminPrintCenterPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
           path={ROUTES.SUPER_ADMIN_PRINT_COLLEGE_DETAIL}
           element={
             <RoleRoute allowedRoles={['SUPER_ADMIN']}>
               {withSuspense(CollegePrintDetailsPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Batch 18 Print Request Workflow Routes */}
+        <Route
+          path={ROUTES.PRINT_REQUESTS}
+          element={
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
+              {withSuspense(PrintRequestsPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.PRINT_REQUEST_DETAIL}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'OPERATOR']}>
+              {withSuspense(PrintRequestDetailPage)}
             </RoleRoute>
           }
         />

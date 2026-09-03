@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ReactReduxContext } from 'react-redux';
 import {
   GraduationCap,
   User,
@@ -14,7 +15,10 @@ import {
   Hash,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
+import { ROLES } from '../../constants/roles.js';
+import { selectCurrentUser } from '../../features/auth/authSelectors.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
+import OperatorAssignmentBanner from './OperatorAssignmentBanner.jsx';
 
 /**
  * Reusable StudentForm Component
@@ -29,12 +33,15 @@ export const StudentForm = ({
   onCancel,
 }) => {
   const navigate = useNavigate();
+  const reduxContext = useContext(ReactReduxContext);
+  const currentUser = reduxContext?.store ? selectCurrentUser(reduxContext.store.getState()) : null;
+  const isOperator = currentUser?.role === ROLES.OPERATOR;
 
   const [formData, setFormData] = useState({
     studentId: '',
     name: '',
-    className: '',
-    section: '',
+    className: isOperator && currentUser?.className ? currentUser.className : '',
+    section: isOperator && (currentUser?.sectionName || currentUser?.section) ? (currentUser?.sectionName || currentUser?.section) : '',
     rollNumber: '',
     dateOfBirth: '',
     gender: '',
@@ -215,6 +222,18 @@ export const StudentForm = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Operator Profile Scope Banner */}
+          {isOperator && (
+            <div className="sm:col-span-3">
+              <OperatorAssignmentBanner
+                subjectName={currentUser?.subjectName}
+                className={currentUser?.className}
+                sectionName={currentUser?.sectionName || currentUser?.section}
+                operatorName={currentUser?.name}
+              />
+            </div>
+          )}
+
           {/* Student ID */}
           <div>
             <label
@@ -287,13 +306,21 @@ export const StudentForm = ({
                 id="student-class"
                 type="text"
                 value={formData.className}
-                disabled={isLoading}
+                disabled={isLoading || isOperator}
+                readOnly={isOperator}
                 onChange={(e) => handleChange('className', e.target.value)}
                 placeholder="e.g. 10th Grade / B.Tech CS"
-                className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.className ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
-                  }`}
+                className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm transition-all ${isOperator
+                    ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed font-medium'
+                    : 'bg-slate-50 text-slate-800 border-slate-200 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white'
+                  } ${errors.className ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'}`}
               />
             </div>
+            {isOperator && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Assigned from operator profile
+              </p>
+            )}
             {errors.className && (
               <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.className}</p>
             )}
@@ -311,11 +338,20 @@ export const StudentForm = ({
               id="student-section"
               type="text"
               value={formData.section}
-              disabled={isLoading}
+              disabled={isLoading || isOperator}
+              readOnly={isOperator}
               onChange={(e) => handleChange('section', e.target.value)}
               placeholder="e.g. A"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              className={`w-full px-4 py-2.5 rounded-xl text-sm transition-all ${isOperator
+                  ? 'bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed font-medium'
+                  : 'bg-slate-50 text-slate-800 border-slate-200 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white'
+                }`}
             />
+            {isOperator && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Assigned from operator profile
+              </p>
+            )}
           </div>
 
           {/* Roll Number */}

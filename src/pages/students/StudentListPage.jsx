@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { Plus, GraduationCap, RefreshCw } from 'lucide-react';
+import { Plus, GraduationCap, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import {
   fetchStudentsRequested,
   updateStudentStatusRequested,
@@ -18,14 +18,21 @@ import {
   selectStudentsError,
   selectStudentStatusError,
 } from '../../features/students/studentSelectors.js';
+import { selectCurrentUser, selectUserRole } from '../../features/auth/authSelectors.js';
 import { ROUTES } from '../../constants/routes.js';
+import { ROLES } from '../../constants/roles.js';
 import StudentSearch from '../../components/students/StudentSearch.jsx';
 import StudentTable from '../../components/students/StudentTable.jsx';
 import StudentPagination from '../../components/students/StudentPagination.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
+import OperatorAssignmentBanner from '../../components/students/OperatorAssignmentBanner.jsx';
 
 export const StudentListPage = () => {
   const dispatch = useDispatch();
+
+  const currentUser = useSelector(selectCurrentUser);
+  const userRole = useSelector(selectUserRole);
+  const isOperator = userRole === ROLES.OPERATOR || currentUser?.role === ROLES.OPERATOR;
 
   const students = useSelector(selectStudents);
   const pagination = useSelector(selectStudentPagination);
@@ -61,6 +68,7 @@ export const StudentListPage = () => {
   };
 
   const handleStatusToggle = (studentId, newStatus) => {
+    if (isOperator) return;
     setTogglingId(studentId);
     dispatch(
       updateStudentStatusRequested({
@@ -88,14 +96,16 @@ export const StudentListPage = () => {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
             <GraduationCap className="w-7 h-7 text-indigo-600" />
-            Students Directory
+            {isOperator ? 'My Assigned Students' : 'Students Directory'}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage student records, credentials, and identity status for your institution
+            {isOperator
+              ? 'View and manage student profiles, completion status, and ID card readiness for your assigned roster'
+              : 'Manage student records, credentials, and identity status for your institution'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={handleRefresh}
@@ -108,6 +118,14 @@ export const StudentListPage = () => {
           </button>
 
           <Link
+            to={ROUTES.STUDENT_IMPORT}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold shadow-xs transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+            <span>Bulk Import Students</span>
+          </Link>
+
+          <Link
             to={ROUTES.STUDENTS_NEW}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-600/30 transition-all"
           >
@@ -116,6 +134,16 @@ export const StudentListPage = () => {
           </Link>
         </div>
       </div>
+
+      {/* Operator Assignment Scope Banner */}
+      {isOperator && (
+        <OperatorAssignmentBanner
+          subjectName={currentUser?.subjectName}
+          className={currentUser?.className}
+          sectionName={currentUser?.sectionName || currentUser?.section}
+          operatorName={currentUser?.name}
+        />
+      )}
 
       {/* Error Banners */}
       {listError && (

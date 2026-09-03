@@ -25,6 +25,7 @@ export const ROUTES = {
   TEMPLATE_EDIT: '/templates/:templateId/edit',
   ID_CARD_GENERATIONS: '/id-cards/generations',
   ID_CARD_GENERATION_NEW: '/id-cards/generations/new',
+  ID_CARD_GENERATE: '/id-cards/generate',
   ID_CARD_GENERATION_DETAIL: '/id-cards/generations/:generationId',
   ID_CARD_OUTPUT: '/id-cards/generations/:generationId/output',
   ID_CARD_VERIFY: '/verify/:token',
@@ -44,6 +45,11 @@ export const ROUTES = {
 
   SUPER_ADMIN_PRINT_CENTER: '/super-admin/print-center',
   SUPER_ADMIN_PRINT_COLLEGE_DETAIL: '/super-admin/print-center/:collegeId',
+
+  // Batch 18 Print Request Workflow
+  PRINT_REQUESTS: '/print-requests',
+  PRINT_REQUEST_DETAIL: '/print-requests/:requestId',
+  ADMIN_PRINT_REQUESTS: '/admin/print-requests',
 
   UNAUTHORIZED: '/unauthorized',
   NOT_FOUND: '*',
@@ -77,5 +83,8 @@ export const getOperatorTemplateDetailRoute = (templateId) =>
 
 export const getSuperAdminCollegePrintDetailRoute = (collegeId) =>
   `/super-admin/print-center/${collegeId}`;
+
+export const getPrintRequestDetailRoute = (requestId) =>
+  `/print-requests/${requestId}`;
 
 export default ROUTES;

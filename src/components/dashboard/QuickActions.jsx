@@ -11,6 +11,7 @@ import {
   QrCode,
   User,
   ArrowRight,
+  Printer,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 
@@ -40,6 +41,13 @@ export const QuickActions = ({ role }) => {
             icon: CreditCard,
             color: 'bg-emerald-50 text-emerald-600 border-emerald-100',
           },
+          {
+            label: 'Central Print Center',
+            description: 'Manage global print queue & download ZIPs',
+            path: ROUTES.ADMIN_PRINT_REQUESTS,
+            icon: Printer,
+            color: 'bg-amber-50 text-amber-600 border-amber-100',
+          },
         ];
 
       case 'COLLEGE_ADMIN':
@@ -59,22 +67,22 @@ export const QuickActions = ({ role }) => {
             color: 'bg-blue-50 text-blue-600 border-blue-100',
           },
           {
-            label: 'New Template',
-            description: 'Configure layout specifications',
-            path: ROUTES.TEMPLATES_NEW,
-            icon: CreditCard,
-            color: 'bg-purple-50 text-purple-600 border-purple-100',
-          },
-          {
             label: 'Generate Cards',
             description: 'Dispatch new ID card rendering job',
-            path: ROUTES.ID_CARD_GENERATION_NEW,
+            path: ROUTES.ID_CARD_GENERATIONS,
             icon: Sparkles,
             color: 'bg-emerald-50 text-emerald-600 border-emerald-100',
           },
+          {
+            label: 'Print Request Queue',
+            description: 'Review and forward print requests',
+            path: ROUTES.PRINT_REQUESTS,
+            icon: Printer,
+            color: 'bg-amber-50 text-amber-600 border-amber-100',
+          },
         ];
 
-      default:
+      case 'OPERATOR':
         return [
           {
             label: 'Verify ID Card',
@@ -83,6 +91,24 @@ export const QuickActions = ({ role }) => {
             icon: QrCode,
             color: 'bg-indigo-50 text-indigo-600 border-indigo-100',
           },
+          {
+            label: 'My Print Requests',
+            description: 'Track submitted ID card print requests',
+            path: ROUTES.PRINT_REQUESTS,
+            icon: Printer,
+            color: 'bg-purple-50 text-purple-600 border-purple-100',
+          },
+          {
+            label: 'My Account',
+            description: 'Manage profile and security settings',
+            path: ROUTES.ACCOUNT,
+            icon: User,
+            color: 'bg-slate-50 text-slate-600 border-slate-200',
+          },
+        ];
+
+      default:
+        return [
           {
             label: 'My Account',
             description: 'Manage profile and security settings',

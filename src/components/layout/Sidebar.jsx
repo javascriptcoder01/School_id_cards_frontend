@@ -53,13 +53,13 @@ export const Sidebar = () => {
       label: 'Students',
       path: ROUTES.STUDENTS,
       icon: GraduationCap,
-      roles: ['COLLEGE_ADMIN'],
+      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
     },
     {
       label: 'Bulk Import',
       path: ROUTES.STUDENT_IMPORT,
       icon: FileSpreadsheet,
-      roles: ['COLLEGE_ADMIN'],
+      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
     },
     {
       label: 'Templates',
@@ -73,36 +73,17 @@ export const Sidebar = () => {
       icon: Sparkles,
       roles: ['COLLEGE_ADMIN'],
     },
-    // Operator Specific Navigation
     {
-      label: 'Assigned Students',
-      path: ROUTES.OPERATOR_STUDENTS,
-      icon: GraduationCap,
-      roles: ['OPERATOR'],
-    },
-    {
-      label: 'Bulk Import',
-      path: ROUTES.OPERATOR_STUDENT_IMPORT,
-      icon: FileSpreadsheet,
-      roles: ['OPERATOR'],
-    },
-    {
-      label: 'Templates',
-      path: ROUTES.OPERATOR_TEMPLATES,
-      icon: CreditCard,
-      roles: ['OPERATOR'],
-    },
-    {
-      label: 'ID Card Preview',
-      path: ROUTES.OPERATOR_ID_CARD_PREVIEW,
-      icon: Eye,
-      roles: ['OPERATOR'],
-    },
-    {
-      label: 'ID Generations',
-      path: ROUTES.OPERATOR_ID_CARD_GENERATIONS,
+      label: 'Generate ID Cards',
+      path: ROUTES.ID_CARD_GENERATE,
       icon: Sparkles,
       roles: ['OPERATOR'],
+    },
+    {
+      label: 'Print Requests',
+      path: ROUTES.PRINT_REQUESTS,
+      icon: Printer,
+      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
     },
     // Super Admin Print Center
     {
@@ -127,9 +108,8 @@ export const Sidebar = () => {
 
   return (
     <aside
-      className={`bg-slate-900 text-slate-200 border-r border-slate-800 transition-all duration-300 flex flex-col z-20 shrink-0 ${
-        isOpen ? 'w-64' : 'w-0 sm:w-20 overflow-hidden'
-      }`}
+      className={`bg-slate-900 text-slate-200 border-r border-slate-800 transition-all duration-300 flex flex-col z-20 shrink-0 ${isOpen ? 'w-64' : 'w-0 sm:w-20 overflow-hidden'
+        }`}
       aria-label="Sidebar navigation"
     >
       <div className="p-4 flex flex-col h-full justify-between">
@@ -146,10 +126,9 @@ export const Sidebar = () => {
                   key={item.path}
                   to={item.path}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isActive
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`
                   }
                   title={!isOpen ? item.label : undefined}
@@ -165,7 +144,7 @@ export const Sidebar = () => {
         {/* Sidebar Footer */}
         {isOpen && (
           <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 text-xs text-slate-400">
-            <p className="font-semibold text-slate-300">School ID System</p>
+            <p className="font-semibold text-slate-300">School ID Cards System</p>
             <p className="text-[11px] text-slate-500 mt-0.5">Enterprise Release v2.0</p>
           </div>
         )}

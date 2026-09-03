@@ -3,32 +3,36 @@ import { AlertCircle, AlertTriangle, Info, Loader2 } from 'lucide-react';
 
 export const ConfirmDialog = ({
   open = false,
+  isOpen,
   title = 'Are you sure?',
   message = 'Please confirm this action to proceed.',
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   isConfirming = false,
+  isLoading,
   variant = 'danger', // 'danger' | 'primary' | 'warning'
   onConfirm,
   onCancel,
 }) => {
   const confirmButtonRef = useRef(null);
+  const isDialogOpen = isOpen !== undefined ? isOpen : open;
+  const isDialogLoading = isLoading !== undefined ? isLoading : isConfirming;
 
   useEffect(() => {
-    if (!open) return;
+    if (!isDialogOpen) return;
 
     // Handle Escape key press
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && !isConfirming && onCancel) {
+      if (e.key === 'Escape' && !isDialogLoading && onCancel) {
         onCancel();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, isConfirming, onCancel]);
+  }, [isDialogOpen, isDialogLoading, onCancel]);
 
-  if (!open) return null;
+  if (!isDialogOpen) return null;
 
   const variantStyles = {
     danger: {

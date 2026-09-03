@@ -92,10 +92,10 @@ describe('ID CARD GENERATION ROUTING & ACCESS CONTROL', () => {
     });
   });
 
-  it('4. OPERATOR is blocked from /id-cards/generations and redirected to /unauthorized', async () => {
+  it('4. SUPER_ADMIN is blocked from /id-cards/generations and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
-        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
+        user: { id: 'sa1', name: 'Super Admin', role: ROLES.SUPER_ADMIN },
         token: 'token',
         isAuthenticated: true,
         isLoading: false,

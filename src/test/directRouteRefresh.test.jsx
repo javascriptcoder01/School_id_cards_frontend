@@ -127,7 +127,7 @@ describe('BATCH 16 — DIRECT ROUTE NAVIGATION & REFRESH RESILIENCE', () => {
 
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/students']}>
+        <MemoryRouter initialEntries={['/operator-assignments']}>
           <AppRoutes />
         </MemoryRouter>
       </Provider>

@@ -6,6 +6,7 @@ import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import GenerationStatusSummary from '../../components/dashboard/GenerationStatusSummary.jsx';
 import CollegeProgressOverview from '../../components/dashboard/CollegeProgressOverview.jsx';
 import OperatorClassProgressTable from '../../components/dashboard/OperatorClassProgressTable.jsx';
+import OperatorProgressTable from '../../components/dashboard/OperatorProgressTable.jsx';
 import { loadCollegeProgressRequested } from '../../features/collegeProgress/collegeProgressSlice.js';
 import {
   selectCollegeProgressSummary,
@@ -88,7 +89,7 @@ export const CollegeAdminDashboard = ({
         title="Class Roster & Operator Progress"
         subtitle="Detailed status breakdown per assigned class teacher and section"
       >
-        <OperatorClassProgressTable operators={operators} />
+        <OperatorProgressTable operators={operators} isLoading={isProgressLoading} />
       </DashboardSection>
 
       {/* Quick Actions */}
