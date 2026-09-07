@@ -76,7 +76,7 @@ export const OperatorProgressTable = ({ operators = [], isLoading = false }) => 
                   {/* Class Scope */}
                   <td className="py-4 px-4">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                      {op.className ? (op.className.toLowerCase().startsWith('class') ? op.className : `Class ${op.className}`) : 'Class N/A'} {op.sectionName || op.section ? `(Sec ${op.sectionName || op.section})` : ''}
+                      {op.className || 'Class N/A'} {op.sectionName || op.section ? `(Sec ${op.sectionName || op.section})` : ''}
                     </span>
                   </td>
 

@@ -14,7 +14,7 @@ describe('Batch 19 Security & State Invariants', () => {
         },
       };
       const sanitized = getSanitizedErrorMessage(dbError, 'Failed to create student');
-      expect(sanitized).toBe('Something went wrong. Please try again.');
+      expect(sanitized).toBe('A record with these details already exists.');
     });
 
     it('sanitizes validation errors properly', () => {

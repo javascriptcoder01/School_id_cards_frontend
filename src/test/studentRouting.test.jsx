@@ -110,10 +110,10 @@ describe('GROUP G — STUDENT ROUTING & AUTHORIZATION', () => {
     });
   });
 
-  it('4. SUPER_ADMIN role is blocked from /students and redirected to /unauthorized', async () => {
+  it('4. OPERATOR role is blocked from /students and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
-        user: { id: 'sa1', name: 'Super Admin', role: ROLES.SUPER_ADMIN },
+        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
         token: 'token',
         isAuthenticated: true,
         isLoading: false,

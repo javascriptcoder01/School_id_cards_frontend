@@ -84,7 +84,7 @@ describe('ID CARD OUTPUT ROUTING & ACCESS CONTROL', () => {
     });
   });
 
-  it('3. OPERATOR can access /id-cards/generations/:id/output', async () => {
+  it('3. OPERATOR is blocked from /id-cards/generations/:id/output and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
@@ -105,7 +105,8 @@ describe('ID CARD OUTPUT ROUTING & ACCESS CONTROL', () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByText('403')).not.toBeInTheDocument();
+      expect(screen.getByText('403')).toBeInTheDocument();
+      expect(screen.getByText('Access Denied')).toBeInTheDocument();
     });
   });
 

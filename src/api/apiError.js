@@ -26,7 +26,7 @@ export const normalizeApiError = (error) => {
     if (data && typeof data === 'object') {
       if (typeof data.message === 'string' && data.message.trim().length > 0) {
         // Sanitize out any server stack trace or internal DB paths if leaked by backend
-        if (data.message.includes('Mongo') || data.message.includes('E11000') || data.message.includes('at Object.') || data.message.includes('/server/')) {
+        if (data.message.includes('Mongo') || data.message.includes('at Object.') || data.message.includes('/server/')) {
           normalized.message = 'Something went wrong. Please try again.';
         } else {
           normalized.message = data.message;
@@ -40,7 +40,7 @@ export const normalizeApiError = (error) => {
         normalized.errors = [data.errors];
       }
     } else if (typeof data === 'string' && data.trim().length > 0) {
-      if (data.includes('Mongo') || data.includes('E11000') || data.includes('at Object.') || data.includes('/server/')) {
+      if (data.includes('Mongo') || data.includes('at Object.') || data.includes('/server/')) {
         normalized.message = 'Something went wrong. Please try again.';
       } else {
         normalized.message = data;

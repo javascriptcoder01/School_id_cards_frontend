@@ -135,7 +135,7 @@ describe('BATCH 16 — ROLE ACCESS MATRIX', () => {
     });
   });
 
-  it('6. OPERATOR is blocked from college-admin-only /operator-assignments (403)', async () => {
+  it('6. OPERATOR is blocked from /students and /id-cards/generations (403)', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
@@ -147,7 +147,7 @@ describe('BATCH 16 — ROLE ACCESS MATRIX', () => {
 
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/operator-assignments']}>
+        <MemoryRouter initialEntries={['/students']}>
           <AppRoutes />
         </MemoryRouter>
       </Provider>

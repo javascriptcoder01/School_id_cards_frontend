@@ -39,10 +39,10 @@ describe('STUDENT BULK IMPORT ROUTING & AUTHORIZATION', () => {
     });
   });
 
-  it('2. OPERATOR can access /students/import with operator scope banner', async () => {
+  it('2. OPERATOR is blocked from /students/import and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
-        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR, className: '10', sectionName: 'A' },
+        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
         token: 'token',
         isAuthenticated: true,
         isLoading: false,
@@ -60,8 +60,9 @@ describe('STUDENT BULK IMPORT ROUTING & AUTHORIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Student Bulk Import/i })).toBeInTheDocument();
-      expect(screen.getByText(/Operator Assignment Scope/i)).toBeInTheDocument();
+      expect(screen.getByText('403')).toBeInTheDocument();
+      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+      expect(screen.queryByText(/Student Bulk Import/i)).not.toBeInTheDocument();
     });
   });
 

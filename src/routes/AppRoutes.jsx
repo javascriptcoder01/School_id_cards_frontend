@@ -244,7 +244,7 @@ export const AppRoutes = () => {
           path={ROUTES.ID_CARD_GENERATION_NEW}
           element={
             <RoleRoute allowedRoles={['COLLEGE_ADMIN', 'OPERATOR']}>
-              {withSuspense(CreateGenerationPage)}
+              {withSuspense(OperatorGenerateCardsPage)}
             </RoleRoute>
           }
         />
