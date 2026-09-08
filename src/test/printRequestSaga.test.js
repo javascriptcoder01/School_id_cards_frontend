@@ -10,7 +10,7 @@ describe('PRINT REQUEST REDUX SAGA', () => {
     const saga = printRequestSaga();
     const result = saga.next().value;
     expect(result.type).toBe('ALL');
-    expect(result.payload).toHaveLength(13);
+    expect(result.payload).toHaveLength(15);
   });
 });
 
