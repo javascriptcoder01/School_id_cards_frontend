@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { School, Building, MapPin, Mail, Phone, Image, ArrowLeft, Save } from 'lucide-react';
+import { School, Building, MapPin, Mail, Phone, Image, ArrowLeft, Save, PenTool, Upload, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 
@@ -17,11 +17,16 @@ export const CollegeForm = ({
   onCancel,
 }) => {
   const navigate = useNavigate();
+  const signatureFileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     logo: '',
+    adminSignature: {
+      url: '',
+      publicId: '',
+    },
     address: {
       line1: '',
       line2: '',
@@ -40,10 +45,15 @@ export const CollegeForm = ({
 
   useEffect(() => {
     if (initialValues) {
+      const sig = initialValues.adminSignature || initialValues.principleSign || {};
       setFormData({
         name: initialValues.name || '',
         code: initialValues.code || '',
         logo: initialValues.logo || '',
+        adminSignature: {
+          url: sig.url || '',
+          publicId: sig.publicId || '',
+        },
         address: {
           line1: initialValues.address?.line1 || '',
           line2: initialValues.address?.line2 || '',
@@ -113,6 +123,13 @@ export const CollegeForm = ({
       }
     }
 
+    if (formData.adminSignature?.url && formData.adminSignature.url.trim().length > 0) {
+      const sigVal = formData.adminSignature.url.trim();
+      if (!sigVal.startsWith('data:image/') && !sigVal.startsWith('http://') && !sigVal.startsWith('https://')) {
+        newErrors['adminSignature.url'] = 'Please provide a valid image URL or upload a file';
+      }
+    }
+
     if (formData.contact.email && formData.contact.email.trim().length > 0) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contact.email.trim())) {
         newErrors['contact.email'] = 'Please provide a valid contact email address';
@@ -121,6 +138,47 @@ export const CollegeForm = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSignatureFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
+      setErrors((prev) => ({ ...prev, 'adminSignature.url': 'Only PNG, JPEG, and WebP signature images are allowed' }));
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, 'adminSignature.url': 'Signature file size cannot exceed 2MB' }));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({
+        ...prev,
+        adminSignature: {
+          url: reader.result,
+          publicId: file.name,
+        },
+      }));
+      setErrors((prev) => ({ ...prev, 'adminSignature.url': null }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearSignature = () => {
+    setFormData((prev) => ({
+      ...prev,
+      adminSignature: {
+        url: '',
+        publicId: '',
+      },
+    }));
+    if (signatureFileInputRef.current) {
+      signatureFileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = (e) => {
@@ -133,6 +191,12 @@ export const CollegeForm = ({
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
         logo: formData.logo.trim() || null,
+        adminSignature: formData.adminSignature?.url?.trim()
+          ? {
+            url: formData.adminSignature.url.trim(),
+            publicId: formData.adminSignature.publicId || null,
+          }
+          : null,
         address: {
           line1: formData.address.line1.trim() || '',
           line2: formData.address.line2.trim() || '',
@@ -173,7 +237,7 @@ export const CollegeForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">Basic Information</h2>
-            <p className="text-xs text-slate-500">Official college identification details</p>
+            <p className="text-xs text-slate-500">Official college identification and authority signature details</p>
           </div>
         </div>
 
@@ -251,6 +315,88 @@ export const CollegeForm = ({
             {errors.logo && (
               <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.logo}</p>
             )}
+          </div>
+
+          {/* College Admin Signature Upload & Preview Field */}
+          <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+              College Admin Signature <span className="text-slate-400 font-normal lowercase">(optional — used for automated ID card generation)</span>
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              <div className="md:col-span-8 space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    ref={signatureFileInputRef}
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    disabled={isLoading}
+                    onChange={handleSignatureFileChange}
+                    className="hidden"
+                    id="signature-file-upload"
+                  />
+                  <label
+                    htmlFor="signature-file-upload"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl border border-indigo-200 cursor-pointer transition-colors shadow-2xs"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Choose Signature Image</span>
+                  </label>
+
+                  <span className="text-xs text-slate-400">or enter image URL below</span>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <PenTool className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.adminSignature?.url || ''}
+                    disabled={isLoading}
+                    onChange={(e) => handleNestedChange('adminSignature', 'url', e.target.value)}
+                    placeholder="https://example.com/admin-signature.png (or data URI from file upload)"
+                    className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors['adminSignature.url'] ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+                      }`}
+                  />
+                </div>
+                {errors['adminSignature.url'] && (
+                  <p className="text-xs text-rose-500 font-medium">{errors['adminSignature.url']}</p>
+                )}
+                <p className="text-[11px] text-slate-400">
+                  Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB.
+                </p>
+              </div>
+
+              {/* Signature Preview Thumbnail */}
+              <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 border border-dashed border-slate-200 min-h-[90px]">
+                {formData.adminSignature?.url ? (
+                  <div className="relative group w-full flex flex-col items-center">
+                    <img
+                      src={formData.adminSignature.url}
+                      alt="Admin Signature Preview"
+                      className="max-h-16 max-w-full object-contain"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 transition-colors"
+                      title="Remove signature"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Remove Signature</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center text-slate-400 py-2">
+                    <PenTool className="w-6 h-6 mx-auto mb-1 opacity-40" />
+                    <span className="text-[11px] font-medium">No signature uploaded</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

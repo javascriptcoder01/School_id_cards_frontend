@@ -61,12 +61,21 @@ export const selectIsPrintRequestDownloadLoading = createSelector(
 export const selectPendingCollegeRequests = createSelector(
   [selectPrintRequests],
   (requests) =>
-    requests.filter((r) => r.status === PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL)
+    requests.filter(
+      (r) =>
+        r.status === PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL ||
+        r.status === PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL
+    )
 );
 
 export const selectPendingSuperAdminRequests = createSelector(
   [selectPrintRequests],
-  (requests) => requests.filter((r) => r.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN)
+  (requests) =>
+    requests.filter(
+      (r) =>
+        r.status === PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN ||
+        r.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN
+    )
 );
 
 export const selectPrintRequestsGroupedByCollege = createSelector(
@@ -96,11 +105,26 @@ export const selectPrintRequestsGroupedByCollege = createSelector(
       groups[cId].requests.push(req);
       groups[cId].totalCards += Number(req.totalCards || 1);
 
-      if (req.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN) groups[cId].pending++;
-      else if (req.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED) groups[cId].approved++;
-      else if (req.status === PRINT_REQUEST_STATUS.PRINTING) groups[cId].printing++;
-      else if (req.status === PRINT_REQUEST_STATUS.COMPLETED) groups[cId].completed++;
-      else if (req.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED) groups[cId].rejected++;
+      if (
+        req.status === PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN ||
+        req.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN
+      ) {
+        groups[cId].pending++;
+      } else if (
+        req.status === PRINT_REQUEST_STATUS.READY_TO_PRINT ||
+        req.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED
+      ) {
+        groups[cId].approved++;
+      } else if (req.status === PRINT_REQUEST_STATUS.PRINTING) {
+        groups[cId].printing++;
+      } else if (req.status === PRINT_REQUEST_STATUS.COMPLETED) {
+        groups[cId].completed++;
+      } else if (
+        req.status === PRINT_REQUEST_STATUS.REJECTED ||
+        req.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED
+      ) {
+        groups[cId].rejected++;
+      }
     });
 
     return Object.values(groups);

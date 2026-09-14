@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, CheckCircle2, AlertTriangle, Clock, FileX2 } from 'lucide-react';
+import { User, CheckCircle2, AlertTriangle, Clock, FileX2, Eye } from 'lucide-react';
 import DownloadButton from './DownloadButton.jsx';
 import EmptyState from '../common/EmptyState.jsx';
 
@@ -7,6 +7,7 @@ export const StudentOutputTable = ({
   generationId,
   results = [],
   isLoading = false,
+  onPreviewCard = null,
 }) => {
   if (!results || results.length === 0) {
     return (
@@ -113,18 +114,32 @@ export const StudentOutputTable = ({
 
                   {/* Action */}
                   <td className="py-4 px-4 sm:px-6 text-right">
-                    {canDownload ? (
-                      <DownloadButton
-                        type="PNG"
-                        generationId={generationId}
-                        studentId={studentId}
-                        studentName={studentName}
-                      />
-                    ) : isCleaned ? (
-                      <span className="text-xs text-slate-400 italic">File cleaned</span>
-                    ) : (
-                      <span className="text-xs text-rose-500 italic">Unavailable</span>
-                    )}
+                    <div className="inline-flex items-center gap-2 justify-end">
+                      {canDownload && onPreviewCard && (
+                        <button
+                          type="button"
+                          onClick={() => onPreviewCard(idx)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          title="Preview ID card"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Preview</span>
+                        </button>
+                      )}
+
+                      {canDownload ? (
+                        <DownloadButton
+                          type="PNG"
+                          generationId={generationId}
+                          studentId={studentId}
+                          studentName={studentName}
+                        />
+                      ) : isCleaned ? (
+                        <span className="text-xs text-slate-400 italic">File cleaned</span>
+                      ) : (
+                        <span className="text-xs text-rose-500 italic">Unavailable</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

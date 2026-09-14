@@ -11,6 +11,8 @@ import {
   selectUserCreateError,
 } from '../../features/users/userSelectors.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
+import { fetchCollegesRequested } from '../../features/colleges/collegeSlice.js';
+import { selectCollegesList } from '../../features/colleges/collegeSelectors.js';
 import { ROUTES } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import UserForm from '../../components/users/UserForm.jsx';
@@ -22,14 +24,18 @@ export const CreateUserPage = () => {
   const userRole = useSelector(selectUserRole);
   const isLoading = useSelector(selectUserCreateLoading);
   const createError = useSelector(selectUserCreateError);
+  const collegesList = useSelector(selectCollegesList);
 
   const isSuperAdmin = userRole === ROLES.SUPER_ADMIN;
 
   useEffect(() => {
+    if (isSuperAdmin && (!collegesList || collegesList.length === 0)) {
+      dispatch(fetchCollegesRequested({ limit: 100, isActive: true }));
+    }
     return () => {
       dispatch(clearUserErrors());
     };
-  }, [dispatch]);
+  }, [dispatch, isSuperAdmin, collegesList]);
 
   const handleSubmit = (userData) => {
     dispatch(
@@ -70,6 +76,7 @@ export const CreateUserPage = () => {
         isSuperAdmin={isSuperAdmin}
         isLoading={isLoading}
         errorMessage={createError}
+        colleges={collegesList}
         onSubmit={handleSubmit}
         onCancel={() => navigate(ROUTES.USERS)}
       />

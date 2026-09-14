@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ArrowLeft, Sparkles, FolderDown, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Sparkles, FolderDown, RefreshCw, Eye } from 'lucide-react';
 import {
   fetchGenerationDetailRequested,
   fetchGenerationResultsRequested,
@@ -14,7 +14,10 @@ import {
   selectGenerationResultsLoading,
   selectGenerationError,
 } from '../../features/idCardGeneration/idCardGenerationSelectors.js';
-import { resetDownloadState } from '../../features/idCardOutput/idCardOutputSlice.js';
+import {
+  downloadGenerationZipRequested,
+  resetDownloadState,
+} from '../../features/idCardOutput/idCardOutputSlice.js';
 import {
   selectDownloadStatus,
   selectDownloadError,
@@ -24,12 +27,16 @@ import GenerationStatusBadge from '../../components/idCardGeneration/GenerationS
 import GenerationDownloadPanel from '../../components/idCardOutput/GenerationDownloadPanel.jsx';
 import StudentOutputTable from '../../components/idCardOutput/StudentOutputTable.jsx';
 import DownloadStatusMessage from '../../components/idCardOutput/DownloadStatusMessage.jsx';
+import SequentialIdCardPreviewModal from '../../components/idCardOutput/SequentialIdCardPreviewModal.jsx';
 import Loader from '../../components/common/Loader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 
 export const GenerationOutputPage = () => {
   const { generationId } = useParams();
   const dispatch = useDispatch();
+
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
 
   const generation = useSelector(selectSelectedGeneration);
   const resultsData = useSelector(selectGenerationResults);
@@ -137,6 +144,20 @@ export const GenerationOutputPage = () => {
             </p>
           </div>
         </div>
+
+        {resultsList.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setPreviewInitialIndex(0);
+              setPreviewModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Open Sequential Card Viewer</span>
+          </button>
+        )}
       </div>
 
       {/* Download Status Notification */}
@@ -154,6 +175,20 @@ export const GenerationOutputPage = () => {
         generationId={generationId}
         results={resultsList}
         isLoading={isResultsLoading}
+        onPreviewCard={(idx) => {
+          setPreviewInitialIndex(idx);
+          setPreviewModalOpen(true);
+        }}
+      />
+
+      {/* Sequential ID Card Modal Viewer */}
+      <SequentialIdCardPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        cards={resultsList}
+        initialIndex={previewInitialIndex}
+        generationId={generationId}
+        onDownloadZip={() => dispatch(downloadGenerationZipRequested({ generationId }))}
       />
     </div>
   );

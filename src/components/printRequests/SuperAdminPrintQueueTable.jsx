@@ -242,11 +242,14 @@ export const SuperAdminPrintQueueTable = ({
                 })
                 : '--';
 
-              const isSentToSuperAdmin =
-                request.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN;
-              const isSuperAdminApproved =
-                request.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED;
+              const isReadyForSuperAdmin =
+                request.status === PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN ||
+                request.status === 'SENT_TO_SUPER_ADMIN';
+              const isReadyToPrint =
+                request.status === PRINT_REQUEST_STATUS.READY_TO_PRINT ||
+                request.status === 'SUPER_ADMIN_APPROVED';
               const isPrinting = request.status === PRINT_REQUEST_STATUS.PRINTING;
+              const isCompleted = request.status === PRINT_REQUEST_STATUS.COMPLETED;
               const isDownloadingThis = isDownloadLoading && activeDownloadId === requestId;
 
               return (
@@ -310,15 +313,15 @@ export const SuperAdminPrintQueueTable = ({
                   {/* Actions */}
                   <td className="py-4 px-4 sm:px-6 text-right">
                     <div className="inline-flex items-center gap-1.5 justify-end">
-                      {/* 1. SENT_TO_SUPER_ADMIN: Approve / Reject */}
-                      {isSentToSuperAdmin && (
+                      {/* 1. READY_FOR_SUPER_ADMIN: Approve / Reject */}
+                      {isReadyForSuperAdmin && (
                         <>
                           <button
                             type="button"
                             disabled={isActionLoading}
                             onClick={() => handleApprove(requestId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs disabled:opacity-50 transition-all"
-                            title="Approve for print production"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                            title="Approve request (Ready to Print)"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>Approve</span>
@@ -328,7 +331,7 @@ export const SuperAdminPrintQueueTable = ({
                             type="button"
                             disabled={isActionLoading}
                             onClick={() => handleOpenReject(requestId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg disabled:opacity-50 transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg disabled:opacity-50 transition-all cursor-pointer"
                             title="Reject request"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -337,8 +340,8 @@ export const SuperAdminPrintQueueTable = ({
                         </>
                       )}
 
-                      {/* 2. SUPER_ADMIN_APPROVED: Dispatch Print or Mark Printing */}
-                      {isSuperAdminApproved && (
+                      {/* 2. READY_TO_PRINT: Dispatch Print or Mark Printing */}
+                      {isReadyToPrint && (
                         <>
                           <button
                             type="button"
@@ -358,13 +361,13 @@ export const SuperAdminPrintQueueTable = ({
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg disabled:opacity-50 transition-all cursor-pointer"
                             title="Mark batch as actively printing"
                           >
-                            <span>Mark Printing</span>
+                            <span>Start Printing</span>
                           </button>
                         </>
                       )}
 
-                      {/* 3. PRINTING / COMPLETED: Download PDF & Download ZIP */}
-                      {(isPrinting || request.status === PRINT_REQUEST_STATUS.COMPLETED) && (
+                      {/* 3. PRINTING / COMPLETED / READY: Download PDF & Download ZIP */}
+                      {(isPrinting || isCompleted || isReadyToPrint || isReadyForSuperAdmin) && (
                         <>
                           <button
                             type="button"

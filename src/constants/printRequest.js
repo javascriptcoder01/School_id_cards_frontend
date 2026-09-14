@@ -8,19 +8,40 @@ export const PRINT_REQUEST_TYPES = Object.freeze({
 });
 
 export const PRINT_REQUEST_STATUS = Object.freeze({
-  PENDING_COLLEGE_APPROVAL: 'PENDING_COLLEGE_APPROVAL',
-  COLLEGE_APPROVED: 'COLLEGE_APPROVED',
-  COLLEGE_REJECTED: 'COLLEGE_REJECTED',
-  SENT_TO_SUPER_ADMIN: 'SENT_TO_SUPER_ADMIN',
-  SUPER_ADMIN_APPROVED: 'SUPER_ADMIN_APPROVED',
-  SUPER_ADMIN_REJECTED: 'SUPER_ADMIN_REJECTED',
+  DRAFT: 'DRAFT',
+  READY_FOR_COLLEGE_APPROVAL: 'READY_FOR_COLLEGE_APPROVAL',
+  PROCESSING: 'PROCESSING',
+  READY_FOR_SUPER_ADMIN: 'READY_FOR_SUPER_ADMIN',
+  READY_TO_PRINT: 'READY_TO_PRINT',
   PRINTING: 'PRINTING',
   COMPLETED: 'COMPLETED',
-  CANCELLED: 'CANCELLED',
+  REJECTED: 'REJECTED',
+
+  // Backward compatibility aliases
+  PENDING_COLLEGE_APPROVAL: 'READY_FOR_COLLEGE_APPROVAL',
+  COLLEGE_APPROVED: 'PROCESSING',
+  COLLEGE_REJECTED: 'REJECTED',
+  SENT_TO_SUPER_ADMIN: 'READY_FOR_SUPER_ADMIN',
+  SUPER_ADMIN_APPROVED: 'READY_TO_PRINT',
+  SUPER_ADMIN_REJECTED: 'REJECTED',
+  CANCELLED: 'REJECTED',
 });
 
 export const PRINT_REQUEST_STATUS_META = Object.freeze({
-  [PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL]: {
+  [PRINT_REQUEST_STATUS.DRAFT]: {
+    label: 'Draft',
+    badgeVariant: 'default',
+    colorClass: 'bg-slate-50 text-slate-700 border-slate-200',
+    description: 'Draft generation request.',
+    stepIndex: 0,
+    isTerminal: false,
+    allowedActions: {
+      COLLEGE_ADMIN: [],
+      OPERATOR: ['SUBMIT'],
+      SUPER_ADMIN: [],
+    },
+  },
+  [PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL]: {
     label: 'Pending College Approval',
     badgeVariant: 'warning',
     colorClass: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -33,37 +54,24 @@ export const PRINT_REQUEST_STATUS_META = Object.freeze({
       SUPER_ADMIN: [],
     },
   },
-  [PRINT_REQUEST_STATUS.COLLEGE_APPROVED]: {
-    label: 'College Approved',
-    badgeVariant: 'info',
+  [PRINT_REQUEST_STATUS.PROCESSING]: {
+    label: 'Processing Generation',
+    badgeVariant: 'primary',
     colorClass: 'bg-blue-50 text-blue-700 border-blue-200',
-    description: 'Approved by college admin, ready to forward to Super Admin.',
+    description: 'Generating ID card assets, tokens, and packages via background worker.',
     stepIndex: 2,
     isTerminal: false,
-    allowedActions: {
-      COLLEGE_ADMIN: ['SEND_TO_SUPER_ADMIN'],
-      OPERATOR: [],
-      SUPER_ADMIN: [],
-    },
-  },
-  [PRINT_REQUEST_STATUS.COLLEGE_REJECTED]: {
-    label: 'College Rejected',
-    badgeVariant: 'danger',
-    colorClass: 'bg-rose-50 text-rose-700 border-rose-200',
-    description: 'Rejected by college admin.',
-    stepIndex: 2,
-    isTerminal: true,
     allowedActions: {
       COLLEGE_ADMIN: [],
       OPERATOR: [],
       SUPER_ADMIN: [],
     },
   },
-  [PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN]: {
-    label: 'Sent to Super Admin',
+  [PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN]: {
+    label: 'Ready for Super Admin',
     badgeVariant: 'primary',
     colorClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    description: 'Forwarded to Super Admin central print queue.',
+    description: 'Generated and waiting in Super Admin central print queue.',
     stepIndex: 3,
     isTerminal: false,
     allowedActions: {
@@ -72,8 +80,8 @@ export const PRINT_REQUEST_STATUS_META = Object.freeze({
       SUPER_ADMIN: ['APPROVE', 'REJECT'],
     },
   },
-  [PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED]: {
-    label: 'Super Admin Approved',
+  [PRINT_REQUEST_STATUS.READY_TO_PRINT]: {
+    label: 'Ready to Print',
     badgeVariant: 'info',
     colorClass: 'bg-cyan-50 text-cyan-700 border-cyan-200',
     description: 'Approved by Super Admin, ready for printing.',
@@ -82,20 +90,7 @@ export const PRINT_REQUEST_STATUS_META = Object.freeze({
     allowedActions: {
       COLLEGE_ADMIN: [],
       OPERATOR: [],
-      SUPER_ADMIN: ['MARK_PRINTING'],
-    },
-  },
-  [PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED]: {
-    label: 'Super Admin Rejected',
-    badgeVariant: 'danger',
-    colorClass: 'bg-rose-50 text-rose-700 border-rose-200',
-    description: 'Rejected by Super Admin.',
-    stepIndex: 4,
-    isTerminal: true,
-    allowedActions: {
-      COLLEGE_ADMIN: [],
-      OPERATOR: [],
-      SUPER_ADMIN: [],
+      SUPER_ADMIN: ['MARK_PRINTING', 'DISPATCH_PRINT'],
     },
   },
   [PRINT_REQUEST_STATUS.PRINTING]: {
@@ -108,7 +103,7 @@ export const PRINT_REQUEST_STATUS_META = Object.freeze({
     allowedActions: {
       COLLEGE_ADMIN: [],
       OPERATOR: [],
-      SUPER_ADMIN: ['DOWNLOAD_ZIP', 'MARK_COMPLETED'],
+      SUPER_ADMIN: ['DOWNLOAD_ZIP', 'DOWNLOAD_PDF', 'MARK_COMPLETED'],
     },
   },
   [PRINT_REQUEST_STATUS.COMPLETED]: {
@@ -121,14 +116,14 @@ export const PRINT_REQUEST_STATUS_META = Object.freeze({
     allowedActions: {
       COLLEGE_ADMIN: [],
       OPERATOR: [],
-      SUPER_ADMIN: [],
+      SUPER_ADMIN: ['DOWNLOAD_ZIP', 'DOWNLOAD_PDF'],
     },
   },
-  [PRINT_REQUEST_STATUS.CANCELLED]: {
-    label: 'Cancelled',
-    badgeVariant: 'default',
-    colorClass: 'bg-slate-50 text-slate-700 border-slate-200',
-    description: 'Print request was cancelled.',
+  [PRINT_REQUEST_STATUS.REJECTED]: {
+    label: 'Rejected',
+    badgeVariant: 'danger',
+    colorClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    description: 'Request was rejected.',
     stepIndex: 0,
     isTerminal: true,
     allowedActions: {

@@ -1,7 +1,8 @@
-import React from 'react';
-import { Download, School, Printer, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Download, School, Printer, CheckCircle2, Clock, Sparkles, Eye } from 'lucide-react';
 import PrintDownloadActions from './PrintDownloadActions.jsx';
 import EmptyState from '../common/EmptyState.jsx';
+import SequentialIdCardPreviewModal from '../idCardOutput/SequentialIdCardPreviewModal.jsx';
 
 export const CollegePrintDetails = ({
   collegeData = {},
@@ -12,6 +13,9 @@ export const CollegePrintDetails = ({
   downloadType = null,
   currentDownload = null,
 }) => {
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
+
   const college = collegeData.college || {};
   const stats = collegeData.statistics || {};
   const cards = collegeData.cards || [];
@@ -47,13 +51,29 @@ export const CollegePrintDetails = ({
             </div>
           </div>
 
-          <PrintDownloadActions
-            onDownloadZip={onDownloadZip}
-            onDownloadPdf={onDownloadPdf}
-            isDownloading={isDownloading}
-            downloadType={downloadType}
-            disabled={cards.length === 0 && (stats.generatedCards || 0) === 0}
-          />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {cards.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewInitialIndex(0);
+                  setPreviewModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Sequential Card Viewer</span>
+              </button>
+            )}
+
+            <PrintDownloadActions
+              onDownloadZip={onDownloadZip}
+              onDownloadPdf={onDownloadPdf}
+              isDownloading={isDownloading}
+              downloadType={downloadType}
+              disabled={cards.length === 0 && (stats.generatedCards || 0) === 0}
+            />
+          </div>
         </div>
       </div>
 
@@ -81,9 +101,11 @@ export const CollegePrintDetails = ({
 
       {/* Generated Cards Table */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-          Rendered ID Cards ({cards.length})
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            Rendered ID Cards ({cards.length})
+          </h3>
+        </div>
 
         {cards.length === 0 ? (
           <EmptyState
@@ -103,7 +125,7 @@ export const CollegePrintDetails = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {cards.map((card) => {
+                {cards.map((card, idx) => {
                   const student = card.student || {};
                   const resultId = card.resultId || card.id || card._id;
                   const isThisDownloading = isDownloading && downloadType === 'PNG' && currentDownload === resultId;
@@ -111,13 +133,13 @@ export const CollegePrintDetails = ({
                   return (
                     <tr key={resultId} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3.5 font-bold text-slate-900">
-                        {student.name || 'Student'}
+                        {student.name || card.studentName || 'Student'}
                       </td>
                       <td className="px-5 py-3.5 font-mono text-xs text-slate-700">
-                        {student.studentId || '—'}
+                        {student.studentId || card.studentId || '—'}
                       </td>
                       <td className="px-5 py-3.5 text-slate-700 font-medium">
-                        Class {student.className || '—'} - {student.section || '—'}
+                        Class {student.className || card.className || '—'} - {student.section || card.section || '—'}
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -126,15 +148,30 @@ export const CollegePrintDetails = ({
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => onDownloadPng(resultId, student.name)}
-                          disabled={isDownloading}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>{isThisDownloading ? 'Saving...' : 'Download PNG'}</span>
-                        </button>
+                        <div className="inline-flex items-center gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewInitialIndex(idx);
+                              setPreviewModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                            title="Preview ID card"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Preview</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onDownloadPng(resultId, student.name || card.studentName)}
+                            disabled={isDownloading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{isThisDownloading ? 'Saving...' : 'Download PNG'}</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -144,6 +181,18 @@ export const CollegePrintDetails = ({
           </div>
         )}
       </div>
+
+      {/* Sequential ID Card Modal Viewer */}
+      <SequentialIdCardPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        cards={cards}
+        initialIndex={previewInitialIndex}
+        collegeId={college.id || college._id}
+        collegeCode={college.code || 'COL'}
+        onDownloadZip={onDownloadZip}
+        onDownloadPdf={onDownloadPdf}
+      />
     </div>
   );
 };

@@ -14,6 +14,8 @@ import {
   selectUserUpdateError,
 } from '../../features/users/userSelectors.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
+import { fetchCollegesRequested } from '../../features/colleges/collegeSlice.js';
+import { selectCollegesList } from '../../features/colleges/collegeSelectors.js';
 import { ROUTES, getUserDetailRoute } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import UserForm from '../../components/users/UserForm.jsx';
@@ -29,6 +31,7 @@ export const EditUserPage = () => {
   const isDetailLoading = useSelector(selectUserDetailLoading);
   const isUpdating = useSelector(selectUserUpdateLoading);
   const updateError = useSelector(selectUserUpdateError);
+  const collegesList = useSelector(selectCollegesList);
 
   const isSuperAdmin = userRole === ROLES.SUPER_ADMIN;
 
@@ -37,10 +40,14 @@ export const EditUserPage = () => {
       dispatch(fetchUserRequested(userId));
     }
 
+    if (isSuperAdmin && (!collegesList || collegesList.length === 0)) {
+      dispatch(fetchCollegesRequested({ limit: 100, isActive: true }));
+    }
+
     return () => {
       dispatch(clearUserErrors());
     };
-  }, [dispatch, userId, user]);
+  }, [dispatch, userId, user, isSuperAdmin, collegesList]);
 
   const handleSubmit = (updateData) => {
     dispatch(
@@ -85,6 +92,7 @@ export const EditUserPage = () => {
         isSuperAdmin={isSuperAdmin}
         isLoading={isUpdating}
         errorMessage={updateError}
+        colleges={collegesList}
         onSubmit={handleSubmit}
         onCancel={() => navigate(getUserDetailRoute(userId))}
       />

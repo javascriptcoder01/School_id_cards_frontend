@@ -139,9 +139,9 @@ export const CollegePrintRequestQueue = ({
                 : '--';
 
               const isPendingApproval =
-                request.status === PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL;
-              const isCollegeApproved =
-                request.status === PRINT_REQUEST_STATUS.COLLEGE_APPROVED;
+                request.status === PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL ||
+                request.status === 'PENDING_COLLEGE_APPROVAL';
+              const isProcessing = request.status === PRINT_REQUEST_STATUS.PROCESSING;
 
               return (
                 <tr key={requestId} className="hover:bg-slate-50/80 transition-colors group">
@@ -207,15 +207,15 @@ export const CollegePrintRequestQueue = ({
                   {/* Action Buttons */}
                   <td className="py-4 px-4 sm:px-6 text-right">
                     <div className="inline-flex items-center gap-2 justify-end">
-                      {/* PENDING_COLLEGE_APPROVAL Actions */}
+                      {/* READY_FOR_COLLEGE_APPROVAL Actions */}
                       {isPendingApproval && (
                         <>
                           <button
                             type="button"
                             disabled={isActionLoading}
                             onClick={() => handleApprove(requestId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs disabled:opacity-50 transition-all"
-                            title="Approve print request"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                            title="Approve request and initiate generation"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>Approve</span>
@@ -225,8 +225,8 @@ export const CollegePrintRequestQueue = ({
                             type="button"
                             disabled={isActionLoading}
                             onClick={() => handleOpenReject(requestId)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg disabled:opacity-50 transition-all"
-                            title="Reject print request"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg disabled:opacity-50 transition-all cursor-pointer"
+                            title="Reject request"
                           >
                             <X className="w-3.5 h-3.5" />
                             <span>Reject</span>
@@ -234,18 +234,12 @@ export const CollegePrintRequestQueue = ({
                         </>
                       )}
 
-                      {/* COLLEGE_APPROVED Actions */}
-                      {isCollegeApproved && (
-                        <button
-                          type="button"
-                          disabled={isActionLoading}
-                          onClick={() => handleForward(requestId)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs shadow-indigo-600/30 disabled:opacity-50 transition-all"
-                          title="Forward approved request to Super Admin central print center"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Forward to Super Admin</span>
-                        </button>
+                      {/* PROCESSING Indicator */}
+                      {isProcessing && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
+                          <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                          <span>Generating...</span>
+                        </span>
                       )}
 
                       {/* View Details Link */}

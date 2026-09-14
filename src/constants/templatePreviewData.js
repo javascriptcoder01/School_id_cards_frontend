@@ -18,6 +18,7 @@ export const SAMPLE_STUDENT_PREVIEW = {
   guardianPhone: '+91 98765 43211',
   collegeName: 'Springfield College',
   collegeCode: 'SC-2026',
+  collegeAdminSignature: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="60" viewBox="0 0 160 60"><path d="M10 40 Q 30 10, 50 35 T 90 25 T 130 40 T 150 20" stroke="%231e293b" stroke-width="2.5" fill="none" stroke-linecap="round"/><text x="10" y="55" font-family="sans-serif" font-size="9" fill="%2364748b">Authorized Signatory</text></svg>',
 };
 
 export default SAMPLE_STUDENT_PREVIEW;

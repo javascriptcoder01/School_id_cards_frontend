@@ -38,6 +38,12 @@ export const GenerationListPage = () => {
   const [processingId, setProcessingId] = useState(null);
 
   useEffect(() => {
+    if (!isProcessing) {
+      setProcessingId(null);
+    }
+  }, [isProcessing]);
+
+  useEffect(() => {
     dispatch(fetchTemplatesRequested({ limit: 100 }));
   }, [dispatch]);
 

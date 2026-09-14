@@ -219,15 +219,19 @@ export function* previewOperatorIdCardWorker(action) {
 
 export function* createOperatorGenerationWorker(action) {
   try {
-    const data = yield call(createOperatorGeneration, action.payload);
+    const { onSuccess, ...payload } = action.payload || {};
+    const data = yield call(createOperatorGeneration, payload);
     yield put(createOperatorGenerationSucceeded(data));
     yield put(
       showNotification({
         type: 'SUCCESS',
-        title: 'Generation Job Submitted',
-        message: 'ID card rendering job submitted successfully.',
+        title: 'Generation Request Submitted',
+        message: 'ID card request submitted to College Admin for review.',
       })
     );
+    if (typeof onSuccess === 'function') {
+      yield call(onSuccess, data);
+    }
   } catch (error) {
     const message = error?.message || 'Failed to submit generation job';
     yield put(createOperatorGenerationFailed(message));

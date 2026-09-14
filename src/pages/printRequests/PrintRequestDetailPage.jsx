@@ -128,35 +128,44 @@ export const PrintRequestDetailPage = () => {
     },
     {
       id: 'COLLEGE',
-      label: 'College Review',
-      done:
-        status !== PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL &&
-        status !== PRINT_REQUEST_STATUS.CANCELLED,
-      isRejected: status === PRINT_REQUEST_STATUS.COLLEGE_REJECTED,
-      timestamp: request.collegeReviewedAt,
+      label: 'College Review & Enqueue',
+      done: ![
+        PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL,
+        PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL,
+        PRINT_REQUEST_STATUS.CANCELLED,
+      ].includes(status),
+      isRejected:
+        (status === PRINT_REQUEST_STATUS.REJECTED || status === PRINT_REQUEST_STATUS.COLLEGE_REJECTED) &&
+        (request.rejectedByRole === ROLES.COLLEGE_ADMIN || !request.rejectedByRole),
+      timestamp: request.collegeAdminApprovedAt || request.collegeReviewedAt,
     },
     {
-      id: 'FORWARDED',
-      label: 'Forwarded to Super Admin',
+      id: 'PROCESSING',
+      label: 'Background Card Generation',
       done: [
+        PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN,
         PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN,
+        PRINT_REQUEST_STATUS.READY_TO_PRINT,
         PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED,
-        PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED,
         PRINT_REQUEST_STATUS.PRINTING,
         PRINT_REQUEST_STATUS.COMPLETED,
       ].includes(status),
-      timestamp: request.superAdminForwardedAt,
+      isProcessing: status === PRINT_REQUEST_STATUS.PROCESSING,
+      timestamp: request.processedAt,
     },
     {
       id: 'SUPER_ADMIN',
       label: 'Super Admin Approval',
       done: [
+        PRINT_REQUEST_STATUS.READY_TO_PRINT,
         PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED,
         PRINT_REQUEST_STATUS.PRINTING,
         PRINT_REQUEST_STATUS.COMPLETED,
       ].includes(status),
-      isRejected: status === PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED,
-      timestamp: request.superAdminReviewedAt,
+      isRejected:
+        (status === PRINT_REQUEST_STATUS.REJECTED || status === PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED) &&
+        request.rejectedByRole === ROLES.SUPER_ADMIN,
+      timestamp: request.superAdminApprovedAt || request.superAdminReviewedAt,
     },
     {
       id: 'PRINTING',
@@ -255,7 +264,7 @@ export const PrintRequestDetailPage = () => {
         {/* Role-Specific Actions in Header */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* College Admin Actions */}
-          {isCollegeAdmin && status === PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL && (
+          {isCollegeAdmin && (status === PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL || status === PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL) && (
             <>
               <button
                 type="button"
@@ -264,22 +273,22 @@ export const PrintRequestDetailPage = () => {
                   setConfirmModal({
                     isOpen: true,
                     actionType: 'CA_APPROVE',
-                    title: 'Approve Print Request',
-                    message: 'Are you sure you want to approve this ID card print request for college processing?',
-                    confirmLabel: 'Approve Request',
+                    title: 'Approve & Start Card Generation',
+                    message: 'Are you sure you want to approve this request? Background workers will immediately generate Canvas layouts, secure tokens, QR codes, PNGs, PDF and ZIP files.',
+                    confirmLabel: 'Approve & Generate',
                   })
                 }
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs disabled:opacity-50 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs disabled:opacity-50 transition-all cursor-pointer"
               >
                 <Check className="w-4 h-4" />
-                <span>Approve</span>
+                <span>Approve & Generate</span>
               </button>
 
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setRejectDialog({ isOpen: true, reason: '' })}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
                 <span>Reject</span>
@@ -287,6 +296,15 @@ export const PrintRequestDetailPage = () => {
             </>
           )}
 
+          {/* Processing State Indicator for College Admin & Operator */}
+          {status === PRINT_REQUEST_STATUS.PROCESSING && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-700 text-xs font-semibold">
+              <Clock className="w-4 h-4 animate-spin" />
+              <span>Generating ID Cards in Background...</span>
+            </div>
+          )}
+
+          {/* Legacy Forward to Super Admin fallback */}
           {isCollegeAdmin && status === PRINT_REQUEST_STATUS.COLLEGE_APPROVED && (
             <button
               type="button"
@@ -307,8 +325,8 @@ export const PrintRequestDetailPage = () => {
             </button>
           )}
 
-          {/* Super Admin Actions */}
-          {isSuperAdmin && status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN && (
+          {/* Super Admin Actions for Ready for Super Admin */}
+          {isSuperAdmin && (status === PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN || status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN) && (
             <>
               <button
                 type="button"
@@ -322,17 +340,17 @@ export const PrintRequestDetailPage = () => {
                     confirmLabel: 'Approve Request',
                   })
                 }
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs disabled:opacity-50 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs disabled:opacity-50 transition-all cursor-pointer"
               >
                 <Check className="w-4 h-4" />
-                <span>Approve</span>
+                <span>Approve Print</span>
               </button>
 
               <button
                 type="button"
                 disabled={isActionLoading}
                 onClick={() => setRejectDialog({ isOpen: true, reason: '' })}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all cursor-pointer"
               >
                 <X className="w-4 h-4" />
                 <span>Reject</span>
@@ -340,9 +358,29 @@ export const PrintRequestDetailPage = () => {
             </>
           )}
 
-          {/* Super Admin Approved Actions */}
-          {isSuperAdmin && status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED && (
+          {/* Super Admin Ready to Print Actions */}
+          {isSuperAdmin && (status === PRINT_REQUEST_STATUS.READY_TO_PRINT || status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED) && (
             <>
+              <button
+                type="button"
+                disabled={isDownloadLoading}
+                onClick={handleDownloadPdf}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isDownloadLoading}
+                onClick={handleDownloadZip}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold text-xs rounded-xl disabled:opacity-50 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download ZIP</span>
+              </button>
+
               <button
                 type="button"
                 disabled={isActionLoading}
@@ -421,14 +459,19 @@ export const PrintRequestDetailPage = () => {
       </div>
 
       {/* Rejection Alert Banner (if rejected) */}
-      {request.rejectionReason && (
+      {(status === PRINT_REQUEST_STATUS.REJECTED || request.rejectionReason) && (
         <div className="p-5 bg-rose-50 border border-rose-200 rounded-3xl flex items-start gap-3.5 text-rose-900">
           <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-rose-800">
-              Print Request Rejected
+              Print Request Rejected {request.rejectedByRole ? `by ${request.rejectedByRole}` : ''}
             </h3>
-            <p className="text-sm font-medium mt-1">{request.rejectionReason}</p>
+            <p className="text-sm font-medium mt-1">{request.rejectionReason || 'No reason provided.'}</p>
+            {request.rejectedAt && (
+              <p className="text-xs text-rose-600 mt-1">
+                Rejected at: {new Date(request.rejectedAt).toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -445,10 +488,10 @@ export const PrintRequestDetailPage = () => {
             <div
               key={step.id}
               className={`p-4 rounded-2xl border transition-all ${step.isRejected
-                  ? 'bg-rose-50 border-rose-200 text-rose-900'
-                  : step.done
-                    ? 'bg-indigo-50/60 border-indigo-200 text-indigo-900'
-                    : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
+                ? 'bg-rose-50 border-rose-200 text-rose-900'
+                : step.done
+                  ? 'bg-indigo-50/60 border-indigo-200 text-indigo-900'
+                  : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
                 }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -457,6 +500,8 @@ export const PrintRequestDetailPage = () => {
                 </span>
                 {step.isRejected ? (
                   <X className="w-4 h-4 text-rose-600" />
+                ) : step.isProcessing ? (
+                  <Clock className="w-4 h-4 text-indigo-600 animate-spin" />
                 ) : step.done ? (
                   <CheckCircle className="w-4 h-4 text-indigo-600" />
                 ) : (

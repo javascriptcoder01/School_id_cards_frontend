@@ -70,5 +70,7 @@ export const {
   resetDownloadState,
 } = idCardOutputSlice.actions;
 
+export const downloadZipRequested = downloadGenerationZipRequested;
+
 export default idCardOutputSlice.reducer;
 

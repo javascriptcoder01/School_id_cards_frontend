@@ -58,7 +58,7 @@ describe('ID CARD OUTPUT ROUTING & ACCESS CONTROL', () => {
     });
   });
 
-  it('2. SUPER_ADMIN is blocked from /id-cards/generations/:id/output and redirected to /unauthorized', async () => {
+  it('2. SUPER_ADMIN can access /id-cards/generations/:id/output', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'sa1', name: 'Super Admin', role: ROLES.SUPER_ADMIN },
@@ -68,31 +68,24 @@ describe('ID CARD OUTPUT ROUTING & ACCESS CONTROL', () => {
         error: null,
         initialized: true,
       },
-    });
-
-    render(
-      <Provider store={store}>
-        <MemoryRouter initialEntries={['/id-cards/generations/gen-123456/output']}>
-          <AppRoutes />
-        </MemoryRouter>
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('403')).toBeInTheDocument();
-      expect(screen.getByText('Access Denied')).toBeInTheDocument();
-    });
-  });
-
-  it('3. OPERATOR is blocked from /id-cards/generations/:id/output and redirected to /unauthorized', async () => {
-    const store = configureAppStore({
-      auth: {
-        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
-        token: 'token',
-        isAuthenticated: true,
-        isLoading: false,
+      idCardGeneration: {
+        generations: [],
+        selectedGeneration: {
+          id: 'gen-123456',
+          status: 'COMPLETED',
+          studentCount: 1,
+        },
+        results: null,
+        pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        filters: { status: '', templateId: '', studentId: '' },
+        loading: { list: false, detail: false, create: false, process: false, results: false },
         error: null,
-        initialized: true,
+      },
+      idCardOutput: {
+        downloadStatus: 'IDLE',
+        downloadingType: null,
+        currentDownload: null,
+        error: null,
       },
     });
 
@@ -105,8 +98,51 @@ describe('ID CARD OUTPUT ROUTING & ACCESS CONTROL', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('403')).toBeInTheDocument();
-      expect(screen.getByText('Access Denied')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Generated ID Card Outputs/i })).toBeInTheDocument();
+    });
+  });
+
+  it('3. OPERATOR can access /id-cards/generations/:id/output for their scope', async () => {
+    const store = configureAppStore({
+      auth: {
+        user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },
+        token: 'token',
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        initialized: true,
+      },
+      idCardGeneration: {
+        generations: [],
+        selectedGeneration: {
+          id: 'gen-123456',
+          status: 'COMPLETED',
+          studentCount: 1,
+        },
+        results: null,
+        pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        filters: { status: '', templateId: '', studentId: '' },
+        loading: { list: false, detail: false, create: false, process: false, results: false },
+        error: null,
+      },
+      idCardOutput: {
+        downloadStatus: 'IDLE',
+        downloadingType: null,
+        currentDownload: null,
+        error: null,
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/id-cards/generations/gen-123456/output']}>
+          <AppRoutes />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Generated ID Card Outputs/i })).toBeInTheDocument();
     });
   });
 

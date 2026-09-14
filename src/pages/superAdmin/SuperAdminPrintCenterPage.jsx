@@ -44,10 +44,14 @@ export const SuperAdminPrintCenterPage = () => {
   // Aggregate Metrics from Loaded Queue Data
   const totalRequests = requests.length;
   const pendingReview = requests.filter(
-    (r) => r.status === PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN
+    (r) =>
+      r.status === PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN ||
+      r.status === 'SENT_TO_SUPER_ADMIN'
   ).length;
-  const approved = requests.filter(
-    (r) => r.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED
+  const readyToPrint = requests.filter(
+    (r) =>
+      r.status === PRINT_REQUEST_STATUS.READY_TO_PRINT ||
+      r.status === 'SUPER_ADMIN_APPROVED'
   ).length;
   const printing = requests.filter(
     (r) => r.status === PRINT_REQUEST_STATUS.PRINTING
@@ -56,7 +60,9 @@ export const SuperAdminPrintCenterPage = () => {
     (r) => r.status === PRINT_REQUEST_STATUS.COMPLETED
   ).length;
   const rejected = requests.filter(
-    (r) => r.status === PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED
+    (r) =>
+      r.status === PRINT_REQUEST_STATUS.REJECTED ||
+      r.status === 'SUPER_ADMIN_REJECTED'
   ).length;
 
   // Filter requests
@@ -131,9 +137,9 @@ export const SuperAdminPrintCenterPage = () => {
 
         <div className="p-4 bg-cyan-50/70 rounded-2xl border border-cyan-200 shadow-xs">
           <span className="text-[11px] font-bold text-cyan-700 uppercase tracking-wider block">
-            Approved
+            Ready to Print
           </span>
-          <p className="text-2xl font-extrabold text-cyan-900 mt-1">{approved}</p>
+          <p className="text-2xl font-extrabold text-cyan-900 mt-1">{readyToPrint}</p>
         </div>
 
         <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 shadow-xs">
@@ -177,11 +183,10 @@ export const SuperAdminPrintCenterPage = () => {
                 <div
                   key={cId}
                   onClick={() => setFilterCollegeId(isSelected ? 'ALL' : cId)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${isSelected
                       ? 'bg-indigo-50/60 border-indigo-400 ring-2 ring-indigo-500/20'
                       : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-slate-900 text-sm truncate max-w-[180px]">
@@ -194,11 +199,11 @@ export const SuperAdminPrintCenterPage = () => {
 
                   <div className="grid grid-cols-4 gap-2 mt-3 text-center text-xs">
                     <div className="p-1 bg-white rounded-lg border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">PENDING</span>
+                      <span className="text-[10px] text-slate-400 font-bold block">AWAITING</span>
                       <span className="font-bold text-indigo-600">{group.pending}</span>
                     </div>
                     <div className="p-1 bg-white rounded-lg border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-bold block">APPRVD</span>
+                      <span className="text-[10px] text-slate-400 font-bold block">READY</span>
                       <span className="font-bold text-cyan-600">{group.approved}</span>
                     </div>
                     <div className="p-1 bg-white rounded-lg border border-slate-100">
@@ -237,11 +242,11 @@ export const SuperAdminPrintCenterPage = () => {
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
           >
             <option value="ALL">All Statuses</option>
-            <option value={PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN}>Pending Review</option>
-            <option value={PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED}>Super Admin Approved</option>
+            <option value={PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN}>Awaiting Approval</option>
+            <option value={PRINT_REQUEST_STATUS.READY_TO_PRINT}>Ready to Print</option>
             <option value={PRINT_REQUEST_STATUS.PRINTING}>Printing in Progress</option>
             <option value={PRINT_REQUEST_STATUS.COMPLETED}>Completed</option>
-            <option value={PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED}>Rejected</option>
+            <option value={PRINT_REQUEST_STATUS.REJECTED}>Rejected</option>
           </select>
 
           {filterCollegeId !== 'ALL' && (

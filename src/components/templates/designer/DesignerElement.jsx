@@ -19,6 +19,13 @@ export const DesignerElement = memo(({
   const displayLabel = field.label ? `${field.label}: ` : '';
 
   const isBold = field.fontWeight === TEMPLATE_FONT_WEIGHTS.BOLD;
+  const isSignature = field.field === 'collegeAdminSignature';
+  const isImageSig =
+    isSignature &&
+    previewValue &&
+    (previewValue.startsWith('data:image/') ||
+      previewValue.startsWith('http://') ||
+      previewValue.startsWith('https://'));
 
   return (
     <div
@@ -33,19 +40,34 @@ export const DesignerElement = memo(({
         top: `${topPercent}%`,
         fontSize: `${field.fontSize || 11}px`,
       }}
-      className={`absolute whitespace-nowrap select-none transition-all py-0.5 px-1 rounded-sm ${
-        isDesignMode ? 'cursor-pointer hover:bg-indigo-50/50' : ''
-      } ${
-        isSelected && isDesignMode
+      className={`absolute whitespace-nowrap select-none transition-all py-0.5 px-1 rounded-sm ${isDesignMode ? 'cursor-pointer hover:bg-indigo-50/50' : ''
+        } ${isSelected && isDesignMode
           ? 'ring-2 ring-indigo-600 ring-offset-1 bg-indigo-50/80 text-indigo-950 font-bold z-20'
           : isDesignMode
             ? 'border border-dashed border-slate-300 text-slate-800 z-10'
             : 'text-slate-900'
-      } ${isBold ? 'font-bold' : 'font-normal'}`}
+        } ${isBold ? 'font-bold' : 'font-normal'}`}
       title={`Field: ${field.field}`}
     >
-      <span className="opacity-75 text-[0.85em]">{displayLabel}</span>
-      <span>{previewValue}</span>
+      {isSignature ? (
+        <div className="flex flex-col items-start gap-0.5">
+          {displayLabel && <span className="opacity-75 text-[0.8em]">{displayLabel}</span>}
+          {isImageSig ? (
+            <img
+              src={previewValue}
+              alt="Admin Signature"
+              className="max-h-8 max-w-[90px] object-contain pointer-events-none"
+            />
+          ) : (
+            <span className="font-serif italic text-xs text-slate-700">Signature</span>
+          )}
+        </div>
+      ) : (
+        <>
+          <span className="opacity-75 text-[0.85em]">{displayLabel}</span>
+          <span>{previewValue}</span>
+        </>
+      )}
     </div>
   );
 });

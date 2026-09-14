@@ -27,6 +27,7 @@ import {
   processGeneration,
   getGenerationResults,
 } from './idCardGenerationApi.js';
+import { showNotification } from '../notifications/notificationSlice.js';
 
 export function* fetchGenerationsWorker(action) {
   try {
@@ -67,6 +68,13 @@ export function* createGenerationWorker(action) {
     const generation = data?.generation || data;
 
     yield put(createGenerationSucceeded(generation));
+    yield put(
+      showNotification({
+        type: 'SUCCESS',
+        title: 'Job Created',
+        message: 'ID card generation job created successfully.',
+      })
+    );
 
     if (typeof payload.onSuccess === 'function') {
       payload.onSuccess(generation);
@@ -74,6 +82,13 @@ export function* createGenerationWorker(action) {
   } catch (error) {
     const message = error?.message || 'Failed to create ID card generation';
     yield put(createGenerationFailed(message));
+    yield put(
+      showNotification({
+        type: 'ERROR',
+        title: 'Creation Failed',
+        message,
+      })
+    );
   }
 }
 
@@ -86,6 +101,13 @@ export function* createBulkGenerationWorker(action) {
     const generation = data?.generation || data;
 
     yield put(createBulkGenerationSucceeded(generation));
+    yield put(
+      showNotification({
+        type: 'SUCCESS',
+        title: 'Bulk Job Created',
+        message: 'Bulk ID card generation job created successfully.',
+      })
+    );
 
     if (typeof payload.onSuccess === 'function') {
       payload.onSuccess(generation);
@@ -93,6 +115,13 @@ export function* createBulkGenerationWorker(action) {
   } catch (error) {
     const message = error?.message || 'Failed to create bulk ID card generation';
     yield put(createBulkGenerationFailed(message));
+    yield put(
+      showNotification({
+        type: 'ERROR',
+        title: 'Creation Failed',
+        message,
+      })
+    );
   }
 }
 
@@ -105,6 +134,13 @@ export function* processGenerationWorker(action) {
     const generation = data?.generation || data;
 
     yield put(processGenerationSucceeded(generation));
+    yield put(
+      showNotification({
+        type: 'SUCCESS',
+        title: 'Generation Completed',
+        message: 'ID card generation processed successfully with 100% completion.',
+      })
+    );
 
     if (typeof payload.onSuccess === 'function') {
       payload.onSuccess(generation);
@@ -112,6 +148,13 @@ export function* processGenerationWorker(action) {
   } catch (error) {
     const message = error?.message || 'Failed to process generation job';
     yield put(processGenerationFailed(message));
+    yield put(
+      showNotification({
+        type: 'ERROR',
+        title: 'Processing Failed',
+        message,
+      })
+    );
   }
 }
 

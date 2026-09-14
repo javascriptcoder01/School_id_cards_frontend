@@ -30,6 +30,7 @@ export const TEMPLATE_FIELDS = {
   GUARDIAN_PHONE: 'guardianPhone',
   COLLEGE_NAME: 'collegeName',
   COLLEGE_CODE: 'collegeCode',
+  COLLEGE_ADMIN_SIGNATURE: 'collegeAdminSignature',
 };
 
 export const TEMPLATE_FIELD_LABELS = {
@@ -46,6 +47,7 @@ export const TEMPLATE_FIELD_LABELS = {
   guardianPhone: 'Guardian Phone',
   collegeName: 'College Name',
   collegeCode: 'College Code',
+  collegeAdminSignature: 'College Admin Signature',
 };
 
 export const TEMPLATE_FIELD_VALUES = Object.values(TEMPLATE_FIELDS);

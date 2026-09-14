@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { User, Mail, Lock, Shield, Building, Eye, EyeOff, Save, BookOpen, Layers, Bookmark } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
@@ -15,10 +14,11 @@ export const UserForm = ({
   isSuperAdmin = false,
   isLoading = false,
   errorMessage = null,
+  colleges = [],
   onSubmit,
   onCancel,
 }) => {
-  const navigate = useNavigate();
+  const collegesList = Array.isArray(colleges) ? colleges : [];
 
   const [formData, setFormData] = useState({
     name: '',
@@ -322,7 +322,7 @@ export const UserForm = ({
             )}
           </div>
 
-          {/* College ID (SUPER_ADMIN only) */}
+          {/* Target College Dropdown (SUPER_ADMIN only) */}
           {isSuperAdmin && (
             <div>
               <label
@@ -335,16 +335,24 @@ export const UserForm = ({
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Building className="w-4 h-4" />
                 </div>
-                <input
+                <select
                   id="user-college"
-                  type="text"
                   value={formData.collegeId}
                   disabled={isLoading}
                   onChange={(e) => handleChange('collegeId', e.target.value)}
-                  placeholder="e.g. 60d5ec49f1b2c8b1f8e4e1a1"
-                  className={`w-full pl-10 pr-4 py-2.5 font-mono bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.collegeId ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+                  className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.collegeId ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
                     }`}
-                />
+                >
+                  <option value="">Select an institution...</option>
+                  {collegesList.map((college) => {
+                    const collegeId = college._id || college.id;
+                    return (
+                      <option key={collegeId} value={collegeId}>
+                        {college.name} ({college.code || 'COL'})
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
               {errors.collegeId && (
                 <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.collegeId}</p>

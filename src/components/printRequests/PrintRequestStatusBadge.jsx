@@ -29,21 +29,22 @@ export const PrintRequestStatusBadge = ({
 
   const getStatusIcon = (st) => {
     switch (st) {
-      case PRINT_REQUEST_STATUS.PENDING_COLLEGE_APPROVAL:
+      case PRINT_REQUEST_STATUS.DRAFT:
+        return <Clock className="w-3.5 h-3.5 text-slate-500" />;
+      case PRINT_REQUEST_STATUS.READY_FOR_COLLEGE_APPROVAL:
         return <Clock className="w-3.5 h-3.5 text-amber-600" />;
-      case PRINT_REQUEST_STATUS.COLLEGE_APPROVED:
-      case PRINT_REQUEST_STATUS.SUPER_ADMIN_APPROVED:
-      case PRINT_REQUEST_STATUS.COMPLETED:
-        return <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />;
-      case PRINT_REQUEST_STATUS.COLLEGE_REJECTED:
-      case PRINT_REQUEST_STATUS.SUPER_ADMIN_REJECTED:
-        return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
-      case PRINT_REQUEST_STATUS.SENT_TO_SUPER_ADMIN:
+      case PRINT_REQUEST_STATUS.PROCESSING:
+        return <Clock className="w-3.5 h-3.5 text-blue-600 animate-spin" />;
+      case PRINT_REQUEST_STATUS.READY_FOR_SUPER_ADMIN:
         return <Send className="w-3.5 h-3.5 text-indigo-600" />;
+      case PRINT_REQUEST_STATUS.READY_TO_PRINT:
+        return <CheckCircle className="w-3.5 h-3.5 text-cyan-600" />;
       case PRINT_REQUEST_STATUS.PRINTING:
         return <Printer className="w-3.5 h-3.5 text-amber-600 animate-pulse" />;
-      case PRINT_REQUEST_STATUS.CANCELLED:
-        return <Ban className="w-3.5 h-3.5 text-slate-500" />;
+      case PRINT_REQUEST_STATUS.COMPLETED:
+        return <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />;
+      case PRINT_REQUEST_STATUS.REJECTED:
+        return <XCircle className="w-3.5 h-3.5 text-rose-600" />;
       default:
         return <HelpCircle className="w-3.5 h-3.5 text-slate-400" />;
     }
