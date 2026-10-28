@@ -1,80 +1,174 @@
 import React from 'react';
-import { Layers, Image, CheckCircle, PlusCircle } from 'lucide-react';
 import {
-  TEMPLATE_FIELDS,
+  Layers,
+  Image as ImageIcon,
+  QrCode,
+  CheckCircle,
+  PlusCircle,
+  PenTool,
+  Stamp,
+  Shapes,
+  School,
+  Loader2,
+} from 'lucide-react';
+import {
   TEMPLATE_FIELD_LABELS,
-  TEMPLATE_FIELD_VALUES,
+  TEMPLATE_PALETTE_FIELD_VALUES,
+  TEMPLATE_IMAGE_LAYER_TYPE_VALUES,
+  TEMPLATE_IMAGE_LAYER_LABELS,
+  TEMPLATE_IMAGE_LAYER_ASSET_TYPE,
+  TEMPLATE_MAX_IMAGE_LAYERS,
+  TEMPLATE_MAX_FIELDS,
+  DESIGNER_ELEMENT_TYPES,
 } from '../../../constants/template.js';
+import { getLayerKey } from '../../../utils/templateLayout.js';
+
+const LAYER_ICONS = { LOGO: School, SIGNATURE: PenTool, STAMP: Stamp, CUSTOM: Shapes };
+
+const SectionTitle = ({ children }) => (
+  <div className="pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">{children}</div>
+);
+
+const ItemButton = ({ isSelected, onClick, disabled, title, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={`w-full flex items-center justify-between gap-2 p-2 rounded-xl text-xs text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isSelected
+        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-bold'
+        : 'hover:bg-slate-50 text-slate-700 font-medium'
+      }`}
+  >
+    {children}
+  </button>
+);
 
 export const FieldPalette = ({
-  fields = [],
-  photo = null,
+  formData,
+  usableAssets = [],
+  assetsLoading = false,
   selectedElement = null,
   onSelectElement,
   onAddField,
+  onAddPhoto,
+  onAddQrCode,
+  onAddLayer,
 }) => {
-  const placedFieldNames = new Set(fields.map((f) => f.field));
+  const fields = formData.fields || [];
+  const layers = formData.imageLayers || [];
+  const placed = new Set(fields.map((f) => f.field));
+  // Legacy fields sirf tab dikhte hain jab template mein pehle se hon
+  const fieldOptions = [
+    ...TEMPLATE_PALETTE_FIELD_VALUES,
+    ...fields.map((f) => f.field).filter((f) => !TEMPLATE_PALETTE_FIELD_VALUES.includes(f)),
+  ];
+  const isSel = (type, id) => selectedElement?.type === type && (id === undefined || selectedElement?.id === id);
+  const layerLimitReached = layers.length >= TEMPLATE_MAX_IMAGE_LAYERS;
+  const fieldLimitReached = fields.length >= TEMPLATE_MAX_FIELDS;
 
-  const handleFieldClick = (fieldName) => {
-    if (placedFieldNames.has(fieldName)) {
-      onSelectElement({ type: 'FIELD', id: fieldName });
-    } else {
-      onAddField(fieldName);
-      onSelectElement({ type: 'FIELD', id: fieldName });
-    }
+  const assetCountFor = (type) => {
+    const assetType = TEMPLATE_IMAGE_LAYER_ASSET_TYPE[type];
+    return usableAssets.filter((a) => !assetType || a.type === assetType).length;
   };
-
-  const handlePhotoClick = () => {
-    onSelectElement({ type: 'PHOTO', id: 'photo' });
-  };
-
-  const isPhotoSelected = selectedElement?.type === 'PHOTO';
 
   return (
-    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
       <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
         <Layers className="w-4 h-4 text-indigo-600" />
         <h3 className="text-sm font-bold text-slate-800">Card Elements</h3>
       </div>
 
-      <div className="space-y-1.5">
-        {/* Student Photo Item */}
-        <button
-          type="button"
-          onClick={handlePhotoClick}
-          className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold text-left transition-all ${isPhotoSelected
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs'
-              : 'hover:bg-slate-50 text-slate-700 border border-transparent'
-            }`}
+      <div className="space-y-1 max-h-[640px] overflow-y-auto pr-1">
+        <SectionTitle>Photo & QR</SectionTitle>
+        <ItemButton
+          isSelected={isSel(DESIGNER_ELEMENT_TYPES.PHOTO)}
+          onClick={() => (formData.photo ? onSelectElement({ type: DESIGNER_ELEMENT_TYPES.PHOTO, id: 'photo' }) : onAddPhoto())}
         >
-          <div className="flex items-center gap-2">
-            <Image className="w-3.5 h-3.5 text-slate-400" />
-            <span>Student Photo Box</span>
-          </div>
-          <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100">
-            Placed
+          <span className="flex items-center gap-2">
+            <ImageIcon className="w-3.5 h-3.5 text-slate-400" /> Student Photo
           </span>
-        </button>
+          {formData.photo ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <PlusCircle className="w-3.5 h-3.5 text-indigo-400" />}
+        </ItemButton>
+        <ItemButton
+          isSelected={isSel(DESIGNER_ELEMENT_TYPES.QR)}
+          onClick={() => (formData.qrCode ? onSelectElement({ type: DESIGNER_ELEMENT_TYPES.QR, id: 'qrCode' }) : onAddQrCode())}
+        >
+          <span className="flex items-center gap-2">
+            <QrCode className="w-3.5 h-3.5 text-slate-400" /> QR Code
+          </span>
+          {formData.qrCode ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <PlusCircle className="w-3.5 h-3.5 text-indigo-400" />}
+        </ItemButton>
 
-        <div className="pt-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-          Dynamic Fields
-        </div>
-
-        {/* Dynamic Field Items */}
-        {TEMPLATE_FIELD_VALUES.map((fieldName) => {
-          const isPlaced = placedFieldNames.has(fieldName);
-          const isSelected =
-            selectedElement?.type === 'FIELD' && selectedElement?.id === fieldName;
-
+        <SectionTitle>Logo, Signature & Stamp</SectionTitle>
+        {layers.map((layer, i) => {
+          const key = getLayerKey(layer);
+          const Icon = LAYER_ICONS[layer.type] || Shapes;
           return (
-            <button
+            <ItemButton
+              key={key}
+              isSelected={isSel(DESIGNER_ELEMENT_TYPES.LAYER, key)}
+              onClick={() => onSelectElement({ type: DESIGNER_ELEMENT_TYPES.LAYER, id: key })}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">
+                  {TEMPLATE_IMAGE_LAYER_LABELS[layer.type]} {layers.filter((l) => l.type === layer.type).length > 1 ? i + 1 : ''}
+                </span>
+              </span>
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            </ItemButton>
+          );
+        })}
+
+        {assetsLoading ? (
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400 px-2 py-1.5">
+            <Loader2 className="w-3 h-3 animate-spin" /> Loading college images
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            {TEMPLATE_IMAGE_LAYER_TYPE_VALUES.map((type) => {
+              const count = assetCountFor(type);
+              const Icon = LAYER_ICONS[type] || Shapes;
+              const disabled = layerLimitReached || count === 0;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    const key = onAddLayer(type);
+                    if (key) onSelectElement({ type: DESIGNER_ELEMENT_TYPES.LAYER, id: key });
+                  }}
+                  title={
+                    count === 0
+                      ? `Upload a ${TEMPLATE_IMAGE_LAYER_LABELS[type].toLowerCase()} in the College profile first`
+                      : layerLimitReached
+                        ? `Maximum ${TEMPLATE_MAX_IMAGE_LAYERS} image layers`
+                        : `Add ${TEMPLATE_IMAGE_LAYER_LABELS[type]}`
+                  }
+                  className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-dashed border-slate-300 text-[11px] font-semibold text-slate-600 hover:border-indigo-400 hover:text-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:text-slate-600"
+                >
+                  <Icon className="w-3 h-3" />
+                  {type === 'CUSTOM' ? 'Custom' : TEMPLATE_IMAGE_LAYER_LABELS[type].split(' ').pop()}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <SectionTitle>Student Fields</SectionTitle>
+        {fieldOptions.map((fieldName) => {
+          const isPlaced = placed.has(fieldName);
+          return (
+            <ItemButton
               key={fieldName}
-              type="button"
-              onClick={() => handleFieldClick(fieldName)}
-              className={`w-full flex items-center justify-between p-2 rounded-xl text-xs font-medium text-left transition-all ${isSelected
-                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs font-bold'
-                  : 'hover:bg-slate-50 text-slate-700 border border-transparent'
-                }`}
+              isSelected={isSel(DESIGNER_ELEMENT_TYPES.FIELD, fieldName)}
+              disabled={!isPlaced && fieldLimitReached}
+              onClick={() => {
+                if (!isPlaced) onAddField(fieldName);
+                onSelectElement({ type: DESIGNER_ELEMENT_TYPES.FIELD, id: fieldName });
+              }}
             >
               <span className="truncate">{TEMPLATE_FIELD_LABELS[fieldName] || fieldName}</span>
               {isPlaced ? (
@@ -82,7 +176,7 @@ export const FieldPalette = ({
               ) : (
                 <PlusCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
               )}
-            </button>
+            </ItemButton>
           );
         })}
       </div>
@@ -91,4 +185,3 @@ export const FieldPalette = ({
 };
 
 export default FieldPalette;
-

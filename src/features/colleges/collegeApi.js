@@ -1,9 +1,6 @@
-import apiClient from '../../api/apiClient.js';
+// collegeApi.js
 
-/**
- * College Management API Service
- * Interacts with backend /api/colleges endpoints using centralized apiClient
- */
+import apiClient from '../../api/apiClient.js';
 
 export const getCollegesApi = async (params = {}) => {
   const queryParams = {};

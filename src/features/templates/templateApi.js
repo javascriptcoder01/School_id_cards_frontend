@@ -1,10 +1,6 @@
+// templateApi.js
+
 import apiClient from '../../api/apiClient.js';
-
-/**
- * ID Card Template Management API Service
- * Interacts with backend /api/templates endpoints using centralized apiClient
- */
-
 export const getTemplates = async (params = {}) => {
   const queryParams = {};
   if (params.page !== undefined && params.page !== null && params.page !== '') {

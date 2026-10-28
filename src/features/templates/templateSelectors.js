@@ -1,6 +1,4 @@
-/**
- * Template Management Selectors
- */
+// templateSelectors.js
 
 export const selectTemplatesState = (state) => state.templates;
 

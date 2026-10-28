@@ -88,7 +88,10 @@ export const StudentOutputTable = ({
               const studentName = res.studentName || res.name || 'Student Record';
               const isCleaned = Boolean(res.cleaned || res.isCleaned || res.outputCleaned);
               const isFailed = res.status === 'FAILED';
-              const canDownload = !isCleaned && !isFailed;
+              // Naye batches mein PNG file nahi banti (sirf PDF) — preview saved card data se hota hai
+              const hasPng = res.output !== null;
+              const canPreview = !isFailed && (hasPng || Boolean(res.renderData));
+              const canDownload = !isCleaned && !isFailed && hasPng;
 
               return (
                 <tr key={studentId} className="hover:bg-slate-50/80 transition-colors">
@@ -115,7 +118,7 @@ export const StudentOutputTable = ({
                   {/* Action */}
                   <td className="py-4 px-4 sm:px-6 text-right">
                     <div className="inline-flex items-center gap-2 justify-end">
-                      {canDownload && onPreviewCard && (
+                      {canPreview && onPreviewCard && (
                         <button
                           type="button"
                           onClick={() => onPreviewCard(idx)}
@@ -136,6 +139,8 @@ export const StudentOutputTable = ({
                         />
                       ) : isCleaned ? (
                         <span className="text-xs text-slate-400 italic">File cleaned</span>
+                      ) : !isFailed && !hasPng && res.renderData ? (
+                        <span className="text-xs text-slate-400 italic" title="Download the batch PDF">PDF only</span>
                       ) : (
                         <span className="text-xs text-rose-500 italic">Unavailable</span>
                       )}

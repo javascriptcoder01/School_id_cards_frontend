@@ -6,11 +6,13 @@ import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx'
 import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import RecentActivity from '../../components/dashboard/RecentActivity.jsx';
-import { loadPrintSummaryRequested } from '../../features/superAdminPrint/superAdminPrintSlice.js';
+import { ROUTES } from '../../constants/routes.js';
+import { fetchSummaryRequested } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import {
-  selectPrintSummaryColleges,
-  selectPrintLoading,
-} from '../../features/superAdminPrint/superAdminPrintSelectors.js';
+  selectPrintRequestCounts,
+  selectPrintRequestCardCounts,
+  selectPrintRequestSummaryLoading,
+} from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
 
 export const SuperAdminDashboard = ({
   user,
@@ -21,28 +23,19 @@ export const SuperAdminDashboard = ({
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const printColleges = useSelector(selectPrintSummaryColleges);
-  const isPrintLoading = useSelector(selectPrintLoading);
+  const printCounts = useSelector(selectPrintRequestCounts);
+  const printCardCounts = useSelector(selectPrintRequestCardCounts);
+  const isPrintLoading = useSelector(selectPrintRequestSummaryLoading);
 
+  // Print Center summary (sabhi schools)
   useEffect(() => {
-    dispatch(loadPrintSummaryRequested());
+    dispatch(fetchSummaryRequested({ params: {} }));
   }, [dispatch]);
 
   const totalColleges = summary?.totalColleges ?? 0;
   const totalUsers = summary?.totalUsers ?? 0;
   const totalTemplates = summary?.totalTemplates ?? 0;
 
-  // Aggregate global print metrics from real backend print summary
-  const printTotals = (printColleges || []).reduce(
-    (acc, item) => {
-      const stats = item.statistics || {};
-      acc.generatedCards += stats.generatedCards || 0;
-      acc.readyToPrint += stats.readyToPrint !== undefined ? stats.readyToPrint : (stats.generatedCards || 0);
-      acc.pendingCards += stats.pendingCards || 0;
-      return acc;
-    },
-    { generatedCards: 0, readyToPrint: 0, pendingCards: 0 }
-  );
 
   return (
     <div className="space-y-8">
@@ -110,14 +103,14 @@ export const SuperAdminDashboard = ({
             <div>
               <h2 className="text-base font-bold text-slate-900">Central ID Card Print Management</h2>
               <p className="text-xs text-slate-500">
-                Oversee multi-college card printing queues, download college ZIP packages, and export print-ready PDFs.
+                Accept approved print requests from schools, download print files, and mark them done.
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => navigate('/super-admin/print-center')}
+            onClick={() => navigate(ROUTES.PRINT_CENTER)}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <span>Open Print Center</span>
@@ -127,21 +120,21 @@ export const SuperAdminDashboard = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div className="p-4 bg-slate-50/75 rounded-2xl border border-slate-100">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Colleges in Queue</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">New Requests</span>
             <span className="text-xl font-extrabold text-slate-900 mt-1 block">
-              {isPrintLoading ? '...' : printColleges.length}
+              {isPrintLoading ? '...' : printCounts.APPROVED || 0}
             </span>
           </div>
           <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Ready to Print Cards</span>
+            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Cards in Printing</span>
             <span className="text-xl font-extrabold text-emerald-700 mt-1 block">
-              {isPrintLoading ? '...' : printTotals.readyToPrint}
+              {isPrintLoading ? '...' : printCardCounts.PRINTING || 0}
             </span>
           </div>
           <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
-            <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">Total Rendered Cards</span>
+            <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">Completed Requests</span>
             <span className="text-xl font-extrabold text-purple-700 mt-1 block">
-              {isPrintLoading ? '...' : printTotals.generatedCards}
+              {isPrintLoading ? '...' : printCounts.COMPLETED || 0}
             </span>
           </div>
         </div>

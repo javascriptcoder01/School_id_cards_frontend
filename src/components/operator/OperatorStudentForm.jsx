@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import InlineLoader from '../common/InlineLoader.jsx';
-import { Upload, X, User } from 'lucide-react';
+import StudentPhotoUpload from '../students/StudentPhotoUpload.jsx';
+
+// studentPhoto ({ url, publicId }) asli source; purane records ke liye `photo` string se fallback
+const getInitialPhoto = (values) => {
+  if (values?.studentPhoto?.url) {
+    return { url: values.studentPhoto.url, publicId: values.studentPhoto.publicId || null };
+  }
+  if (values?.photo) return { url: values.photo, publicId: null };
+  return null;
+};
+
+// Photo badli hai ya nahi (edit mein bina badle purani photo dobara na bhejein)
+const isSamePhoto = (a, b) => (a?.url || null) === (b?.url || null);
 
 export const OperatorStudentForm = ({
   initialValues = null,
@@ -18,10 +30,14 @@ export const OperatorStudentForm = ({
     gender: '',
     bloodGroup: '',
     emergencyContact: '',
-    photo: '',
+    studentPhoto: null,
   });
 
   const [errors, setErrors] = useState({});
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  // Edit mode: DB mein saved photo (restore + "badli ya nahi" check ke liye)
+  const isEdit = Boolean(initialValues);
+  const initialPhoto = isEdit ? getInitialPhoto(initialValues) : null;
 
   useEffect(() => {
     if (initialValues) {
@@ -34,7 +50,7 @@ export const OperatorStudentForm = ({
         gender: initialValues.gender || '',
         bloodGroup: initialValues.bloodGroup || '',
         emergencyContact: initialValues.emergencyContact || '',
-        photo: initialValues.photo || '',
+        studentPhoto: getInitialPhoto(initialValues),
       });
     } else if (assignedScopes.length === 1) {
       // Auto-populate default assignment if only one exists
@@ -54,30 +70,8 @@ export const OperatorStudentForm = ({
     }
   };
 
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setErrors((prev) => ({ ...prev, photo: 'File must be an image (PNG, JPG, WebP)' }));
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, photo: 'Photo must be under 2MB' }));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, photo: reader.result }));
-      setErrors((prev) => ({ ...prev, photo: null }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemovePhoto = () => {
-    setFormData((prev) => ({ ...prev, photo: '' }));
+  const handlePhotoChange = (photo) => {
+    setFormData((prev) => ({ ...prev, studentPhoto: photo }));
   };
 
   const validate = () => {
@@ -92,8 +86,10 @@ export const OperatorStudentForm = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSaving || isPhotoUploading) return;
     if (!validate()) return;
-    onSubmit({
+
+    const payload = {
       studentId: formData.studentId.trim(),
       name: formData.name.trim(),
       className: formData.className.trim(),
@@ -102,8 +98,24 @@ export const OperatorStudentForm = ({
       gender: formData.gender || undefined,
       bloodGroup: formData.bloodGroup.trim() || undefined,
       emergencyContact: formData.emergencyContact.trim() || undefined,
-      photo: formData.photo || undefined,
-    });
+    };
+
+    // Student ID edit mein lock hai, aur backend update mein ise allow nahi karta
+    if (isEdit) delete payload.studentId;
+
+    // Photo: { url, publicId } ya null (null = photo hatao). Backend legacy `photo` khud sync karta hai.
+    // Edit mein photo nahi badli to field bheji hi nahi jaati.
+    const nextPhoto = formData.studentPhoto?.url
+      ? { url: formData.studentPhoto.url, publicId: formData.studentPhoto.publicId || null }
+      : null;
+
+    if (isEdit) {
+      if (!isSamePhoto(nextPhoto, initialPhoto)) payload.studentPhoto = nextPhoto;
+    } else if (nextPhoto) {
+      payload.studentPhoto = nextPhoto;
+    }
+
+    onSubmit(payload);
   };
 
   return (
@@ -271,6 +283,7 @@ export const OperatorStudentForm = ({
             id="student-blood"
             name="bloodGroup"
             type="text"
+            maxLength={10}
             placeholder="e.g. O+, A+, B+"
             value={formData.bloodGroup}
             disabled={isSaving}
@@ -288,6 +301,7 @@ export const OperatorStudentForm = ({
             id="student-emergency"
             name="emergencyContact"
             type="text"
+            maxLength={30}
             placeholder="e.g. +91 9876543210"
             value={formData.emergencyContact}
             disabled={isSaving}
@@ -299,44 +313,14 @@ export const OperatorStudentForm = ({
 
       {/* Photo Upload Section */}
       <div className="pt-4 border-t border-slate-100">
-        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-          Student ID Card Photo
-        </label>
-        <div className="flex items-center gap-6">
-          <div className="relative w-20 h-20 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
-            {formData.photo ? (
-              <>
-                <img src={formData.photo} alt="Student preview" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-xs cursor-pointer"
-                  title="Remove Photo"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </>
-            ) : (
-              <User className="w-8 h-8 text-slate-400" />
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition-colors shadow-2xs">
-              <Upload className="w-4 h-4 text-slate-600" />
-              <span>Choose Photo File</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-                disabled={isSaving}
-                className="hidden"
-              />
-            </label>
-            <p className="text-[11px] text-slate-400">PNG or JPG up to 2MB. Square headshot recommended.</p>
-            {errors.photo && <p className="text-xs text-red-600 font-medium">{errors.photo}</p>}
-          </div>
-        </div>
+        <StudentPhotoUpload
+          label="Student ID Card Photo"
+          value={formData.studentPhoto}
+          onChange={handlePhotoChange}
+          onUploadingChange={setIsPhotoUploading}
+          disabled={isSaving}
+          savedPhoto={initialPhoto}
+        />
       </div>
 
       {/* Form Buttons */}
@@ -353,11 +337,13 @@ export const OperatorStudentForm = ({
         )}
         <button
           type="submit"
-          disabled={isSaving}
+          disabled={isSaving || isPhotoUploading}
           className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
         >
           {isSaving && <InlineLoader />}
-          <span>{initialValues ? 'Update Student Record' : 'Save Student Record'}</span>
+          <span>
+            {isPhotoUploading ? 'Uploading photo…' : isEdit ? 'Update Student Record' : 'Save Student Record'}
+          </span>
         </button>
       </div>
     </form>

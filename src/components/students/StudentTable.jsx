@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Edit3, CheckCircle, XCircle, GraduationCap, Mail, Phone, Hash } from 'lucide-react';
+import { Eye, Edit3, CheckCircle, XCircle, GraduationCap, Mail, Phone } from 'lucide-react';
 import { getStudentDetailRoute, getStudentEditRoute } from '../../constants/routes.js';
 import StudentCompletionMetric from './StudentCompletionMetric.jsx';
 import EmptyState from '../common/EmptyState.jsx';
@@ -20,6 +20,7 @@ export const StudentTable = ({
   selectedIds = [],
   onSelectToggle,
   onSelectAll,
+  showClassTeacher = false,
 }) => {
   if (isLoading) {
     return <Loader message="Fetching students list..." />;
@@ -56,6 +57,7 @@ export const StudentTable = ({
               )}
               <th className="py-3.5 px-4 sm:px-6">Student</th>
               <th className="py-3.5 px-4">Class & Section</th>
+              {showClassTeacher && <th className="py-3.5 px-4">Class Teacher</th>}
               <th className="py-3.5 px-4">Roll Number</th>
               <th className="py-3.5 px-4">Completion</th>
               <th className="py-3.5 px-4">Contact</th>
@@ -89,9 +91,9 @@ export const StudentTable = ({
                   {/* Student Name & ID */}
                   <td className="py-4 px-4 sm:px-6">
                     <div className="flex items-center gap-3">
-                      {student.photo ? (
+                      {student.studentPhoto?.url || student.photo ? (
                         <img
-                          src={student.photo}
+                          src={student.studentPhoto?.url || student.photo}
                           alt={`${student.name} photo`}
                           className="w-10 h-10 rounded-xl object-cover bg-slate-50 border border-slate-200 shrink-0"
                           onError={(e) => {
@@ -128,6 +130,13 @@ export const StudentTable = ({
                       )}
                     </div>
                   </td>
+
+                  {/* Class Teacher (COLLEGE_ADMIN) */}
+                  {showClassTeacher && (
+                    <td className="py-4 px-4 text-xs font-medium text-slate-700">
+                      {student.classTeacher?.name || <span className="text-slate-400">—</span>}
+                    </td>
+                  )}
 
                   {/* Roll Number */}
                   <td className="py-4 px-4 text-xs font-mono text-slate-600">

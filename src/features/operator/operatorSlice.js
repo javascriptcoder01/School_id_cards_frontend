@@ -16,7 +16,6 @@ const initialState = {
   saving: false,
   importing: false,
   previewing: false,
-  generating: false,
   error: null,
   initialized: false,
 };
@@ -159,24 +158,7 @@ export const operatorSlice = createSlice({
       state.preview = null;
     },
 
-    // 9. Generations
-    createOperatorGenerationRequested: (state) => {
-      state.generating = true;
-      state.error = null;
-    },
-    createOperatorGenerationSucceeded: (state, action) => {
-      state.generating = false;
-      const created = action.payload?.generation || action.payload;
-      if (created) {
-        state.generations.unshift(created);
-      }
-      state.error = null;
-    },
-    createOperatorGenerationFailed: (state, action) => {
-      state.generating = false;
-      state.error = action.payload || 'Failed to submit generation job';
-    },
-
+    // 9. Generations (history — naye cards Print Requests se)
     loadOperatorGenerationsRequested: (state) => {
       state.loadingGenerations = true;
       state.error = null;
@@ -233,9 +215,6 @@ export const {
   previewOperatorIdCardSucceeded,
   previewOperatorIdCardFailed,
   clearOperatorPreview,
-  createOperatorGenerationRequested,
-  createOperatorGenerationSucceeded,
-  createOperatorGenerationFailed,
   loadOperatorGenerationsRequested,
   loadOperatorGenerationsSucceeded,
   loadOperatorGenerationsFailed,

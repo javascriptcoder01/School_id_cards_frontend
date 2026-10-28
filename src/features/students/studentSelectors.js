@@ -1,6 +1,4 @@
-/**
- * Student Management Feature Selectors
- */
+// studentSelectors.js
 
 export const selectStudentsState = (state) => state.students;
 
@@ -13,6 +11,9 @@ export const selectStudentPagination = (state) =>
 
 export const selectStudentFilters = (state) =>
   state.students?.filters || { search: '' };
+
+// OPERATOR ki class/section (backend se). null = class assign nahi, undefined = admin / abhi load nahi hua
+export const selectStudentClassScope = (state) => state.students?.classScope;
 
 export const selectStudentsLoading = (state) => Boolean(state.students?.loading?.list);
 export const selectStudentDetailLoading = (state) => Boolean(state.students?.loading?.detail);
@@ -32,6 +33,7 @@ export default {
   selectSelectedStudent,
   selectStudentPagination,
   selectStudentFilters,
+  selectStudentClassScope,
   selectStudentsLoading,
   selectStudentDetailLoading,
   selectStudentCreateLoading,

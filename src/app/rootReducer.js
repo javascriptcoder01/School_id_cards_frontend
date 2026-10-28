@@ -15,8 +15,8 @@ import accountReducer from '../features/account/accountSlice.js';
 import operatorAssignmentReducer from '../features/operatorAssignments/operatorAssignmentSlice.js';
 import operatorReducer from '../features/operator/operatorSlice.js';
 import collegeProgressReducer from '../features/collegeProgress/collegeProgressSlice.js';
-import superAdminPrintReducer from '../features/superAdminPrint/superAdminPrintSlice.js';
-import printRequestReducer from '../features/printRequests/printRequestSlice.js';
+import idCardReducer from '../features/idCards/idCardSlice.js';
+import printRequestWorkflowReducer from '../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 
 export const rootReducer = combineReducers({
   auth: authReducer,
@@ -35,8 +35,8 @@ export const rootReducer = combineReducers({
   operatorAssignments: operatorAssignmentReducer,
   operator: operatorReducer,
   collegeProgress: collegeProgressReducer,
-  superAdminPrint: superAdminPrintReducer,
-  printRequests: printRequestReducer,
+  idCards: idCardReducer,
+  printRequestWorkflow: printRequestWorkflowReducer,
 });
 
 export default rootReducer;

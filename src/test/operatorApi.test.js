@@ -9,7 +9,6 @@ import {
   importOperatorStudents,
   getOperatorTemplates,
   previewOperatorIdCard,
-  createOperatorGeneration,
   getOperatorGenerations,
 } from '../features/operator/operatorApi.js';
 
@@ -68,14 +67,6 @@ describe('OPERATOR WORKSPACE API SERVICE', () => {
     });
     await previewOperatorIdCard({ studentId: 's-1', templateId: 't-1' });
     expect(postSpy).toHaveBeenCalledWith('/operator/id-cards/preview', { studentId: 's-1', templateId: 't-1' });
-  });
-
-  it('7. createOperatorGeneration calls POST /operator/id-cards/generations', async () => {
-    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValue({
-      data: { success: true, data: { generation: { id: 'g-1' } } },
-    });
-    await createOperatorGeneration({ templateId: 't-1', studentIds: ['s-1'] });
-    expect(postSpy).toHaveBeenCalledWith('/operator/id-cards/generations', { templateId: 't-1', studentIds: ['s-1'] });
   });
 });
 

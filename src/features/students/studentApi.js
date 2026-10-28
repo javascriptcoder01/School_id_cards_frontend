@@ -1,9 +1,6 @@
-import apiClient from '../../api/apiClient.js';
 
-/**
- * Student Management API Service
- * Interacts with backend /api/students endpoints using centralized apiClient
- */
+// studentApi.js
+import apiClient from '../../api/apiClient.js';
 
 export const getStudents = async (params = {}) => {
   const queryParams = {};
@@ -15,6 +12,13 @@ export const getStudents = async (params = {}) => {
   }
   if (params.search && typeof params.search === 'string' && params.search.trim().length > 0) {
     queryParams.search = params.search.trim();
+  }
+  // COLLEGE_ADMIN class/section filter (operator ke liye backend apna scope lagata hai)
+  if (params.className && typeof params.className === 'string' && params.className.trim().length > 0) {
+    queryParams.className = params.className.trim();
+  }
+  if (params.section && typeof params.section === 'string' && params.section.trim().length > 0) {
+    queryParams.section = params.section.trim();
   }
 
   const response = await apiClient.get('/students', { params: queryParams });

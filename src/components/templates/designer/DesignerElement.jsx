@@ -1,76 +1,90 @@
 import React, { memo } from 'react';
 import { SAMPLE_STUDENT_PREVIEW } from '../../../constants/templatePreviewData.js';
-import { TEMPLATE_FONT_WEIGHTS } from '../../../constants/template.js';
+import {
+  TEMPLATE_FONT_WEIGHTS,
+  TEMPLATE_FIELDS,
+  TEMPLATE_TEXT_ALIGNS,
+} from '../../../constants/template.js';
+import { pct, fontSizeToCqw, toNumber } from '../../../utils/templateLayout.js';
 
-export const DesignerElement = memo(({
-  field,
-  cardWidth = 86,
-  cardHeight = 54,
-  isSelected = false,
-  isDesignMode = true,
-  onSelect,
-}) => {
-  if (!field || field.visible === false) return null;
+const ALIGN_CSS = {
+  [TEMPLATE_TEXT_ALIGNS.LEFT]: 'left',
+  [TEMPLATE_TEXT_ALIGNS.CENTER]: 'center',
+  [TEMPLATE_TEXT_ALIGNS.RIGHT]: 'right',
+};
 
-  const leftPercent = (field.x / cardWidth) * 100;
-  const topPercent = (field.y / cardHeight) * 100;
+/** One text field on the card (student name, roll no, ...) */
+export const DesignerElement = memo(
+  ({ field, unit, cardWidth = 86, cardHeight = 54, isSelected = false, isDesignMode = true, onSelect }) => {
+    if (!field || field.visible === false) return null;
 
-  const previewValue = SAMPLE_STUDENT_PREVIEW[field.field] || 'Sample Data';
-  const displayLabel = field.label ? `${field.label}: ` : '';
+    const previewValue = SAMPLE_STUDENT_PREVIEW?.[field.field] || 'Sample Data';
+    const displayLabel = field.label ? `${field.label}: ` : '';
+    const isBold = field.fontWeight === TEMPLATE_FONT_WEIGHTS.BOLD;
+    const hasWidth = toNumber(field.width) > 0;
+    const maxLines = Math.max(1, toNumber(field.maxLines, 1));
 
-  const isBold = field.fontWeight === TEMPLATE_FONT_WEIGHTS.BOLD;
-  const isSignature = field.field === 'collegeAdminSignature';
-  const isImageSig =
-    isSignature &&
-    previewValue &&
-    (previewValue.startsWith('data:image/') ||
-      previewValue.startsWith('http://') ||
-      previewValue.startsWith('https://'));
+    // Legacy signature field (purane templates)
+    const isSignature = field.field === TEMPLATE_FIELDS.COLLEGE_ADMIN_SIGNATURE;
+    const isImageSig = isSignature && /^(data:image\/|https?:\/\/)/.test(previewValue);
 
-  return (
-    <div
-      onClick={(e) => {
-        if (isDesignMode) {
-          e.stopPropagation();
-          onSelect?.();
+    const style = {
+      left: pct(field.x, cardWidth),
+      top: pct(field.y, cardHeight),
+      width: hasWidth ? pct(field.width, cardWidth) : undefined,
+      fontSize: `${fontSizeToCqw(field.fontSize, unit, cardWidth)}cqw`,
+      lineHeight: 1.2,
+      color: field.color || '#000000',
+      fontFamily: field.fontFamily || 'Arial',
+      fontWeight: isBold ? 700 : 400,
+      textAlign: ALIGN_CSS[field.textAlign] || 'left',
+      zIndex: isSelected ? 60 : 50,
+      ...(hasWidth
+        ? {
+          whiteSpace: 'normal',
+          overflow: 'hidden',
+          display: '-webkit-box',
+          WebkitLineClamp: maxLines,
+          WebkitBoxOrient: 'vertical',
+          wordBreak: 'break-word',
         }
-      }}
-      style={{
-        left: `${leftPercent}%`,
-        top: `${topPercent}%`,
-        fontSize: `${field.fontSize || 11}px`,
-      }}
-      className={`absolute whitespace-nowrap select-none transition-all py-0.5 px-1 rounded-sm ${isDesignMode ? 'cursor-pointer hover:bg-indigo-50/50' : ''
-        } ${isSelected && isDesignMode
-          ? 'ring-2 ring-indigo-600 ring-offset-1 bg-indigo-50/80 text-indigo-950 font-bold z-20'
-          : isDesignMode
-            ? 'border border-dashed border-slate-300 text-slate-800 z-10'
-            : 'text-slate-900'
-        } ${isBold ? 'font-bold' : 'font-normal'}`}
-      title={`Field: ${field.field}`}
-    >
-      {isSignature ? (
-        <div className="flex flex-col items-start gap-0.5">
-          {displayLabel && <span className="opacity-75 text-[0.8em]">{displayLabel}</span>}
-          {isImageSig ? (
-            <img
-              src={previewValue}
-              alt="Admin Signature"
-              className="max-h-8 max-w-[90px] object-contain pointer-events-none"
-            />
+        : { whiteSpace: 'nowrap' }),
+    };
+
+    return (
+      <div
+        onClick={(e) => {
+          if (isDesignMode) {
+            e.stopPropagation();
+            onSelect?.();
+          }
+        }}
+        style={style}
+        className={`absolute select-none ${isDesignMode ? 'cursor-pointer hover:bg-indigo-50/60' : ''
+          } ${isSelected && isDesignMode
+            ? 'outline-2 outline-indigo-600 outline-offset-1 bg-indigo-50/70'
+            : isDesignMode
+              ? 'outline-1 outline-dashed outline-slate-400/70'
+              : ''
+          }`}
+        title={isDesignMode ? `Field: ${field.field}` : undefined}
+      >
+        {isSignature ? (
+          isImageSig ? (
+            <img src={previewValue} alt="" className="max-h-[2em] object-contain pointer-events-none" />
           ) : (
-            <span className="font-serif italic text-xs text-slate-700">Signature</span>
-          )}
-        </div>
-      ) : (
-        <>
-          <span className="opacity-75 text-[0.85em]">{displayLabel}</span>
-          <span>{previewValue}</span>
-        </>
-      )}
-    </div>
-  );
-});
+            <span className="font-serif italic">Signature</span>
+          )
+        ) : (
+          <>
+            {displayLabel && <span style={{ opacity: 0.75 }}>{displayLabel}</span>}
+            <span>{previewValue}</span>
+          </>
+        )}
+      </div>
+    );
+  }
+);
 
 DesignerElement.displayName = 'DesignerElement';
 

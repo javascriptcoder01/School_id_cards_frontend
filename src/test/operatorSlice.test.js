@@ -8,8 +8,7 @@ import operatorReducer, {
   updateOperatorStudentSucceeded,
   previewOperatorIdCardRequested,
   previewOperatorIdCardSucceeded,
-  createOperatorGenerationRequested,
-  createOperatorGenerationSucceeded,
+  loadOperatorGenerationsSucceeded,
   clearOperatorPreview,
 } from '../features/operator/operatorSlice.js';
 
@@ -30,7 +29,6 @@ describe('OPERATOR WORKSPACE SLICE', () => {
     saving: false,
     importing: false,
     previewing: false,
-    generating: false,
     error: null,
     initialized: false,
   };
@@ -72,9 +70,9 @@ describe('OPERATOR WORKSPACE SLICE', () => {
     expect(state.preview).toBeNull();
   });
 
-  it('5. handles generation creation and list', () => {
+  it('5. handles generation history list', () => {
     const genJob = { id: 'g-1', status: 'PENDING' };
-    let state = operatorReducer(initialState, createOperatorGenerationSucceeded({ generation: genJob }));
+    const state = operatorReducer(initialState, loadOperatorGenerationsSucceeded({ generations: [genJob] }));
     expect(state.generations).toContainEqual(genJob);
   });
 

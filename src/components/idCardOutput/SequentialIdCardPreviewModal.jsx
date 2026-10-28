@@ -9,16 +9,20 @@ import {
   FileText,
   Archive,
   User,
-  CheckCircle2,
   AlertCircle,
   Eye,
   Search,
-  Maximize2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
 } from 'lucide-react';
 import apiClient from '../../api/apiClient.js';
+import IdCardPreview from '../idCards/IdCardPreview.jsx';
+
+// PNG nahi hai (naye batches sirf PDF banate hain) to card saved renderData se HTML mein dikhta hai
+const PREVIEW_CARD_WIDTH = 520;
+
+const hasPngOutput = (card) => Boolean(card?.output?.storageKey || card?.output?.format || card?.hasOutput);
 
 export const SequentialIdCardPreviewModal = ({
   isOpen = false,
@@ -57,9 +61,23 @@ export const SequentialIdCardPreviewModal = ({
     return name.includes(query) || id.includes(query);
   });
 
-  // Load card PNG artifact cleanly
+  // Card PNG load (sirf jab PNG file bani ho). PNG nahi / fail → saved renderData se preview.
   const loadCardImage = useCallback(async () => {
     if (!currentCard) return;
+
+    setImageError(null);
+    setCardImageBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+
+    // Naye batches: PNG file nahi banti → network call hi nahi, renderData preview dikhega
+    if (!hasPngOutput(currentCard)) {
+      if (!currentCard.renderData) {
+        setImageError('No card image or card data is available for this student.');
+      }
+      return;
+    }
 
     const studentId =
       currentCard.studentId?._id ||
@@ -69,33 +87,31 @@ export const SequentialIdCardPreviewModal = ({
     const resultId = currentCard.resultId || currentCard._id;
 
     setImageLoading(true);
-    setImageError(null);
 
     try {
       let downloadUrl = '';
       if (generationId) {
-        downloadUrl = `/id-card/generations/${generationId}/results/${studentId}/download`;
+        downloadUrl = `/id-cards/generations/${generationId}/results/${studentId}/download`;
       } else if (resultId) {
-        downloadUrl = `/super-admin/id-cards/results/${resultId}/download/png`;
+        downloadUrl = `/super-admin/id-cards/results/${resultId}/download`;
       }
 
       if (!downloadUrl) {
         throw new Error('No valid preview artifact endpoint available.');
       }
 
-      const response = await apiClient.get(downloadUrl, {
+      // apiClient interceptor body hi lautata hai — yahan seedha Blob milta hai
+      const blob = await apiClient.get(downloadUrl, {
         responseType: 'blob',
       });
 
-      const blobUrl = URL.createObjectURL(response.data);
-      setCardImageBlobUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return blobUrl;
-      });
+      const blobUrl = URL.createObjectURL(blob);
+      setCardImageBlobUrl(blobUrl);
     } catch (err) {
-      setImageError(
-        err?.response?.data?.message || 'Could not load rendered card preview artifact.'
-      );
+      // PNG nahi mili lekin card data hai → preview chalega, error mat dikhao
+      if (!currentCard.renderData) {
+        setImageError(err?.message || 'Could not load rendered card preview artifact.');
+      }
     } finally {
       setImageLoading(false);
     }
@@ -151,6 +167,8 @@ export const SequentialIdCardPreviewModal = ({
     currentCard.section || currentCard.student?.section || '—';
   const currentRollNo =
     currentCard.rollNumber || currentCard.student?.rollNumber || '—';
+  // PNG nahi hai lekin card data hai → HTML preview (naye batches)
+  const showRenderPreview = !cardImageBlobUrl && !imageLoading && Boolean(currentCard.renderData);
 
   const handleDownloadCurrentCard = () => {
     if (!cardImageBlobUrl) return;
@@ -306,6 +324,12 @@ export const SequentialIdCardPreviewModal = ({
                     <span>Class {currentClass} ({currentSection})</span>
                     <span>&bull;</span>
                     <span>Roll #{currentRollNo}</span>
+                    {currentCard.cardNumber && (
+                      <>
+                        <span>&bull;</span>
+                        <span className="font-mono">Card {currentCard.cardNumber}</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -342,15 +366,28 @@ export const SequentialIdCardPreviewModal = ({
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleDownloadCurrentCard}
-                  disabled={!cardImageBlobUrl || imageLoading}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50 transition-all cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Card PNG</span>
-                </button>
+                {/* PNG hai to PNG; warna (naye batch) poore batch ki PDF */}
+                {cardImageBlobUrl || !onDownloadPdf ? (
+                  <button
+                    type="button"
+                    onClick={handleDownloadCurrentCard}
+                    disabled={!cardImageBlobUrl || imageLoading}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Card PNG</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onDownloadPdf}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                    title="Download all cards of this batch as a print-ready PDF"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Download PDF</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -361,10 +398,26 @@ export const SequentialIdCardPreviewModal = ({
                   <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                   <span className="text-xs font-semibold">Loading rendered badge artifact...</span>
                 </div>
+              ) : showRenderPreview ? (
+                <div
+                  style={{
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.15s ease-out',
+                  }}
+                  className="max-w-full"
+                >
+                  <IdCardPreview
+                    renderData={currentCard.renderData}
+                    width={PREVIEW_CARD_WIDTH}
+                    showWarnings={false}
+                    className="rounded-2xl overflow-hidden shadow-2xl"
+                  />
+                </div>
               ) : imageError ? (
                 <div className="max-w-md p-6 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-2">
                   <AlertCircle className="w-8 h-8 text-rose-600 mx-auto" />
-                  <h4 className="text-xs font-bold text-rose-900">Artifact Loading Error</h4>
+                  <h4 className="text-xs font-bold text-rose-900">Card Not Available</h4>
                   <p className="text-xs text-rose-700">{imageError}</p>
                 </div>
               ) : cardImageBlobUrl ? (

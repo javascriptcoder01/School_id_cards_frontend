@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ArrowLeft, Sparkles, FolderDown, RefreshCw, Eye } from 'lucide-react';
+import { ArrowLeft, FolderDown, RefreshCw, Eye } from 'lucide-react';
 import {
   fetchGenerationDetailRequested,
   fetchGenerationResultsRequested,
@@ -22,6 +22,8 @@ import {
   selectDownloadStatus,
   selectDownloadError,
 } from '../../features/idCardOutput/idCardOutputSelectors.js';
+import { downloadBatchPdfRequested } from '../../features/idCards/idCardSlice.js';
+import { selectUserRole } from '../../features/auth/authSelectors.js';
 import { ROUTES, getIdCardGenerationDetailRoute } from '../../constants/routes.js';
 import GenerationStatusBadge from '../../components/idCardGeneration/GenerationStatusBadge.jsx';
 import GenerationDownloadPanel from '../../components/idCardOutput/GenerationDownloadPanel.jsx';
@@ -37,6 +39,9 @@ export const GenerationOutputPage = () => {
 
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
+  // Batch PDF (/id-cards/batches/:id/pdf) sirf SUPER_ADMIN / COLLEGE_ADMIN ke liye
+  const userRole = useSelector(selectUserRole);
+  const canDownloadPdf = userRole === 'SUPER_ADMIN' || userRole === 'COLLEGE_ADMIN';
 
   const generation = useSelector(selectSelectedGeneration);
   const resultsData = useSelector(selectGenerationResults);
@@ -189,6 +194,9 @@ export const GenerationOutputPage = () => {
         initialIndex={previewInitialIndex}
         generationId={generationId}
         onDownloadZip={() => dispatch(downloadGenerationZipRequested({ generationId }))}
+        onDownloadPdf={
+          canDownloadPdf ? () => dispatch(downloadBatchPdfRequested({ batchId: generationId })) : undefined
+        }
       />
     </div>
   );

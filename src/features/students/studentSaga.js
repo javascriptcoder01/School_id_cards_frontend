@@ -1,3 +1,4 @@
+// studentSaga.js
 import { takeLatest, call, put } from 'redux-saga/effects';
 import {
   fetchStudentsRequested,
@@ -33,6 +34,7 @@ export function* fetchStudentsWorker(action) {
       fetchStudentsSucceeded({
         students: data?.students || [],
         pagination: data?.pagination || { page: 1, limit: 10, totalItems: 0, totalPages: 0 },
+        classScope: data?.classScope,
       })
     );
   } catch (error) {

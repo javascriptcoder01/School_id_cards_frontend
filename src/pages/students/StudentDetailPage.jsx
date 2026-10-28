@@ -3,13 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   GraduationCap,
-  User,
   BookOpen,
   Mail,
-  Phone,
-  Calendar,
   MapPin,
-  Shield,
   CheckCircle,
   XCircle,
   ArrowLeft,
@@ -97,9 +93,9 @@ export const StudentDetailPage = () => {
       {/* Student Profile Header Card */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
-          {student.photo ? (
+          {student.studentPhoto?.url || student.photo ? (
             <img
-              src={student.photo}
+              src={student.studentPhoto?.url || student.photo}
               alt={`${student.name} photo`}
               className="w-20 h-20 rounded-2xl object-cover bg-slate-50 border border-slate-200 p-1 shadow-xs shrink-0"
               onError={(e) => {

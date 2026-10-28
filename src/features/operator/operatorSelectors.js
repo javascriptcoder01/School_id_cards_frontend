@@ -51,9 +51,6 @@ export const selectOperatorImporting = (state) =>
 export const selectOperatorPreviewing = (state) =>
   Boolean(selectOperatorState(state).previewing);
 
-export const selectOperatorGenerating = (state) =>
-  Boolean(selectOperatorState(state).generating);
-
 export const selectOperatorError = (state) =>
   selectOperatorState(state).error || null;
 
@@ -79,7 +76,6 @@ export default {
   selectOperatorSaving,
   selectOperatorImporting,
   selectOperatorPreviewing,
-  selectOperatorGenerating,
   selectOperatorError,
   selectIsOperatorInitialized,
 };

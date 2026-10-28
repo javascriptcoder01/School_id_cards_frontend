@@ -46,11 +46,6 @@ export const previewOperatorIdCard = async (previewData) => {
   return response?.data?.data || response?.data || {};
 };
 
-export const createOperatorGeneration = async (generationData) => {
-  const response = await apiClient.post('/operator/id-cards/generations', generationData);
-  return response?.data?.data || response?.data || {};
-};
-
 export const getOperatorGenerations = async (params = {}) => {
   const response = await apiClient.get('/operator/id-cards/generations', { params });
   return response?.data?.data || response?.data || {};
@@ -65,6 +60,5 @@ export default {
   importOperatorStudents,
   getOperatorTemplates,
   previewOperatorIdCard,
-  createOperatorGeneration,
   getOperatorGenerations,
 };

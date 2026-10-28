@@ -1,6 +1,4 @@
-/**
- * College Management Feature Selectors
- */
+// collegeSelectors.js
 
 export const selectCollegesState = (state) => state.colleges;
 

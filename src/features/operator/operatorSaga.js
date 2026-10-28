@@ -24,9 +24,6 @@ import {
   previewOperatorIdCardRequested,
   previewOperatorIdCardSucceeded,
   previewOperatorIdCardFailed,
-  createOperatorGenerationRequested,
-  createOperatorGenerationSucceeded,
-  createOperatorGenerationFailed,
   loadOperatorGenerationsRequested,
   loadOperatorGenerationsSucceeded,
   loadOperatorGenerationsFailed,
@@ -40,7 +37,6 @@ import {
   importOperatorStudents,
   getOperatorTemplates,
   previewOperatorIdCard,
-  createOperatorGeneration,
   getOperatorGenerations,
 } from './operatorApi.js';
 import { showNotification } from '../notifications/notificationSlice.js';
@@ -217,34 +213,6 @@ export function* previewOperatorIdCardWorker(action) {
   }
 }
 
-export function* createOperatorGenerationWorker(action) {
-  try {
-    const { onSuccess, ...payload } = action.payload || {};
-    const data = yield call(createOperatorGeneration, payload);
-    yield put(createOperatorGenerationSucceeded(data));
-    yield put(
-      showNotification({
-        type: 'SUCCESS',
-        title: 'Generation Request Submitted',
-        message: 'ID card request submitted to College Admin for review.',
-      })
-    );
-    if (typeof onSuccess === 'function') {
-      yield call(onSuccess, data);
-    }
-  } catch (error) {
-    const message = error?.message || 'Failed to submit generation job';
-    yield put(createOperatorGenerationFailed(message));
-    yield put(
-      showNotification({
-        type: 'ERROR',
-        title: 'Generation Failed',
-        message,
-      })
-    );
-  }
-}
-
 export function* loadOperatorGenerationsWorker(action) {
   try {
     const params = action.payload || {};
@@ -272,7 +240,6 @@ export function* watchOperator() {
   yield takeLatest(importOperatorStudentsRequested.type, importOperatorStudentsWorker);
   yield takeLatest(loadOperatorTemplatesRequested.type, loadOperatorTemplatesWorker);
   yield takeLatest(previewOperatorIdCardRequested.type, previewOperatorIdCardWorker);
-  yield takeLatest(createOperatorGenerationRequested.type, createOperatorGenerationWorker);
   yield takeLatest(loadOperatorGenerationsRequested.type, loadOperatorGenerationsWorker);
 }
 

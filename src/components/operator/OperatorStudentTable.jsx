@@ -41,9 +41,9 @@ export const OperatorStudentTable = ({
               <tr key={id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    {student.photo ? (
+                    {student.studentPhoto?.url || student.photo ? (
                       <img
-                        src={student.photo}
+                        src={student.studentPhoto?.url || student.photo}
                         alt={student.name}
                         className="w-9 h-9 rounded-full object-cover border border-slate-200 bg-slate-100 shrink-0"
                       />

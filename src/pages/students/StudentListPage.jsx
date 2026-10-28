@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { Plus, GraduationCap, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Plus, GraduationCap, RefreshCw, FileSpreadsheet, Filter, X } from 'lucide-react';
 import {
   fetchStudentsRequested,
   updateStudentStatusRequested,
@@ -13,6 +13,7 @@ import {
   selectStudents,
   selectStudentPagination,
   selectStudentFilters,
+  selectStudentClassScope,
   selectStudentsLoading,
   selectStudentStatusLoading,
   selectStudentsError,
@@ -26,6 +27,10 @@ import StudentTable from '../../components/students/StudentTable.jsx';
 import StudentPagination from '../../components/students/StudentPagination.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import OperatorAssignmentBanner from '../../components/students/OperatorAssignmentBanner.jsx';
+import EmptyState from '../../components/common/EmptyState.jsx';
+
+const filterInputClass =
+  'w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all';
 
 export const StudentListPage = () => {
   const dispatch = useDispatch();
@@ -37,6 +42,7 @@ export const StudentListPage = () => {
   const students = useSelector(selectStudents);
   const pagination = useSelector(selectStudentPagination);
   const filters = useSelector(selectStudentFilters);
+  const classScope = useSelector(selectStudentClassScope);
   const isLoading = useSelector(selectStudentsLoading);
   const isStatusLoading = useSelector(selectStudentStatusLoading);
   const listError = useSelector(selectStudentsError);
@@ -44,16 +50,40 @@ export const StudentListPage = () => {
 
   const [togglingId, setTogglingId] = useState(null);
 
+  // COLLEGE_ADMIN class/section filter (Apply par hi request jaati hai)
+  const appliedClassName = isOperator ? '' : filters.className || '';
+  const appliedSection = isOperator ? '' : filters.section || '';
+  const [classInput, setClassInput] = useState(appliedClassName);
+  const [sectionInput, setSectionInput] = useState(appliedSection);
+  const hasClassFilter = Boolean(appliedClassName || appliedSection);
+
+  // OPERATOR: backend ne bataya ki class assign nahi hai
+  const operatorHasNoClass = isOperator && classScope === null;
+
+  const buildListParams = () => ({
+    page: pagination.page,
+    limit: pagination.limit,
+    search: filters.search,
+    className: appliedClassName,
+    section: appliedSection,
+  });
+
   // Fetch students on initial mount or when pagination/filters change
   useEffect(() => {
-    dispatch(
-      fetchStudentsRequested({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search,
-      })
-    );
-  }, [dispatch, pagination.page, pagination.limit, filters.search]);
+    dispatch(fetchStudentsRequested(buildListParams()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, pagination.page, pagination.limit, filters.search, appliedClassName, appliedSection]);
+
+  const handleApplyClassFilter = (e) => {
+    e.preventDefault();
+    dispatch(setStudentFilters({ className: classInput.trim(), section: sectionInput.trim() }));
+  };
+
+  const handleClearClassFilter = () => {
+    setClassInput('');
+    setSectionInput('');
+    dispatch(setStudentFilters({ className: '', section: '' }));
+  };
 
   const handleSearchChange = (searchTerm) => {
     dispatch(setStudentFilters({ search: searchTerm }));
@@ -80,13 +110,7 @@ export const StudentListPage = () => {
   };
 
   const handleRefresh = () => {
-    dispatch(
-      fetchStudentsRequested({
-        page: pagination.page,
-        limit: pagination.limit,
-        search: filters.search,
-      })
-    );
+    dispatch(fetchStudentsRequested(buildListParams()));
   };
 
   return (
@@ -136,11 +160,12 @@ export const StudentListPage = () => {
       </div>
 
       {/* Operator Assignment Scope Banner */}
-      {isOperator && (
+      {/* Class backend se aati hai (classScope); load hone tak profile wali class */}
+      {isOperator && !operatorHasNoClass && (
         <OperatorAssignmentBanner
           subjectName={currentUser?.subjectName}
-          className={currentUser?.className}
-          sectionName={currentUser?.sectionName || currentUser?.section}
+          className={classScope?.className || currentUser?.className}
+          sectionName={classScope?.section || currentUser?.sectionName || currentUser?.section}
           operatorName={currentUser?.name}
         />
       )}
@@ -162,27 +187,95 @@ export const StudentListPage = () => {
         />
       )}
 
-      {/* Search Input */}
-      <StudentSearch
-        search={filters.search}
-        onSearchChange={handleSearchChange}
-        onReset={handleResetSearch}
-      />
+      {operatorHasNoClass ? (
+        <EmptyState
+          title="No Class Assigned"
+          description="No class is assigned to you yet. Ask the school admin."
+          icon={GraduationCap}
+        />
+      ) : (
+        <>
+          {/* Class / Section Filter (COLLEGE_ADMIN) */}
+          {!isOperator && (
+            <form
+              onSubmit={handleApplyClassFilter}
+              className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-end gap-3"
+            >
+              <div className="w-full sm:w-48">
+                <label htmlFor="filter-class" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Class
+                </label>
+                <input
+                  id="filter-class"
+                  type="text"
+                  maxLength={100}
+                  value={classInput}
+                  onChange={(e) => setClassInput(e.target.value)}
+                  placeholder="e.g. 10th"
+                  className={filterInputClass}
+                />
+              </div>
+              <div className="w-full sm:w-32">
+                <label htmlFor="filter-section" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Section
+                </label>
+                <input
+                  id="filter-section"
+                  type="text"
+                  maxLength={50}
+                  value={sectionInput}
+                  onChange={(e) => setSectionInput(e.target.value)}
+                  placeholder="e.g. A"
+                  className={filterInputClass}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-xs disabled:opacity-50 transition-colors"
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Apply</span>
+                </button>
+                {hasClassFilter && (
+                  <button
+                    type="button"
+                    onClick={handleClearClassFilter}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
 
-      {/* Students Table */}
-      <StudentTable
-        students={students}
-        isLoading={isLoading}
-        canEdit={true}
-        statusLoadingId={isStatusLoading ? togglingId : null}
-        onStatusToggle={handleStatusToggle}
-      />
+          {/* Search Input */}
+          <StudentSearch
+            search={filters.search}
+            onSearchChange={handleSearchChange}
+            onReset={handleResetSearch}
+          />
 
-      {/* Pagination */}
-      <StudentPagination
-        pagination={pagination}
-        onPageChange={handlePageChange}
-      />
+          {/* Students Table */}
+          <StudentTable
+            students={students}
+            isLoading={isLoading}
+            canEdit={true}
+            statusLoadingId={isStatusLoading ? togglingId : null}
+            onStatusToggle={handleStatusToggle}
+            showClassTeacher={!isOperator}
+          />
+
+          {/* Pagination */}
+          <StudentPagination
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
+        </>
+      )}
     </div>
   );
 };

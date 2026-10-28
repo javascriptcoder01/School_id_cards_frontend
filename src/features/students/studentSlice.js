@@ -1,3 +1,4 @@
+// studentSlice.js
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
@@ -11,9 +12,13 @@ const initialState = {
     totalPages: 0,
   },
 
+  // className / section (COLLEGE_ADMIN filter) setStudentFilters se optional keys ke roop mein aate hain
   filters: {
     search: '',
   },
+
+  // OPERATOR: backend se aayi class/section ({ className, section }); null = class assign nahi; undefined = admin
+  classScope: undefined,
 
   loading: {
     list: false,
@@ -51,6 +56,7 @@ export const studentSlice = createSlice({
         total: pag.totalItems !== undefined ? pag.totalItems : (pag.total || 0),
         totalPages: pag.totalPages !== undefined ? pag.totalPages : 0,
       };
+      state.classScope = action.payload.classScope;
       state.errors.list = null;
     },
     fetchStudentsFailed: (state, action) => {

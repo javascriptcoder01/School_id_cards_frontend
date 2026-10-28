@@ -1,8 +1,117 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { School, Building, MapPin, Mail, Phone, Image, ArrowLeft, Save, PenTool, Upload, X } from 'lucide-react';
+import { School, MapPin, Mail, Phone, Image, Save, PenTool, Stamp, Upload, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
+
+const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
+
+const EMPTY_IMAGE = { url: '', publicId: '' };
+
+/**
+ * Upload + URL + preview block.
+ * Logo aur Admin Signature dono isi se bante hain, taaki dono ka UI aur behaviour same rahe.
+ */
+const ImageUploadField = ({
+  id,
+  label,
+  hint,
+  icon: Icon,
+  value,
+  error,
+  disabled,
+  inputRef,
+  chooseLabel,
+  urlPlaceholder,
+  formatsNote,
+  emptyText,
+  removeLabel,
+  previewAlt,
+  onFileChange,
+  onUrlChange,
+  onClear,
+}) => (
+  <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+      {label} <span className="text-slate-400 font-normal lowercase">{hint}</span>
+    </label>
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+      <div className="md:col-span-8 space-y-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            ref={inputRef}
+            accept={ACCEPTED_IMAGE_TYPES.join(',')}
+            disabled={disabled}
+            onChange={onFileChange}
+            className="hidden"
+            id={id}
+          />
+          <label
+            htmlFor={id}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl border border-indigo-200 cursor-pointer transition-colors shadow-2xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>{chooseLabel}</span>
+          </label>
+
+          <span className="text-xs text-slate-400">or enter image URL below</span>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <Icon className="w-4 h-4" />
+          </div>
+          <input
+            type="text"
+            value={value?.url || ''}
+            disabled={disabled}
+            onChange={(e) => onUrlChange(e.target.value)}
+            placeholder={urlPlaceholder}
+            aria-label={`${label} URL`}
+            className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${error ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
+              }`}
+          />
+        </div>
+        {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
+        <p className="text-[11px] text-slate-400">{formatsNote}</p>
+      </div>
+
+      {/* Preview */}
+      <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 border border-dashed border-slate-200 min-h-[90px]">
+        {value?.url ? (
+          <div className="relative group w-full flex flex-col items-center">
+            <img
+              key={value.url}
+              src={value.url}
+              alt={previewAlt}
+              className="max-h-16 max-w-full object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 transition-colors"
+              title={removeLabel}
+            >
+              <X className="w-3 h-3" />
+              <span>{removeLabel}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="text-center text-slate-400 py-2">
+            <Icon className="w-6 h-6 mx-auto mb-1 opacity-40" />
+            <span className="text-[11px] font-medium">{emptyText}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 /**
  * Reusable CollegeForm Component
@@ -17,16 +126,16 @@ export const CollegeForm = ({
   onCancel,
 }) => {
   const navigate = useNavigate();
+  const logoFileInputRef = useRef(null);
   const signatureFileInputRef = useRef(null);
+  const stampFileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    logo: '',
-    adminSignature: {
-      url: '',
-      publicId: '',
-    },
+    collegeLogo: { ...EMPTY_IMAGE },
+    adminSignature: { ...EMPTY_IMAGE },
+    collegeStamp: { ...EMPTY_IMAGE },
     address: {
       line1: '',
       line2: '',
@@ -46,13 +155,26 @@ export const CollegeForm = ({
   useEffect(() => {
     if (initialValues) {
       const sig = initialValues.adminSignature || initialValues.principleSign || {};
+      const stamp = initialValues.collegeStamp || {};
+      // collegeLogo naya source hai; purane colleges ke liye legacy `logo` string se fallback
+      const logo = initialValues.collegeLogo?.url
+        ? initialValues.collegeLogo
+        : { url: initialValues.logo || '', publicId: '' };
+
       setFormData({
         name: initialValues.name || '',
         code: initialValues.code || '',
-        logo: initialValues.logo || '',
+        collegeLogo: {
+          url: logo.url || '',
+          publicId: logo.publicId || '',
+        },
         adminSignature: {
           url: sig.url || '',
           publicId: sig.publicId || '',
+        },
+        collegeStamp: {
+          url: stamp.url || '',
+          publicId: stamp.publicId || '',
         },
         address: {
           line1: initialValues.address?.line1 || '',
@@ -94,6 +216,66 @@ export const CollegeForm = ({
     }
   };
 
+  /* ---------- Image upload (logo + signature share the same logic) ---------- */
+
+  const isValidImageValue = (value) =>
+    value.startsWith('data:image/') || value.startsWith('http://') || value.startsWith('https://');
+
+  const handleImageFileChange = (field, displayName) => (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const errorKey = `${field}.url`;
+
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setErrors((prev) => ({ ...prev, [errorKey]: `Only PNG, JPEG, and WebP ${displayName} images are allowed` }));
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setErrors((prev) => ({ ...prev, [errorKey]: `${displayName} file size cannot exceed 2MB` }));
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: {
+          url: reader.result,
+          publicId: file.name,
+        },
+      }));
+      setErrors((prev) => ({ ...prev, [errorKey]: null }));
+    };
+    reader.readAsDataURL(file);
+    // Same file dobara choose karne par bhi onChange chale
+    e.target.value = '';
+  };
+
+  const handleClearImage = (field, inputRef) => () => {
+    setFormData((prev) => ({ ...prev, [field]: { ...EMPTY_IMAGE } }));
+    setErrors((prev) => ({ ...prev, [`${field}.url`]: null }));
+    if (inputRef.current) {
+      inputRef.current.value = '';
+    }
+  };
+
+  // URL haath se type kiya to purana publicId (file name) hata do
+  const handleImageUrlChange = (field) => (value) => {
+    setFormData((prev) => ({ ...prev, [field]: { url: value, publicId: '' } }));
+    const key = `${field}.url`;
+    if (errors[key]) {
+      setErrors((prev) => ({ ...prev, [key]: null }));
+    }
+  };
+
+  const buildImagePayload = (image) =>
+    image?.url?.trim()
+      ? { url: image.url.trim(), publicId: image.publicId || null }
+      : null;
+
   const validate = () => {
     const newErrors = {};
 
@@ -115,19 +297,19 @@ export const CollegeForm = ({
       newErrors.code = 'College code cannot exceed 30 characters';
     }
 
-    if (formData.logo && formData.logo.trim().length > 0) {
-      try {
-        new URL(formData.logo.trim());
-      } catch {
-        newErrors.logo = 'Please provide a valid URL for the logo';
-      }
+    const logoVal = formData.collegeLogo?.url?.trim();
+    if (logoVal && !isValidImageValue(logoVal)) {
+      newErrors['collegeLogo.url'] = 'Please provide a valid image URL or upload a file';
     }
 
-    if (formData.adminSignature?.url && formData.adminSignature.url.trim().length > 0) {
-      const sigVal = formData.adminSignature.url.trim();
-      if (!sigVal.startsWith('data:image/') && !sigVal.startsWith('http://') && !sigVal.startsWith('https://')) {
-        newErrors['adminSignature.url'] = 'Please provide a valid image URL or upload a file';
-      }
+    const sigVal = formData.adminSignature?.url?.trim();
+    if (sigVal && !isValidImageValue(sigVal)) {
+      newErrors['adminSignature.url'] = 'Please provide a valid image URL or upload a file';
+    }
+
+    const stampVal = formData.collegeStamp?.url?.trim();
+    if (stampVal && !isValidImageValue(stampVal)) {
+      newErrors['collegeStamp.url'] = 'Please provide a valid image URL or upload a file';
     }
 
     if (formData.contact.email && formData.contact.email.trim().length > 0) {
@@ -140,63 +322,18 @@ export const CollegeForm = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSignatureFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
-      setErrors((prev) => ({ ...prev, 'adminSignature.url': 'Only PNG, JPEG, and WebP signature images are allowed' }));
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, 'adminSignature.url': 'Signature file size cannot exceed 2MB' }));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({
-        ...prev,
-        adminSignature: {
-          url: reader.result,
-          publicId: file.name,
-        },
-      }));
-      setErrors((prev) => ({ ...prev, 'adminSignature.url': null }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleClearSignature = () => {
-    setFormData((prev) => ({
-      ...prev,
-      adminSignature: {
-        url: '',
-        publicId: '',
-      },
-    }));
-    if (signatureFileInputRef.current) {
-      signatureFileInputRef.current.value = '';
-    }
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLoading) return;
 
     if (validate()) {
-      // Clean payload: omit empty optional fields or send clean nested structure
       const payload = {
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
-        logo: formData.logo.trim() || null,
-        adminSignature: formData.adminSignature?.url?.trim()
-          ? {
-            url: formData.adminSignature.url.trim(),
-            publicId: formData.adminSignature.publicId || null,
-          }
-          : null,
+        // Backend (syncLogoFields) collegeLogo se legacy `logo` khud bhar deta hai
+        collegeLogo: buildImagePayload(formData.collegeLogo),
+        adminSignature: buildImagePayload(formData.adminSignature),
+        collegeStamp: buildImagePayload(formData.collegeStamp),
         address: {
           line1: formData.address.line1.trim() || '',
           line2: formData.address.line2.trim() || '',
@@ -225,9 +362,7 @@ export const CollegeForm = ({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8 max-w-4xl">
-      {errorMessage && (
-        <ErrorMessage message={errorMessage} title="Submission Error" />
-      )}
+      {errorMessage && <ErrorMessage message={errorMessage} title="Submission Error" />}
 
       {/* Section 1: Basic Information */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
@@ -237,7 +372,9 @@ export const CollegeForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">Basic Information</h2>
-            <p className="text-xs text-slate-500">Official college identification and authority signature details</p>
+            <p className="text-xs text-slate-500">
+              Official college identification, logo, signature and stamp
+            </p>
           </div>
         </div>
 
@@ -260,9 +397,7 @@ export const CollegeForm = ({
               className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.name ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
                 }`}
             />
-            {errors.name && (
-              <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>}
           </div>
 
           {/* Code Field */}
@@ -283,121 +418,72 @@ export const CollegeForm = ({
               className={`w-full px-4 py-2.5 font-mono bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.code ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
                 }`}
             />
-            {errors.code && (
-              <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.code}</p>
-            )}
+            {errors.code && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.code}</p>}
             <p className="text-[11px] text-slate-400 mt-1">Unique institutional uppercase code</p>
           </div>
 
-          {/* Logo URL Field */}
-          <div>
-            <label
-              htmlFor="college-logo"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-            >
-              Logo URL <span className="text-slate-400 font-normal lowercase">(optional)</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Image className="w-4 h-4" />
-              </div>
-              <input
-                id="college-logo"
-                type="url"
-                value={formData.logo}
-                disabled={isLoading}
-                onChange={(e) => handleChange('logo', e.target.value)}
-                placeholder="https://example.com/logo.png"
-                className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.logo ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
-                  }`}
-              />
-            </div>
-            {errors.logo && (
-              <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.logo}</p>
-            )}
-          </div>
+          {/* College Logo Upload & Preview (same UI as signature) */}
+          <ImageUploadField
+            id="logo-file-upload"
+            label="College Logo"
+            hint="(optional — shown on ID cards and the colleges list)"
+            icon={Image}
+            value={formData.collegeLogo}
+            error={errors['collegeLogo.url']}
+            disabled={isLoading}
+            inputRef={logoFileInputRef}
+            chooseLabel="Choose Logo Image"
+            urlPlaceholder="https://example.com/logo.png (or data URI from file upload)"
+            formatsNote="Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB."
+            emptyText="No logo uploaded"
+            removeLabel="Remove Logo"
+            previewAlt="College Logo Preview"
+            onFileChange={handleImageFileChange('collegeLogo', 'logo')}
+            onUrlChange={handleImageUrlChange('collegeLogo')}
+            onClear={handleClearImage('collegeLogo', logoFileInputRef)}
+          />
 
-          {/* College Admin Signature Upload & Preview Field */}
-          <div className="sm:col-span-2 pt-2 border-t border-slate-100">
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-              College Admin Signature <span className="text-slate-400 font-normal lowercase">(optional — used for automated ID card generation)</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-              <div className="md:col-span-8 space-y-3">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    ref={signatureFileInputRef}
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    disabled={isLoading}
-                    onChange={handleSignatureFileChange}
-                    className="hidden"
-                    id="signature-file-upload"
-                  />
-                  <label
-                    htmlFor="signature-file-upload"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl border border-indigo-200 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Choose Signature Image</span>
-                  </label>
+          {/* College Admin Signature Upload & Preview */}
+          <ImageUploadField
+            id="signature-file-upload"
+            label="College Admin Signature"
+            hint="(optional — used for automated ID card generation)"
+            icon={PenTool}
+            value={formData.adminSignature}
+            error={errors['adminSignature.url']}
+            disabled={isLoading}
+            inputRef={signatureFileInputRef}
+            chooseLabel="Choose Signature Image"
+            urlPlaceholder="https://example.com/admin-signature.png (or data URI from file upload)"
+            formatsNote="Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB."
+            emptyText="No signature uploaded"
+            removeLabel="Remove Signature"
+            previewAlt="Admin Signature Preview"
+            onFileChange={handleImageFileChange('adminSignature', 'signature')}
+            onUrlChange={handleImageUrlChange('adminSignature')}
+            onClear={handleClearImage('adminSignature', signatureFileInputRef)}
+          />
 
-                  <span className="text-xs text-slate-400">or enter image URL below</span>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <PenTool className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.adminSignature?.url || ''}
-                    disabled={isLoading}
-                    onChange={(e) => handleNestedChange('adminSignature', 'url', e.target.value)}
-                    placeholder="https://example.com/admin-signature.png (or data URI from file upload)"
-                    className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors['adminSignature.url'] ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
-                      }`}
-                  />
-                </div>
-                {errors['adminSignature.url'] && (
-                  <p className="text-xs text-rose-500 font-medium">{errors['adminSignature.url']}</p>
-                )}
-                <p className="text-[11px] text-slate-400">
-                  Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB.
-                </p>
-              </div>
-
-              {/* Signature Preview Thumbnail */}
-              <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 border border-dashed border-slate-200 min-h-[90px]">
-                {formData.adminSignature?.url ? (
-                  <div className="relative group w-full flex flex-col items-center">
-                    <img
-                      src={formData.adminSignature.url}
-                      alt="Admin Signature Preview"
-                      className="max-h-16 max-w-full object-contain"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleClearSignature}
-                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 transition-colors"
-                      title="Remove signature"
-                    >
-                      <X className="w-3 h-3" />
-                      <span>Remove Signature</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center text-slate-400 py-2">
-                    <PenTool className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span className="text-[11px] font-medium">No signature uploaded</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          {/* College Stamp Upload & Preview */}
+          <ImageUploadField
+            id="stamp-file-upload"
+            label="College Stamp / Seal"
+            hint="(optional — printed next to the signature on ID cards)"
+            icon={Stamp}
+            value={formData.collegeStamp}
+            error={errors['collegeStamp.url']}
+            disabled={isLoading}
+            inputRef={stampFileInputRef}
+            chooseLabel="Choose Stamp Image"
+            urlPlaceholder="https://example.com/college-stamp.png (or data URI from file upload)"
+            formatsNote="Supported formats: PNG with transparent background works best, JPG, WebP. Maximum size: 2MB."
+            emptyText="No stamp uploaded"
+            removeLabel="Remove Stamp"
+            previewAlt="College Stamp Preview"
+            onFileChange={handleImageFileChange('collegeStamp', 'stamp')}
+            onUrlChange={handleImageUrlChange('collegeStamp')}
+            onClear={handleClearImage('collegeStamp', stampFileInputRef)}
+          />
         </div>
       </div>
 
@@ -625,4 +711,3 @@ export const CollegeForm = ({
 };
 
 export default CollegeForm;
-

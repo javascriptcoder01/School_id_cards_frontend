@@ -29,6 +29,10 @@ export const ROUTES = {
   ID_CARD_GENERATION_DETAIL: '/id-cards/generations/:generationId',
   ID_CARD_OUTPUT: '/id-cards/generations/:generationId/output',
   ID_CARD_VERIFY: '/verify/:token',
+  // Naya ID card flow: preview + generate + batches (PDF)
+  ID_CARDS: '/id-cards',
+  ID_CARD_BATCHES: '/id-cards/batches',
+  ID_CARD_BATCH_DETAIL: '/id-cards/batches/:batchId',
 
   // Batch 16 & 17 Features
   OPERATOR_ASSIGNMENTS: '/operator-assignments',
@@ -49,6 +53,11 @@ export const ROUTES = {
   // Batch 18 Print Request Workflow
   PRINT_REQUESTS: '/print-requests',
   PRINT_REQUEST_DETAIL: '/print-requests/:requestId',
+  // Print Request workflow (naya)
+  PRINT_REQUEST_NEW: '/print-requests/new',
+  PRINT_REQUEST_EDIT: '/print-requests/:requestId/edit',
+  PRINT_CENTER: '/print-center',
+  PRINT_CENTER_DETAIL: '/print-center/:requestId',
   ADMIN_PRINT_REQUESTS: '/admin/print-requests',
 
   UNAUTHORIZED: '/unauthorized',
@@ -75,6 +84,8 @@ export const getIdCardOutputRoute = (generationId) =>
 
 export const getVerifyIdCardRoute = (token) => `/verify/${token}`;
 
+export const getIdCardBatchDetailRoute = (batchId) => `/id-cards/batches/${batchId}`;
+
 export const getOperatorStudentEditRoute = (studentId) =>
   `/operator/students/${studentId}/edit`;
 
@@ -86,5 +97,9 @@ export const getSuperAdminCollegePrintDetailRoute = (collegeId) =>
 
 export const getPrintRequestDetailRoute = (requestId) =>
   `/print-requests/${requestId}`;
+
+export const getPrintRequestEditRoute = (requestId) => `/print-requests/${requestId}/edit`;
+
+export const getPrintCenterDetailRoute = (requestId) => `/print-center/${requestId}`;
 
 export default ROUTES;

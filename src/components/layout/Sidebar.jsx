@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard,
   School,
@@ -12,15 +12,28 @@ import {
   User,
   UserCheck,
   Printer,
-  Eye,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
 import { selectSidebarOpen } from '../../store/slices/appSlice.js';
+import { fetchBadgeCountsRequested } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
+import { selectPrintRequestBadgeCounts } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
+
+// Badge counts har 60 s (pages apna 30 s poll alag karte hain)
+const BADGE_REFRESH_MS = 60000;
 
 export const Sidebar = () => {
+  const dispatch = useDispatch();
   const userRole = useSelector(selectUserRole);
   const isOpen = useSelector(selectSidebarOpen);
+  const badgeCounts = useSelector(selectPrintRequestBadgeCounts);
+
+  useEffect(() => {
+    if (!userRole) return undefined;
+    dispatch(fetchBadgeCountsRequested());
+    const timer = setInterval(() => dispatch(fetchBadgeCountsRequested()), BADGE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [dispatch, userRole]);
 
   // Navigation Configuration with Granular Role-Based Access
   const navItems = [
@@ -67,30 +80,28 @@ export const Sidebar = () => {
       icon: CreditCard,
       roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
     },
+    // Purane "ID Card Generation" / "Generate ID Cards" pages URL se ab bhi khulte hain (print requests ke liye)
     {
-      label: 'ID Card Generation',
-      path: ROUTES.ID_CARD_GENERATIONS,
+      label: 'ID Cards',
+      path: ROUTES.ID_CARDS,
       icon: Sparkles,
-      roles: ['COLLEGE_ADMIN'],
+      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
     },
-    {
-      label: 'Generate ID Cards',
-      path: ROUTES.ID_CARD_GENERATE,
-      icon: Sparkles,
-      roles: ['OPERATOR'],
-    },
+    // Badge: Operator → Rejected, School Admin → Pending Approval
     {
       label: 'Print Requests',
       path: ROUTES.PRINT_REQUESTS,
       icon: Printer,
       roles: ['COLLEGE_ADMIN', 'OPERATOR'],
+      badgeStatusByRole: { OPERATOR: 'REJECTED_BY_ADMIN', COLLEGE_ADMIN: 'PENDING_APPROVAL' },
     },
-    // Super Admin Print Center
+    // Super Admin Print Center — badge: New Requests
     {
       label: 'Print Center',
-      path: ROUTES.SUPER_ADMIN_PRINT_CENTER,
+      path: ROUTES.PRINT_CENTER,
       icon: Printer,
       roles: ['SUPER_ADMIN'],
+      badgeStatusByRole: { SUPER_ADMIN: 'APPROVED' },
     },
     // Account Settings (All Authenticated)
     {
@@ -105,6 +116,12 @@ export const Sidebar = () => {
   const visibleNavItems = navItems.filter(
     (item) => !item.roles || (userRole && item.roles.includes(userRole))
   );
+
+  // Print request badge: is role ko kitni requests par dhyan dena hai
+  const badgeFor = (item) => {
+    const status = item.badgeStatusByRole?.[userRole];
+    return status ? badgeCounts[status] || 0 : 0;
+  };
 
   return (
     <aside
@@ -133,8 +150,21 @@ export const Sidebar = () => {
                   }
                   title={!isOpen ? item.label : undefined}
                 >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  {isOpen && <span>{item.label}</span>}
+                  <span className="relative shrink-0">
+                    <Icon className="w-5 h-5" />
+                    {!isOpen && badgeFor(item) > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-900" aria-hidden="true" />
+                    )}
+                  </span>
+                  {isOpen && <span className="flex-1">{item.label}</span>}
+                  {isOpen && badgeFor(item) > 0 && (
+                    <span
+                      className="ml-auto min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-white tabular-nums"
+                      aria-label={`${badgeFor(item)} need attention`}
+                    >
+                      {badgeFor(item) > 99 ? '99+' : badgeFor(item)}
+                    </span>
+                  )}
                 </NavLink>
               );
             })}

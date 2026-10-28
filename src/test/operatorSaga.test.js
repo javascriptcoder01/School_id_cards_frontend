@@ -4,19 +4,16 @@ import {
   loadOperatorDashboardWorker,
   createOperatorStudentWorker,
   previewOperatorIdCardWorker,
-  createOperatorGenerationWorker,
 } from '../features/operator/operatorSaga.js';
 import {
   getOperatorDashboard,
   createOperatorStudent,
   previewOperatorIdCard,
-  createOperatorGeneration,
 } from '../features/operator/operatorApi.js';
 import {
   loadOperatorDashboardSucceeded,
   createOperatorStudentSucceeded,
   previewOperatorIdCardSucceeded,
-  createOperatorGenerationSucceeded,
 } from '../features/operator/operatorSlice.js';
 import { showNotification } from '../features/notifications/notificationSlice.js';
 

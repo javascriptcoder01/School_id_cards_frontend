@@ -1,14 +1,16 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   Palette,
-  Layers,
-  Image,
   Save,
-  Trash2,
   Layout,
-  Sliders,
+  Settings2,
+  AlertTriangle,
+  FileImage,
+  Check,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import {
@@ -17,20 +19,187 @@ import {
   TEMPLATE_FONT_WEIGHTS,
   TEMPLATE_FIELDS,
   TEMPLATE_FIELD_LABELS,
-  TEMPLATE_FIELD_VALUES,
+  TEMPLATE_UNITS,
+  TEMPLATE_UNIT_VALUES,
+  TEMPLATE_UNIT_LABELS,
+  TEMPLATE_TEXT_ALIGNS,
+  TEMPLATE_BACKGROUND_FITS,
+  TEMPLATE_BACKGROUND_FIT_VALUES,
+  TEMPLATE_BACKGROUND_FIT_LABELS,
+  TEMPLATE_PHOTO_SHAPES,
+  TEMPLATE_OBJECT_FITS,
+  TEMPLATE_IMAGE_LAYER_ASSET_TYPE,
+  TEMPLATE_IMAGE_LAYER_DEFAULTS,
+  TEMPLATE_MAX_IMAGE_LAYERS,
+  TEMPLATE_MAX_FIELDS,
+  TEMPLATE_DEFAULT_CARD,
+  LETTERHEAD_ASSET_TYPE,
 } from '../../constants/template.js';
+import {
+  toNumber,
+  round2,
+  clamp,
+  createClientId,
+  getLayerKey,
+  getOutOfBoundsElements,
+  convertTemplateUnits,
+  isUsableAsset,
+  lengthForUnit,
+  fontForUnit,
+} from '../../utils/templateLayout.js';
+import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 import RouteLoader from '../common/RouteLoader.jsx';
 
-// Lazy load the visual template designer to optimize initial bundle size
+// Lazy load the visual template designer to keep the initial bundle small
 const TemplateDesigner = lazy(() => import('./designer/TemplateDesigner.jsx'));
 
+/* ------------------------------------------------------------------ */
+/* Defaults & normalizers                                              */
+/* ------------------------------------------------------------------ */
+
+const makeField = (field, overrides = {}) => ({
+  field,
+  label: TEMPLATE_FIELD_LABELS[field] || '',
+  x: 0,
+  y: 0,
+  width: null,
+  fontSize: 8,
+  fontWeight: TEMPLATE_FONT_WEIGHTS.NORMAL,
+  fontFamily: 'Arial',
+  color: '#000000',
+  textAlign: TEMPLATE_TEXT_ALIGNS.LEFT,
+  maxLines: 1,
+  visible: true,
+  ...overrides,
+});
+
+// Standard 86 x 54 mm landscape card
 const DEFAULT_FIELDS = [
-  { field: TEMPLATE_FIELDS.NAME, label: 'Student Name', x: 10, y: 30, fontSize: 14, fontWeight: TEMPLATE_FONT_WEIGHTS.BOLD, visible: true },
-  { field: TEMPLATE_FIELDS.STUDENT_ID, label: 'Student ID', x: 10, y: 40, fontSize: 11, fontWeight: TEMPLATE_FONT_WEIGHTS.NORMAL, visible: true },
-  { field: TEMPLATE_FIELDS.CLASS_NAME, label: 'Class', x: 10, y: 48, fontSize: 11, fontWeight: TEMPLATE_FONT_WEIGHTS.NORMAL, visible: true },
-  { field: TEMPLATE_FIELDS.ROLL_NUMBER, label: 'Roll No', x: 10, y: 56, fontSize: 11, fontWeight: TEMPLATE_FONT_WEIGHTS.NORMAL, visible: true },
+  makeField(TEMPLATE_FIELDS.NAME, { label: '', x: 34, y: 15, width: 48, fontSize: 10, fontWeight: TEMPLATE_FONT_WEIGHTS.BOLD }),
+  makeField(TEMPLATE_FIELDS.STUDENT_ID, { label: 'ID', x: 34, y: 22 }),
+  makeField(TEMPLATE_FIELDS.CLASS_NAME, { label: 'Class', x: 34, y: 27 }),
+  makeField(TEMPLATE_FIELDS.ROLL_NUMBER, { label: 'Roll No', x: 34, y: 32 }),
 ];
+
+const makePhoto = (unit) => ({
+  x: lengthForUnit(5, unit),
+  y: lengthForUnit(14, unit),
+  width: lengthForUnit(25, unit),
+  height: lengthForUnit(30, unit),
+  shape: TEMPLATE_PHOTO_SHAPES.ROUNDED,
+  borderRadius: lengthForUnit(2, unit),
+  borderWidth: 0,
+  borderColor: '#FFFFFF',
+  objectFit: TEMPLATE_OBJECT_FITS.COVER,
+  visible: true,
+});
+
+const makeQrCode = (unit, cardWidth, cardHeight) => {
+  const size = lengthForUnit(13, unit);
+  const margin = lengthForUnit(3, unit);
+  return {
+    // Upar-daayein kona (signature/stamp neeche-daayein jaate hain)
+    x: Math.max(0, round2(cardWidth - size - margin)),
+    y: margin,
+    width: size,
+    height: size,
+    visible: true,
+  };
+};
+
+const idOf = (value) => (value && typeof value === 'object' ? value._id || value.id : value) || null;
+
+const normalizeField = (f) =>
+  makeField(f.field, {
+    label: f.label ?? '',
+    x: toNumber(f.x),
+    y: toNumber(f.y),
+    width: f.width ?? null,
+    fontSize: toNumber(f.fontSize, 12),
+    fontWeight: f.fontWeight || TEMPLATE_FONT_WEIGHTS.NORMAL,
+    fontFamily: f.fontFamily || 'Arial',
+    color: f.color || '#000000',
+    textAlign: f.textAlign || TEMPLATE_TEXT_ALIGNS.LEFT,
+    maxLines: f.maxLines ?? 1,
+    visible: f.visible !== false,
+  });
+
+const buildInitialState = (iv) => {
+  if (!iv) {
+    const { unit, width, height } = TEMPLATE_DEFAULT_CARD;
+    return {
+      name: '',
+      orientation: TEMPLATE_DEFAULT_CARD.orientation,
+      unit,
+      width,
+      height,
+      backgroundAssetId: null,
+      background: null,
+      backgroundFit: TEMPLATE_BACKGROUND_FITS.COVER,
+      logo: null,
+      primaryColor: '#4F46E5',
+      secondaryColor: '#9333EA',
+      fields: DEFAULT_FIELDS,
+      photo: makePhoto(unit),
+      qrCode: null,
+      imageLayers: [],
+      version: null,
+    };
+  }
+
+  return {
+    name: iv.name || '',
+    orientation: iv.orientation || TEMPLATE_ORIENTATIONS.PORTRAIT,
+    // Purane templates bina unit ke = PX (backend default)
+    unit: iv.unit || TEMPLATE_UNITS.PX,
+    width: toNumber(iv.width, 86),
+    height: toNumber(iv.height, 54),
+    backgroundAssetId: idOf(iv.backgroundAssetId),
+    background: iv.background || null,
+    backgroundFit: iv.backgroundFit || TEMPLATE_BACKGROUND_FITS.COVER,
+    logo: iv.logo || null,
+    primaryColor: iv.primaryColor || '#4F46E5',
+    secondaryColor: iv.secondaryColor || '#9333EA',
+    fields: Array.isArray(iv.fields) && iv.fields.length > 0 ? iv.fields.map(normalizeField) : DEFAULT_FIELDS,
+    photo: iv.photo ? { ...makePhoto(iv.unit || TEMPLATE_UNITS.PX), ...iv.photo } : null,
+    qrCode: iv.qrCode || null,
+    imageLayers: (iv.imageLayers || []).map((l) => ({
+      ...l,
+      _id: l._id ? String(l._id) : undefined,
+      assetId: idOf(l.assetId),
+    })),
+    version: iv.version ?? null,
+  };
+};
+
+/* ------------------------------------------------------------------ */
+/* Small UI pieces                                                     */
+/* ------------------------------------------------------------------ */
+
+const sectionClass = 'bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6';
+const labelClass = 'block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2';
+const inputClass =
+  'w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all';
+
+const SectionHeader = ({ icon: Icon, tone, title, subtitle, action }) => (
+  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
+    <div className="flex items-center gap-3">
+      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${tone}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <h2 className="text-base font-bold text-slate-800">{title}</h2>
+        <p className="text-xs text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+    {action}
+  </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* Form                                                                */
+/* ------------------------------------------------------------------ */
 
 export const TemplateForm = ({
   initialValues = null,
@@ -41,654 +210,597 @@ export const TemplateForm = ({
   onCancel,
 }) => {
   const navigate = useNavigate();
-
-  const [activeTab, setActiveTab] = useState('DESIGNER'); // 'DESIGNER' | 'SPECIFICATIONS'
-
-  const [formData, setFormData] = useState({
-    name: '',
-    orientation: TEMPLATE_ORIENTATIONS.PORTRAIT,
-    width: 86,
-    height: 54,
-    background: '',
-    logo: '',
-    primaryColor: '#4F46E5',
-    secondaryColor: '#9333EA',
-    fields: DEFAULT_FIELDS,
-    photo: {
-      x: 55,
-      y: 20,
-      width: 25,
-      height: 30,
-      visible: true,
-    },
-  });
-
+  const [activeTab, setActiveTab] = useState('DESIGN'); // 'DESIGN' | 'SETUP'
+  const [formData, setFormData] = useState(() => buildInitialState(initialValues));
   const [errors, setErrors] = useState({});
 
+  const { assets, isLoading: assetsLoading, error: assetsError, reload: reloadAssets } = useCollegeAssets();
+
   useEffect(() => {
-    if (initialValues) {
-      setFormData({
-        name: initialValues.name || '',
-        orientation: initialValues.orientation || TEMPLATE_ORIENTATIONS.PORTRAIT,
-        width: initialValues.width || 86,
-        height: initialValues.height || 54,
-        background: initialValues.background || '',
-        logo: initialValues.logo || '',
-        primaryColor: initialValues.primaryColor || '#4F46E5',
-        secondaryColor: initialValues.secondaryColor || '#9333EA',
-        fields: Array.isArray(initialValues.fields) && initialValues.fields.length > 0
-          ? initialValues.fields
-          : DEFAULT_FIELDS,
-        photo: initialValues.photo || {
-          x: 55,
-          y: 20,
-          width: 25,
-          height: 30,
-          visible: true,
-        },
-      });
-    }
+    if (initialValues) setFormData(buildInitialState(initialValues));
   }, [initialValues]);
 
-  const handleChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: null }));
+  const usableAssets = useMemo(() => assets.filter(isUsableAsset), [assets]);
+  // Base64 / bahut lambe URL wale assets layer mein save nahi ho sakte (backend maxlength 1000)
+  const unusableAssetCount = assets.length - usableAssets.length;
+  const letterheads = usableAssets.filter((a) => a.type === LETTERHEAD_ASSET_TYPE);
+  const outOfBounds = useMemo(() => getOutOfBoundsElements(formData), [formData]);
+
+  const unit = formData.unit;
+  const u = TEMPLATE_UNIT_LABELS[unit] || unit;
+  const cardWidth = toNumber(formData.width, 86);
+  const cardHeight = toNumber(formData.height, 54);
+
+  const update = (patch) => {
+    setFormData((prev) => ({ ...prev, ...patch }));
+    const keys = Object.keys(patch);
+    if (keys.some((k) => errors[k])) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        keys.forEach((k) => delete next[k]);
+        return next;
+      });
     }
   };
 
-  const handlePhotoChange = (fieldOrProp, value) => {
-    if (fieldOrProp === 'photo' && typeof value === 'object') {
-      setFormData((prev) => ({
-        ...prev,
-        photo: value,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        photo: {
-          ...prev.photo,
-          [fieldOrProp]: value,
-        },
-      }));
-    }
-  };
+  /* ---------- Card setup ---------- */
 
-  const handleFieldChange = (index, prop, value) => {
+  const handleOrientationChange = (orientation) => {
     setFormData((prev) => {
-      const updated = [...prev.fields];
-      updated[index] = { ...updated[index], [prop]: value };
-      return { ...prev, fields: updated };
+      const w = toNumber(prev.width);
+      const h = toNumber(prev.height);
+      const wantsPortrait = orientation === TEMPLATE_ORIENTATIONS.PORTRAIT;
+      // Orientation badle to width/height swap, taaki card sach mein ghoome
+      const shouldSwap = (wantsPortrait && w > h) || (!wantsPortrait && h > w);
+      return shouldSwap ? { ...prev, orientation, width: h, height: w } : { ...prev, orientation };
     });
   };
 
+  const handleUnitChange = (nextUnit) => {
+    setFormData((prev) => convertTemplateUnits(prev, prev.unit, nextUnit));
+  };
+
+  /* ---------- Fields ---------- */
+
   const handleAddField = (fieldName) => {
-    if (formData.fields.some((f) => f.field === fieldName)) return;
+    setFormData((prev) => {
+      if (prev.fields.some((f) => f.field === fieldName) || prev.fields.length >= TEMPLATE_MAX_FIELDS) return prev;
+      const lastY = prev.fields.reduce((max, f) => Math.max(max, toNumber(f.y)), 0);
+      const gap = lengthForUnit(5, prev.unit);
+      const fontSize = fontForUnit(8, prev.unit);
+      const y = clamp(round2(lastY + gap), 0, Math.max(0, toNumber(prev.height) - gap));
+      const x = clamp(lengthForUnit(34, prev.unit), 0, Math.max(0, toNumber(prev.width) - gap));
+      return { ...prev, fields: [...prev.fields, makeField(fieldName, { x, y, fontSize })] };
+    });
+  };
 
-    const newField = {
-      field: fieldName,
-      label: TEMPLATE_FIELD_LABELS[fieldName] || fieldName,
-      x: 10,
-      y: 20 + formData.fields.length * 8,
-      fontSize: 11,
-      fontWeight: TEMPLATE_FONT_WEIGHTS.NORMAL,
-      visible: true,
-    };
-
-    setFormData((prev) => ({
-      ...prev,
-      fields: [...prev.fields, newField],
-    }));
+  const handleUpdateField = (index, patch) => {
+    setFormData((prev) => {
+      const fields = [...prev.fields];
+      fields[index] = { ...fields[index], ...patch };
+      return { ...prev, fields };
+    });
+    if (errors.fields) setErrors((prev) => ({ ...prev, fields: null }));
   };
 
   const handleRemoveField = (index) => {
+    setFormData((prev) => ({ ...prev, fields: prev.fields.filter((_, i) => i !== index) }));
+  };
+
+  /* ---------- Photo & QR ---------- */
+
+  const handleAddPhoto = () => setFormData((prev) => ({ ...prev, photo: makePhoto(prev.unit) }));
+  const handleUpdatePhoto = (photo) => setFormData((prev) => ({ ...prev, photo }));
+  const handleAddQrCode = () =>
     setFormData((prev) => ({
       ...prev,
-      fields: prev.fields.filter((_, i) => i !== index),
+      qrCode: makeQrCode(prev.unit, toNumber(prev.width), toNumber(prev.height)),
+    }));
+  const handleUpdateQrCode = (qrCode) => setFormData((prev) => ({ ...prev, qrCode }));
+
+  /* ---------- Image layers ---------- */
+
+  // Returns the new layer's key so the designer can select it
+  const handleAddLayer = (type) => {
+    if (formData.imageLayers.length >= TEMPLATE_MAX_IMAGE_LAYERS) return null;
+    const assetType = TEMPLATE_IMAGE_LAYER_ASSET_TYPE[type];
+    const candidates = usableAssets.filter((a) => !assetType || a.type === assetType);
+    if (candidates.length === 0) return null;
+
+    const usedIds = new Set(formData.imageLayers.map((l) => String(l.assetId)));
+    const asset = candidates.find((a) => !usedIds.has(String(a._id))) || candidates[0];
+    const defaults = TEMPLATE_IMAGE_LAYER_DEFAULTS[type] || TEMPLATE_IMAGE_LAYER_DEFAULTS.CUSTOM;
+    const width = Math.min(lengthForUnit(defaults.width, unit), cardWidth);
+    const height = Math.min(lengthForUnit(defaults.height, unit), cardHeight);
+    const margin = lengthForUnit(3, unit);
+
+    const clientId = createClientId();
+    const layer = {
+      clientId,
+      type,
+      assetId: asset._id,
+      url: asset.url,
+      // Default jagah: logo upar-baayein, signature neeche-daayein, stamp signature ke thoda baayein (overlap)
+      x: type === 'LOGO' ? margin : Math.max(0, round2(cardWidth - width - margin - (type === 'STAMP' ? lengthForUnit(16, unit) : 0))),
+      y: type === 'LOGO' ? margin : Math.max(0, round2(cardHeight - height - margin)),
+      width,
+      height,
+      opacity: defaults.opacity,
+      rotation: defaults.rotation,
+      zIndex: defaults.zIndex,
+      visible: true,
+    };
+    setFormData((prev) => ({ ...prev, imageLayers: [...prev.imageLayers, layer] }));
+    return clientId;
+  };
+
+  const handleUpdateLayer = (key, patch) => {
+    setFormData((prev) => ({
+      ...prev,
+      imageLayers: prev.imageLayers.map((l) => (getLayerKey(l) === key ? { ...l, ...patch } : l)),
     }));
   };
 
+  const handleRemoveLayer = (key) => {
+    setFormData((prev) => ({
+      ...prev,
+      imageLayers: prev.imageLayers.filter((l) => getLayerKey(l) !== key),
+    }));
+  };
+
+  /* ---------- Validation & submit ---------- */
+
   const validate = () => {
     const newErrors = {};
+    const name = formData.name.trim();
+    if (!name) newErrors.name = 'Template name is required';
+    else if (name.length < 2) newErrors.name = 'Template name must be at least 2 characters long';
+    else if (name.length > 150) newErrors.name = 'Template name cannot exceed 150 characters';
 
-    const nameTrimmed = formData.name.trim();
-    if (!nameTrimmed) {
-      newErrors.name = 'Template name is required';
-    } else if (nameTrimmed.length < 2) {
-      newErrors.name = 'Template name must be at least 2 characters long';
-    } else if (nameTrimmed.length > 150) {
-      newErrors.name = 'Template name cannot exceed 150 characters';
+    if (!(toNumber(formData.width) > 0)) newErrors.width = 'Width must be a positive number';
+    if (!(toNumber(formData.height) > 0)) newErrors.height = 'Height must be a positive number';
+
+    if (formData.fields.length === 0) newErrors.fields = 'Add at least one student field to the card';
+    if (formData.fields.length > TEMPLATE_MAX_FIELDS) newErrors.fields = `A card can have at most ${TEMPLATE_MAX_FIELDS} fields`;
+
+    if (formData.imageLayers.length > TEMPLATE_MAX_IMAGE_LAYERS) {
+      newErrors.imageLayers = `A card can have at most ${TEMPLATE_MAX_IMAGE_LAYERS} images`;
+    } else {
+      const unknown = formData.imageLayers.findIndex(
+        (l) => !l.assetId || !usableAssets.some((a) => String(a._id) === String(l.assetId))
+      );
+      // Assets load na hue hon to ye check skip (backend phir bhi verify karta hai)
+      if (!assetsLoading && !assetsError && unknown !== -1) {
+        newErrors.imageLayers = `Image ${unknown + 1} on the card is no longer available. Pick another image or remove it.`;
+      }
     }
 
-    if (!formData.orientation) {
-      newErrors.orientation = 'Orientation is required';
-    }
-
-    if (!formData.width || Number(formData.width) <= 0) {
-      newErrors.width = 'Width must be a positive number';
-    }
-
-    if (!formData.height || Number(formData.height) <= 0) {
-      newErrors.height = 'Height must be a positive number';
-    }
-
-    if (!formData.fields || formData.fields.length === 0) {
-      newErrors.fields = 'At least one field must be configured';
-    }
+    if (outOfBounds.length) newErrors.layout = `These go outside the card: ${outOfBounds.join(', ')}`;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const buildPayload = () => {
+    const num = (v, fallback = 0) => round2(toNumber(v, fallback));
+    return {
+      name: formData.name.trim(),
+      orientation: formData.orientation,
+      unit: formData.unit,
+      width: num(formData.width),
+      height: num(formData.height),
+      // Letterhead asset ho to backend uska url `background` mein khud copy karta hai
+      backgroundAssetId: formData.backgroundAssetId || null,
+      background: formData.backgroundAssetId ? undefined : formData.background || null,
+      backgroundFit: formData.backgroundFit,
+      logo: formData.logo || null,
+      primaryColor: formData.primaryColor?.trim() || null,
+      secondaryColor: formData.secondaryColor?.trim() || null,
+      fields: formData.fields.map((f) => ({
+        field: f.field,
+        label: f.label?.trim() || null,
+        x: num(f.x),
+        y: num(f.y),
+        width: f.width === null || f.width === '' ? null : num(f.width),
+        fontSize: num(f.fontSize, 12),
+        fontWeight: f.fontWeight || TEMPLATE_FONT_WEIGHTS.NORMAL,
+        fontFamily: f.fontFamily || 'Arial',
+        color: f.color || '#000000',
+        textAlign: f.textAlign || TEMPLATE_TEXT_ALIGNS.LEFT,
+        maxLines: Math.round(toNumber(f.maxLines, 1)),
+        visible: f.visible !== false,
+      })),
+      photo: formData.photo
+        ? {
+          x: num(formData.photo.x),
+          y: num(formData.photo.y),
+          width: num(formData.photo.width),
+          height: num(formData.photo.height),
+          shape: formData.photo.shape,
+          borderRadius: num(formData.photo.borderRadius),
+          borderWidth: num(formData.photo.borderWidth),
+          borderColor: formData.photo.borderColor || null,
+          objectFit: formData.photo.objectFit,
+          visible: formData.photo.visible !== false,
+        }
+        : null,
+      qrCode: formData.qrCode
+        ? {
+          x: num(formData.qrCode.x),
+          y: num(formData.qrCode.y),
+          width: num(formData.qrCode.width),
+          height: num(formData.qrCode.height),
+          visible: formData.qrCode.visible !== false,
+        }
+        : null,
+      // url nahi bhejte — backend asset se copy karta hai. Saved layers apna _id rakhte hain.
+      imageLayers: formData.imageLayers.map((l) => ({
+        ...(l._id ? { _id: l._id } : {}),
+        type: l.type,
+        assetId: String(l.assetId),
+        x: num(l.x),
+        y: num(l.y),
+        width: num(l.width),
+        height: num(l.height),
+        opacity: num(l.opacity, 1),
+        rotation: num(l.rotation),
+        zIndex: Math.round(toNumber(l.zIndex, 10)),
+        visible: l.visible !== false,
+      })),
+    };
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLoading) return;
+    if (!validate()) return;
 
-    if (validate()) {
-      const payload = {
-        name: formData.name.trim(),
-        orientation: formData.orientation,
-        width: Number(formData.width),
-        height: Number(formData.height),
-        background: formData.background ? formData.background.trim() : null,
-        logo: formData.logo ? formData.logo.trim() : null,
-        primaryColor: formData.primaryColor ? formData.primaryColor.trim() : null,
-        secondaryColor: formData.secondaryColor ? formData.secondaryColor.trim() : null,
-        fields: formData.fields.map((f) => ({
-          field: f.field,
-          label: f.label ? f.label.trim() : null,
-          x: Number(f.x) || 0,
-          y: Number(f.y) || 0,
-          fontSize: Number(f.fontSize) || 12,
-          fontWeight: f.fontWeight || TEMPLATE_FONT_WEIGHTS.NORMAL,
-          visible: f.visible !== false,
-        })),
-        photo: formData.photo
-          ? {
-              x: Number(formData.photo.x) || 0,
-              y: Number(formData.photo.y) || 0,
-              width: Number(formData.photo.width) || 25,
-              height: Number(formData.photo.height) || 30,
-              visible: formData.photo.visible !== false,
-            }
-          : null,
-      };
-
-      onSubmit(payload);
-    }
+    // undefined keys hata do (JSON mein waise bhi nahi jaate, par saaf rakhna)
+    const payload = JSON.parse(JSON.stringify(buildPayload()));
+    onSubmit(payload);
   };
 
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    } else {
-      navigate(ROUTES.TEMPLATES);
-    }
-  };
+  const handleCancel = () => (onCancel ? onCancel() : navigate(ROUTES.TEMPLATES));
 
-  const availableFieldOptions = TEMPLATE_FIELD_VALUES.filter(
-    (fieldVal) => !formData.fields.some((f) => f.field === fieldVal)
-  );
+  const selectedLetterhead = letterheads.find((a) => String(a._id) === String(formData.backgroundAssetId));
+  const errorList = [errors.fields, errors.imageLayers, errors.layout].filter(Boolean);
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-8 max-w-5xl">
-      {errorMessage && (
-        <ErrorMessage message={errorMessage} title="Submission Error" />
+    <form onSubmit={handleSubmit} noValidate className="space-y-6 max-w-6xl">
+      {errorMessage && <ErrorMessage message={errorMessage} title="Couldn't save the template" />}
+
+      {errorList.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
+          <p className="font-semibold flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" /> Fix these before saving
+          </p>
+          <ul className="mt-2 ml-6 list-disc space-y-1">
+            {errorList.map((msg) => (
+              <li key={msg}>{msg}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {/* View Switcher Tabs */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
-        <button
-          type="button"
-          onClick={() => setActiveTab('DESIGNER')}
-          className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'DESIGNER'
-              ? 'bg-white text-indigo-700 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Layout className="w-4 h-4" />
-          <span>Visual Card Designer</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('SPECIFICATIONS')}
-          className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'SPECIFICATIONS'
-              ? 'bg-white text-indigo-700 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>Form Specifications & Variables</span>
-        </button>
-      </div>
+      {/* Section 1: Basics (always visible) */}
+      <div className={sectionClass}>
+        <SectionHeader
+          icon={CreditCard}
+          tone="bg-indigo-50 border-indigo-100 text-indigo-600"
+          title="Template Details"
+          subtitle="Name, orientation and card size"
+          action={
+            isEdit && formData.version ? (
+              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                Version {formData.version}
+              </span>
+            ) : null
+          }
+        />
 
-      {/* Section 1: Template General Properties (Always accessible) */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
-            <CreditCard className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-800">Template Specifications</h2>
-            <p className="text-xs text-slate-500">Name, card orientation, and physical dimensions</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Template Name */}
-          <div className="sm:col-span-2">
-            <label
-              htmlFor="template-name"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-            >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="sm:col-span-2 lg:col-span-4">
+            <label htmlFor="template-name" className={labelClass}>
               Template Name <span className="text-rose-500">*</span>
             </label>
             <input
               id="template-name"
               type="text"
+              maxLength={150}
               value={formData.name}
               disabled={isLoading}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="e.g. Standard Student ID 2026"
-              className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${
-                errors.name ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
-              }`}
+              onChange={(e) => update({ name: e.target.value })}
+              placeholder="e.g. Student ID 2026"
+              className={`${inputClass} ${errors.name ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'}`}
             />
-            {errors.name && (
-              <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>}
           </div>
 
-          {/* Orientation */}
           <div>
-            <label
-              htmlFor="template-orientation"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-            >
-              Card Orientation <span className="text-rose-500">*</span>
-            </label>
+            <label htmlFor="template-orientation" className={labelClass}>Orientation</label>
             <select
               id="template-orientation"
               value={formData.orientation}
               disabled={isLoading}
-              onChange={(e) => handleChange('orientation', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all cursor-pointer"
+              onChange={(e) => handleOrientationChange(e.target.value)}
+              className={`${inputClass} border-slate-200 cursor-pointer`}
             >
-              {TEMPLATE_ORIENTATION_VALUES.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
+              {TEMPLATE_ORIENTATION_VALUES.map((o) => (
+                <option key={o} value={o}>{o.charAt(0) + o.slice(1).toLowerCase()}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="template-unit" className={labelClass}>Measurement Unit</label>
+            <select
+              id="template-unit"
+              value={unit}
+              disabled={isLoading}
+              onChange={(e) => handleUnitChange(e.target.value)}
+              className={`${inputClass} border-slate-200 cursor-pointer`}
+            >
+              {TEMPLATE_UNIT_VALUES.map((v) => (
+                <option key={v} value={v}>
+                  {v === TEMPLATE_UNITS.MM ? 'Millimetres (print)' : 'Pixels'}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Dimensions (Width & Height) */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="template-width"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-              >
-                Width (mm) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                id="template-width"
-                type="number"
-                min="1"
-                value={formData.width}
-                disabled={isLoading}
-                onChange={(e) => handleChange('width', e.target.value)}
-                className={`w-full px-4 py-2.5 font-mono bg-slate-50 border rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${
-                  errors.width ? 'border-rose-400' : 'border-slate-200'
-                }`}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="template-height"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-              >
-                Height (mm) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                id="template-height"
-                type="number"
-                min="1"
-                value={formData.height}
-                disabled={isLoading}
-                onChange={(e) => handleChange('height', e.target.value)}
-                className={`w-full px-4 py-2.5 font-mono bg-slate-50 border rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${
-                  errors.height ? 'border-rose-400' : 'border-slate-200'
-                }`}
-              />
-            </div>
+          <div>
+            <label htmlFor="template-width" className={labelClass}>
+              Width ({u}) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="template-width"
+              type="number"
+              min="1"
+              step="0.1"
+              value={formData.width}
+              disabled={isLoading}
+              onChange={(e) => update({ width: e.target.value })}
+              className={`${inputClass} font-mono ${errors.width ? 'border-rose-400' : 'border-slate-200'}`}
+            />
+            {errors.width && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.width}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="template-height" className={labelClass}>
+              Height ({u}) <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="template-height"
+              type="number"
+              min="1"
+              step="0.1"
+              value={formData.height}
+              disabled={isLoading}
+              onChange={(e) => update({ height: e.target.value })}
+              className={`${inputClass} font-mono ${errors.height ? 'border-rose-400' : 'border-slate-200'}`}
+            />
+            {errors.height && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.height}</p>}
           </div>
         </div>
+        <p className="text-[11px] text-slate-400 -mt-2">
+          Standard ID card: 86 × 54 mm. Changing the unit converts every position and size on the card.
+        </p>
       </div>
 
-      {/* Tab View 1: Visual Designer View */}
-      {activeTab === 'DESIGNER' && (
-        <div className="space-y-6">
-          <Suspense fallback={<RouteLoader message="Loading visual card designer..." />}>
-            <TemplateDesigner
-              formData={formData}
-              onPhotoChange={handlePhotoChange}
-              onFieldChange={handleFieldChange}
-              onAddField={handleAddField}
-              onRemoveField={handleRemoveField}
-            />
-          </Suspense>
+      {/* Live layout warning */}
+      {outOfBounds.length > 0 && !errors.layout && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            Outside the card, move or resize before saving: <strong>{outOfBounds.join(', ')}</strong>
+          </span>
         </div>
       )}
 
-      {/* Tab View 2: Specifications & Variable Inputs */}
-      {activeTab === 'SPECIFICATIONS' && (
+      {/* Tabs */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200" role="tablist">
+        {[
+          { key: 'DESIGN', icon: Layout, label: 'Card Designer' },
+          { key: 'SETUP', icon: Settings2, label: 'Letterhead & Theme' },
+        ].map(({ key, icon: Icon, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === key}
+            onClick={() => setActiveTab(key)}
+            className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${activeTab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Asset loading problems affect both tabs */}
+      {assetsError && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            College images (letterhead, logo, signature, stamp) couldn&apos;t be loaded: {assetsError}
+          </span>
+          <button type="button" onClick={reloadAssets} className="inline-flex items-center gap-1 font-semibold hover:underline">
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      )}
+      {!assetsLoading && unusableAssetCount > 0 && (
+        <p className="text-xs text-slate-500">
+          {unusableAssetCount} college {unusableAssetCount === 1 ? 'image is' : 'images are'} hidden because{' '}
+          {unusableAssetCount === 1 ? 'it was' : 'they were'} saved as embedded data instead of an uploaded file link.
+          Re-upload {unusableAssetCount === 1 ? 'it' : 'them'} in the College profile to use on cards.
+        </p>
+      )}
+
+      {activeTab === 'DESIGN' && (
+        <Suspense fallback={<RouteLoader message="Loading card designer..." />}>
+          <TemplateDesigner
+            formData={formData}
+            usableAssets={usableAssets}
+            assetsLoading={assetsLoading}
+            onAddField={handleAddField}
+            onUpdateField={handleUpdateField}
+            onRemoveField={handleRemoveField}
+            onAddPhoto={handleAddPhoto}
+            onUpdatePhoto={handleUpdatePhoto}
+            onAddQrCode={handleAddQrCode}
+            onUpdateQrCode={handleUpdateQrCode}
+            onAddLayer={handleAddLayer}
+            onUpdateLayer={handleUpdateLayer}
+            onRemoveLayer={handleRemoveLayer}
+          />
+        </Suspense>
+      )}
+
+      {activeTab === 'SETUP' && (
         <>
-          {/* Section 2: Branding & Style */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center font-bold">
-                <Palette className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Branding & Color Theme</h2>
-                <p className="text-xs text-slate-500">Logos, background artwork, and theme accents</p>
-              </div>
-            </div>
+          {/* Letterhead */}
+          <div className={sectionClass}>
+            <SectionHeader
+              icon={FileImage}
+              tone="bg-emerald-50 border-emerald-100 text-emerald-600"
+              title="Letterhead (Card Background)"
+              subtitle="Pick one of the college's uploaded letterhead designs"
+            />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Background URL */}
-              <div>
-                <label
-                  htmlFor="template-bg"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+            {assetsLoading ? (
+              <p className="text-sm text-slate-500">Loading letterheads…</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => update({ backgroundAssetId: null, background: null })}
+                  aria-pressed={!formData.backgroundAssetId && !formData.background}
+                  className={`aspect-[86/54] rounded-xl border-2 grid place-items-center text-xs font-semibold transition-colors ${!formData.backgroundAssetId && !formData.background
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-dashed border-slate-300 text-slate-500 hover:border-slate-400'
+                    }`}
                 >
-                  Background Image URL
-                </label>
-                <input
-                  id="template-bg"
-                  type="url"
-                  value={formData.background}
-                  disabled={isLoading}
-                  onChange={(e) => handleChange('background', e.target.value)}
-                  placeholder="https://example.com/id-bg.png"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
+                  No letterhead
+                </button>
+
+                {letterheads.map((asset) => {
+                  const isSelected = String(asset._id) === String(formData.backgroundAssetId);
+                  return (
+                    <button
+                      key={asset._id}
+                      type="button"
+                      onClick={() => update({ backgroundAssetId: asset._id, background: asset.url })}
+                      aria-pressed={isSelected}
+                      title={asset.name}
+                      className={`relative aspect-[86/54] rounded-xl border-2 overflow-hidden bg-slate-50 transition-colors ${isSelected ? 'border-indigo-500' : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                    >
+                      <img src={asset.url} alt={asset.name || 'Letterhead'} className="w-full h-full object-cover" />
+                      {isSelected && (
+                        <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white grid place-items-center">
+                          <Check className="w-3 h-3" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* Logo URL */}
-              <div>
-                <label
-                  htmlFor="template-logo"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-                >
-                  College Logo URL
-                </label>
-                <input
-                  id="template-logo"
-                  type="url"
-                  value={formData.logo}
-                  disabled={isLoading}
-                  onChange={(e) => handleChange('logo', e.target.value)}
-                  placeholder="https://example.com/logo.png"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              {/* Primary Color */}
-              <div>
-                <label
-                  htmlFor="template-primary"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-                >
-                  Primary Theme Color
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={formData.primaryColor || '#4F46E5'}
-                    disabled={isLoading}
-                    onChange={(e) => handleChange('primaryColor', e.target.value)}
-                    className="w-10 h-10 p-0 border border-slate-200 rounded-xl cursor-pointer"
-                  />
-                  <input
-                    id="template-primary"
-                    type="text"
-                    value={formData.primaryColor}
-                    disabled={isLoading}
-                    onChange={(e) => handleChange('primaryColor', e.target.value)}
-                    placeholder="#4F46E5"
-                    className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Secondary Color */}
-              <div>
-                <label
-                  htmlFor="template-secondary"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
-                >
-                  Secondary Theme Color
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={formData.secondaryColor || '#9333EA'}
-                    disabled={isLoading}
-                    onChange={(e) => handleChange('secondaryColor', e.target.value)}
-                    className="w-10 h-10 p-0 border border-slate-200 rounded-xl cursor-pointer"
-                  />
-                  <input
-                    id="template-secondary"
-                    type="text"
-                    value={formData.secondaryColor}
-                    disabled={isLoading}
-                    onChange={(e) => handleChange('secondaryColor', e.target.value)}
-                    placeholder="#9333EA"
-                    className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Dynamic Data Fields Configuration */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center font-bold">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Dynamic Text Fields ({formData.fields.length})</h2>
-                  <p className="text-xs text-slate-500">Map data variables and coordinates on the card layout</p>
-                </div>
-              </div>
-
-              {availableFieldOptions.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <select
-                    id="add-field-select"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAddField(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors cursor-pointer"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>+ Add Variable Field</option>
-                    {availableFieldOptions.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {TEMPLATE_FIELD_LABELS[opt] || opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            {errors.fields && (
-              <p className="text-xs text-rose-500 font-semibold">{errors.fields}</p>
             )}
 
-            <div className="space-y-3">
-              {formData.fields.map((f, idx) => (
-                <div
-                  key={f.field}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+            {!assetsLoading && letterheads.length === 0 && (
+              <p className="text-xs text-slate-500">
+                No letterhead uploaded for this college yet. Upload one as a college asset of type LETTERHEAD to use it here.
+              </p>
+            )}
+
+            {/* Old templates: background URL without an asset */}
+            {!formData.backgroundAssetId && formData.background && (
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                <span>This template uses an older background image link. Pick a letterhead above to replace it.</span>
+                <button type="button" onClick={() => update({ background: null })} className="inline-flex items-center gap-1 font-semibold text-rose-600 hover:text-rose-700 shrink-0">
+                  <X className="w-3.5 h-3.5" /> Remove
+                </button>
+              </div>
+            )}
+
+            {(formData.backgroundAssetId || formData.background) && (
+              <div className="max-w-xs">
+                <label htmlFor="template-bg-fit" className={labelClass}>Background fit</label>
+                <select
+                  id="template-bg-fit"
+                  value={formData.backgroundFit}
+                  onChange={(e) => update({ backgroundFit: e.target.value })}
+                  className={`${inputClass} border-slate-200 cursor-pointer`}
                 >
-                  <div className="flex items-center gap-3 min-w-[180px]">
-                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 font-mono">
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-900 block">
-                        {TEMPLATE_FIELD_LABELS[f.field] || f.field}
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-400">
-                        var: {f.field}
-                      </span>
-                    </div>
-                  </div>
+                  {TEMPLATE_BACKGROUND_FIT_VALUES.map((f) => (
+                    <option key={f} value={f}>{TEMPLATE_BACKGROUND_FIT_LABELS[f] || f}</option>
+                  ))}
+                </select>
+                {selectedLetterhead && (
+                  <p className="text-[11px] text-slate-400 mt-1.5 truncate">Selected: {selectedLetterhead.name}</p>
+                )}
+              </div>
+            )}
+          </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full sm:w-auto">
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">X (mm)</label>
-                      <input
-                        type="number"
-                        value={f.x}
-                        onChange={(e) => handleFieldChange(idx, 'x', e.target.value)}
-                        className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Y (mm)</label>
-                      <input
-                        type="number"
-                        value={f.y}
-                        onChange={(e) => handleFieldChange(idx, 'y', e.target.value)}
-                        className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Size (pt)</label>
-                      <input
-                        type="number"
-                        value={f.fontSize}
-                        onChange={(e) => handleFieldChange(idx, 'fontSize', e.target.value)}
-                        className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Weight</label>
-                      <select
-                        value={f.fontWeight}
-                        onChange={(e) => handleFieldChange(idx, 'fontWeight', e.target.value)}
-                        className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
-                      >
-                        <option value="NORMAL">Normal</option>
-                        <option value="BOLD">Bold</option>
-                      </select>
-                    </div>
+          {/* Theme colors */}
+          <div className={sectionClass}>
+            <SectionHeader
+              icon={Palette}
+              tone="bg-purple-50 border-purple-100 text-purple-600"
+              title="Theme Colors"
+              subtitle="Used for the accent bars when the card has no letterhead"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {[
+                { key: 'primaryColor', label: 'Primary color', fallback: '#4F46E5' },
+                { key: 'secondaryColor', label: 'Secondary color', fallback: '#9333EA' },
+              ].map(({ key, label, fallback }) => (
+                <div key={key}>
+                  <label htmlFor={`template-${key}`} className={labelClass}>{label}</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={/^#[0-9a-f]{6}$/i.test(formData[key] || '') ? formData[key] : fallback}
+                      disabled={isLoading}
+                      onChange={(e) => update({ [key]: e.target.value })}
+                      className="w-10 h-10 p-0 border border-slate-200 rounded-xl cursor-pointer shrink-0"
+                      aria-label={`${label} picker`}
+                    />
+                    <input
+                      id={`template-${key}`}
+                      type="text"
+                      maxLength={50}
+                      value={formData[key] || ''}
+                      disabled={isLoading}
+                      onChange={(e) => update({ [key]: e.target.value })}
+                      placeholder={fallback}
+                      className={`${inputClass} border-slate-200 font-mono`}
+                    />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveField(idx)}
-                    className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors self-end sm:self-center"
-                    title="Remove field"
-                    aria-label={`Remove ${f.field}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Section 4: Photo Placement Configuration */}
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-                <Image className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Student Photo Box Position</h2>
-                <p className="text-xs text-slate-500">Define photo container dimensions and offsets</p>
-              </div>
+          {/* Old logo link (only for older templates) */}
+          {formData.logo && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              <span>
+                This template has an older logo link. Add a <strong>Logo</strong> image in the Card Designer instead, then remove the old one.
+              </span>
+              <button type="button" onClick={() => update({ logo: null })} className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 shrink-0">
+                <X className="w-3.5 h-3.5" /> Remove old logo
+              </button>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Photo X (mm)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.photo?.x ?? 55}
-                  disabled={isLoading}
-                  onChange={(e) => handlePhotoChange('x', e.target.value)}
-                  className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Photo Y (mm)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.photo?.y ?? 20}
-                  disabled={isLoading}
-                  onChange={(e) => handlePhotoChange('y', e.target.value)}
-                  className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Photo Width (mm)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.photo?.width ?? 25}
-                  disabled={isLoading}
-                  onChange={(e) => handlePhotoChange('width', e.target.value)}
-                  className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                  Photo Height (mm)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.photo?.height ?? 30}
-                  disabled={isLoading}
-                  onChange={(e) => handlePhotoChange('height', e.target.value)}
-                  className="w-full px-4 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-                />
-              </div>
-            </div>
-          </div>
+          )}
         </>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex items-center justify-end gap-3 pt-4">
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-3 pt-2">
         <button
           type="button"
           disabled={isLoading}
@@ -697,7 +809,6 @@ export const TemplateForm = ({
         >
           Cancel
         </button>
-
         <button
           type="submit"
           disabled={isLoading}
@@ -706,12 +817,12 @@ export const TemplateForm = ({
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Saving...</span>
+              Saving…
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>{isEdit ? 'Save Template' : 'Create Template'}</span>
+              {isEdit ? 'Save Template' : 'Create Template'}
             </>
           )}
         </button>
