@@ -28,6 +28,10 @@ const initialState = {
   createError: null,
   updateError: null,
   statusError: null,
+
+  // ID card contact details (school profile)
+  contactsSaving: false,
+  contactsError: null,
 };
 
 export const collegeSlice = createSlice({
@@ -159,6 +163,23 @@ export const collegeSlice = createSlice({
     clearSelectedCollege: (state) => {
       state.selectedCollege = null;
     },
+
+    // ID card contact details. payload: { collegeId, isMine, contacts, onSuccess }
+    updateIdCardContactsRequested: (state) => {
+      state.contactsSaving = true;
+      state.contactsError = null;
+    },
+    updateIdCardContactsSucceeded: (state, action) => {
+      state.contactsSaving = false;
+      if (action.payload) state.selectedCollege = action.payload;
+    },
+    updateIdCardContactsFailed: (state, action) => {
+      state.contactsSaving = false;
+      state.contactsError = action.payload || 'Failed to save ID card contact details';
+    },
+    clearIdCardContactsError: (state) => {
+      state.contactsError = null;
+    },
   },
 });
 
@@ -185,6 +206,10 @@ export const {
   setPage,
   clearCollegeErrors,
   clearSelectedCollege,
+  updateIdCardContactsRequested,
+  updateIdCardContactsSucceeded,
+  updateIdCardContactsFailed,
+  clearIdCardContactsError,
 } = collegeSlice.actions;
 
 export default collegeSlice.reducer;

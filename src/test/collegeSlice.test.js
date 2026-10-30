@@ -40,6 +40,8 @@ describe('GROUP C — COLLEGE REDUX SLICE', () => {
     createError: null,
     updateError: null,
     statusError: null,
+    contactsSaving: false,
+    contactsError: null,
   };
 
   it('1. Initial state matches expected structure', () => {

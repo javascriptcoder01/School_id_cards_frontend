@@ -156,6 +156,8 @@ describe('GROUP D — COLLEGE REDUX SAGA WORKFLOWS', () => {
     expect(generator.next().value).toEqual(takeLatest(createCollegeRequested.type, createCollegeWorker));
     expect(generator.next().value).toEqual(takeLatest(updateCollegeRequested.type, updateCollegeWorker));
     expect(generator.next().value).toEqual(takeLatest(updateCollegeStatusRequested.type, updateCollegeStatusWorker));
+    // ID card contact details watcher
+    generator.next();
     expect(generator.next().done).toBe(true);
   });
 });

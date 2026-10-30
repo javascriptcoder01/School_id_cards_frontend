@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { Plus, CreditCard, RefreshCw } from 'lucide-react';
+import { Plus, CreditCard, RefreshCw, LayoutGrid, List } from 'lucide-react';
 import {
   fetchTemplatesRequested,
   updateTemplateStatusRequested,
@@ -17,10 +17,11 @@ import {
   selectTemplateError,
 } from '../../features/templates/templateSelectors.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
-import { ROUTES } from '../../constants/routes.js';
+import { ROUTES, getTemplateDetailRoute } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import TemplateSearch from '../../components/templates/TemplateSearch.jsx';
 import TemplateTable from '../../components/templates/TemplateTable.jsx';
+import TemplateCardGrid from '../../components/templates/TemplateCardGrid.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 
 export const TemplateListPage = () => {
@@ -35,6 +36,7 @@ export const TemplateListPage = () => {
   const error = useSelector(selectTemplateError);
 
   const [togglingId, setTogglingId] = useState(null);
+  const [view, setView] = useState('GRID'); // 'GRID' | 'TABLE'
 
   const isCollegeAdmin = userRole === ROLES.COLLEGE_ADMIN;
 
@@ -133,14 +135,37 @@ export const TemplateListPage = () => {
         onReset={handleResetSearch}
       />
 
-      {/* Templates Table */}
-      <TemplateTable
-        templates={templates}
-        isLoading={isLoading}
-        canEdit={isCollegeAdmin}
-        statusLoadingId={isStatusLoading ? togglingId : null}
-        onStatusToggle={isCollegeAdmin ? handleStatusToggle : undefined}
-      />
+      {/* View: card previews (flip) ya table (status toggle) */}
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Template view">
+          {[
+            { key: 'GRID', label: 'Cards', icon: LayoutGrid },
+            { key: 'TABLE', label: 'Table', icon: List },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setView(key)}
+              aria-pressed={view === key}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${view === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'}`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'GRID' ? (
+        <TemplateCardGrid templates={templates} isLoading={isLoading} getDetailRoute={getTemplateDetailRoute} />
+      ) : (
+        <TemplateTable
+          templates={templates}
+          isLoading={isLoading}
+          canEdit={isCollegeAdmin}
+          statusLoadingId={isStatusLoading ? togglingId : null}
+          onStatusToggle={isCollegeAdmin ? handleStatusToggle : undefined}
+        />
+      )}
     </div>
   );
 };

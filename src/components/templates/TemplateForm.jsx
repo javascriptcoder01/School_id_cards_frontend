@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  CreditCard,
-  Palette,
-  Save,
-  Layout,
-  Settings2,
-  AlertTriangle,
-  FileImage,
-  Check,
-  RefreshCw,
-  X,
-} from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { CreditCard, Save, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import {
   TEMPLATE_ORIENTATIONS,
@@ -19,13 +9,14 @@ import {
   TEMPLATE_FONT_WEIGHTS,
   TEMPLATE_FIELDS,
   TEMPLATE_FIELD_LABELS,
+  TEMPLATE_NEW_FIELDS,
+  TEMPLATE_REPEATABLE_FIELDS,
   TEMPLATE_UNITS,
   TEMPLATE_UNIT_VALUES,
   TEMPLATE_UNIT_LABELS,
   TEMPLATE_TEXT_ALIGNS,
   TEMPLATE_BACKGROUND_FITS,
-  TEMPLATE_BACKGROUND_FIT_VALUES,
-  TEMPLATE_BACKGROUND_FIT_LABELS,
+  TEMPLATE_BACKGROUND_TYPES,
   TEMPLATE_PHOTO_SHAPES,
   TEMPLATE_OBJECT_FITS,
   TEMPLATE_IMAGE_LAYER_ASSET_TYPE,
@@ -33,7 +24,13 @@ import {
   TEMPLATE_MAX_IMAGE_LAYERS,
   TEMPLATE_MAX_FIELDS,
   TEMPLATE_DEFAULT_CARD,
-  LETTERHEAD_ASSET_TYPE,
+  TEMPLATE_SIZE_PRESETS,
+  TEMPLATE_SIDES,
+  TEMPLATE_QR_CONTENT_TYPES,
+  TEMPLATE_FONT_STYLES,
+  TEMPLATE_TEXT_TRANSFORMS,
+  DEFAULT_CARD_THEME_KEY,
+  DEFAULT_QR_PADDING_MM,
 } from '../../constants/template.js';
 import {
   toNumber,
@@ -47,12 +44,32 @@ import {
   lengthForUnit,
   fontForUnit,
 } from '../../utils/templateLayout.js';
+import {
+  sideOf,
+  applySidePatch,
+  newBackSide,
+  buildTemplatePayload,
+  buildRecommendedBackLayout,
+} from '../../utils/templateDesigner.js';
 import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
+import {
+  fetchThemesRequested,
+  previewRenderRequested,
+  clearDesignerPreview,
+} from '../../features/templates/templateSlice.js';
+import {
+  selectCardThemes,
+  selectCardThemesLoading,
+  selectDesignerPreview,
+  selectDesignerPreviewLoading,
+  selectDesignerPreviewError,
+  selectDesignerValidationErrors,
+} from '../../features/templates/templateSelectors.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 import RouteLoader from '../common/RouteLoader.jsx';
 
-// Lazy load the visual template designer to keep the initial bundle small
-const TemplateDesigner = lazy(() => import('./designer/TemplateDesigner.jsx'));
+// Lazy load the visual card designer to keep the initial bundle small
+const CardDesigner = lazy(() => import('./designer/CardDesigner.jsx'));
 
 /* ------------------------------------------------------------------ */
 /* Defaults & normalizers                                              */
@@ -60,7 +77,8 @@ const TemplateDesigner = lazy(() => import('./designer/TemplateDesigner.jsx'));
 
 const makeField = (field, overrides = {}) => ({
   field,
-  label: TEMPLATE_FIELD_LABELS[field] || '',
+  // Naye fields (back side) mein label khaali → backend ka chhota default label ("Toll-free")
+  label: TEMPLATE_NEW_FIELDS.includes(field) ? '' : TEMPLATE_FIELD_LABELS[field] || '',
   x: 0,
   y: 0,
   width: null,
@@ -71,6 +89,13 @@ const makeField = (field, overrides = {}) => ({
   textAlign: TEMPLATE_TEXT_ALIGNS.LEFT,
   maxLines: 1,
   visible: true,
+  customText: field === TEMPLATE_FIELDS.CUSTOM_TEXT ? 'Custom text' : null,
+  fontStyle: TEMPLATE_FONT_STYLES.NORMAL,
+  textTransform: TEMPLATE_TEXT_TRANSFORMS.NONE,
+  letterSpacing: 0,
+  lineHeight: 1.2,
+  showLabel: true,
+  labelColor: null,
   ...overrides,
 });
 
@@ -95,7 +120,8 @@ const makePhoto = (unit) => ({
   visible: true,
 });
 
-const makeQrCode = (unit, cardWidth, cardHeight) => {
+// Front: student verification; back: school details
+const makeQrCode = (unit, cardWidth, side) => {
   const size = lengthForUnit(13, unit);
   const margin = lengthForUnit(3, unit);
   return {
@@ -105,6 +131,11 @@ const makeQrCode = (unit, cardWidth, cardHeight) => {
     width: size,
     height: size,
     visible: true,
+    contentType: side === TEMPLATE_SIDES.BACK ? TEMPLATE_QR_CONTENT_TYPES.SCHOOL_DETAILS : TEMPLATE_QR_CONTENT_TYPES.STUDENT_VERIFICATION,
+    customText: null,
+    foregroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
+    padding: lengthForUnit(DEFAULT_QR_PADDING_MM, unit),
   };
 };
 
@@ -123,7 +154,47 @@ const normalizeField = (f) =>
     textAlign: f.textAlign || TEMPLATE_TEXT_ALIGNS.LEFT,
     maxLines: f.maxLines ?? 1,
     visible: f.visible !== false,
+    customText: f.customText ?? null,
+    fontStyle: f.fontStyle || TEMPLATE_FONT_STYLES.NORMAL,
+    textTransform: f.textTransform || TEMPLATE_TEXT_TRANSFORMS.NONE,
+    letterSpacing: toNumber(f.letterSpacing, 0),
+    lineHeight: toNumber(f.lineHeight, 1.2),
+    showLabel: f.showLabel !== false,
+    labelColor: f.labelColor || null,
   });
+
+const normalizeLayers = (layers) =>
+  (layers || []).map((l) => ({
+    ...l,
+    _id: l._id ? String(l._id) : l.id ? String(l.id) : undefined,
+    assetId: idOf(l.assetId),
+  }));
+
+const normalizeTheme = (theme) => ({
+  presetKey: theme?.presetKey || DEFAULT_CARD_THEME_KEY,
+  colors: { ...(theme?.colors || {}) },
+  background: {
+    type: theme?.background?.type || null,
+    gradient: { ...(theme?.background?.gradient || {}) },
+  },
+  frontDecoration: theme?.frontDecoration || null,
+  backDecoration: theme?.backDecoration || null,
+  decorationIntensity: theme?.decorationIntensity ?? null,
+});
+
+const normalizeBack = (back, unit) =>
+  back
+    ? {
+      backgroundAssetId: idOf(back.backgroundAssetId),
+      background: back.background || null,
+      backgroundFit: back.backgroundFit || TEMPLATE_BACKGROUND_FITS.COVER,
+      backgroundType: back.backgroundType || (back.background ? TEMPLATE_BACKGROUND_TYPES.IMAGE : TEMPLATE_BACKGROUND_TYPES.SOLID),
+      fields: (back.fields || []).map(normalizeField),
+      photo: back.photo ? { ...makePhoto(unit), ...back.photo } : null,
+      qrCode: back.qrCode || null,
+      imageLayers: normalizeLayers(back.imageLayers),
+    }
+    : null;
 
 const buildInitialState = (iv) => {
   if (!iv) {
@@ -144,15 +215,21 @@ const buildInitialState = (iv) => {
       photo: makePhoto(unit),
       qrCode: null,
       imageLayers: [],
+      theme: normalizeTheme(null),
+      frontBackgroundType: TEMPLATE_BACKGROUND_TYPES.SOLID,
+      hasBack: false,
+      back: null,
+      validity: { session: '', validTill: null },
       version: null,
     };
   }
 
+  const unit = iv.unit || TEMPLATE_UNITS.PX;
   return {
     name: iv.name || '',
     orientation: iv.orientation || TEMPLATE_ORIENTATIONS.PORTRAIT,
     // Purane templates bina unit ke = PX (backend default)
-    unit: iv.unit || TEMPLATE_UNITS.PX,
+    unit,
     width: toNumber(iv.width, 86),
     height: toNumber(iv.height, 54),
     backgroundAssetId: idOf(iv.backgroundAssetId),
@@ -162,16 +239,27 @@ const buildInitialState = (iv) => {
     primaryColor: iv.primaryColor || '#4F46E5',
     secondaryColor: iv.secondaryColor || '#9333EA',
     fields: Array.isArray(iv.fields) && iv.fields.length > 0 ? iv.fields.map(normalizeField) : DEFAULT_FIELDS,
-    photo: iv.photo ? { ...makePhoto(iv.unit || TEMPLATE_UNITS.PX), ...iv.photo } : null,
+    photo: iv.photo ? { ...makePhoto(unit), ...iv.photo } : null,
     qrCode: iv.qrCode || null,
-    imageLayers: (iv.imageLayers || []).map((l) => ({
-      ...l,
-      _id: l._id ? String(l._id) : undefined,
-      assetId: idOf(l.assetId),
-    })),
+    imageLayers: normalizeLayers(iv.imageLayers),
+    theme: normalizeTheme(iv.theme),
+    frontBackgroundType: iv.frontBackgroundType || (iv.background ? TEMPLATE_BACKGROUND_TYPES.IMAGE : TEMPLATE_BACKGROUND_TYPES.SOLID),
+    hasBack: Boolean(iv.hasBack && iv.back),
+    back: normalizeBack(iv.back, unit),
+    validity: {
+      session: iv.validity?.session || '',
+      validTill: iv.validity?.validTill ? String(iv.validity.validTill).slice(0, 10) : null,
+    },
     version: iv.version ?? null,
   };
 };
+
+// "Back: Field ..." / "Field ..." jaisi API layout messages → element labels (canvas par laal outline)
+const labelsFromErrors = (messages) =>
+  (messages || []).flatMap((message) => {
+    const match = /outside the card area:\s*(.+)$/i.exec(message || '');
+    return match ? match[1].split(/,\s*/) : [];
+  });
 
 /* ------------------------------------------------------------------ */
 /* Small UI pieces                                                     */
@@ -210,9 +298,16 @@ export const TemplateForm = ({
   onCancel,
 }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('DESIGN'); // 'DESIGN' | 'SETUP'
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState(() => buildInitialState(initialValues));
   const [errors, setErrors] = useState({});
+
+  const themes = useSelector(selectCardThemes);
+  const themesLoading = useSelector(selectCardThemesLoading);
+  const previewData = useSelector(selectDesignerPreview);
+  const previewLoading = useSelector(selectDesignerPreviewLoading);
+  const previewError = useSelector(selectDesignerPreviewError);
+  const validationErrors = useSelector(selectDesignerValidationErrors);
 
   const { assets, isLoading: assetsLoading, error: assetsError, reload: reloadAssets } = useCollegeAssets();
 
@@ -220,16 +315,30 @@ export const TemplateForm = ({
     if (initialValues) setFormData(buildInitialState(initialValues));
   }, [initialValues]);
 
+  // Themes catalog (cache) + page band hone par preview saaf
+  useEffect(() => {
+    dispatch(fetchThemesRequested());
+    return () => {
+      dispatch(clearDesignerPreview());
+    };
+  }, [dispatch]);
+
+  // Har change par backend preview (saga 400 ms debounce + purani request cancel)
+  useEffect(() => {
+    dispatch(previewRenderRequested({ template: JSON.parse(JSON.stringify(buildTemplatePayload(formData))) }));
+  }, [dispatch, formData]);
+
   const usableAssets = useMemo(() => assets.filter(isUsableAsset), [assets]);
   // Base64 / bahut lambe URL wale assets layer mein save nahi ho sakte (backend maxlength 1000)
   const unusableAssetCount = assets.length - usableAssets.length;
-  const letterheads = usableAssets.filter((a) => a.type === LETTERHEAD_ASSET_TYPE);
   const outOfBounds = useMemo(() => getOutOfBoundsElements(formData), [formData]);
+  const invalidLabels = useMemo(
+    () => [...new Set([...outOfBounds, ...labelsFromErrors(validationErrors)])],
+    [outOfBounds, validationErrors]
+  );
 
   const unit = formData.unit;
   const u = TEMPLATE_UNIT_LABELS[unit] || unit;
-  const cardWidth = toNumber(formData.width, 86);
-  const cardHeight = toNumber(formData.height, 54);
 
   const update = (patch) => {
     setFormData((prev) => ({ ...prev, ...patch }));
@@ -242,6 +351,9 @@ export const TemplateForm = ({
       });
     }
   };
+
+  // Ek side (front / back) ka patch
+  const updateSide = (side, fn) => setFormData((prev) => applySidePatch(prev, side, fn(sideOf(prev, side), prev)));
 
   /* ---------- Card setup ---------- */
 
@@ -260,54 +372,67 @@ export const TemplateForm = ({
     setFormData((prev) => convertTemplateUnits(prev, prev.unit, nextUnit));
   };
 
+  // CR80 preset: pehle unit badlo (positions convert), phir size + orientation
+  const handleSizePreset = (key) => {
+    const preset = TEMPLATE_SIZE_PRESETS.find((p) => p.key === key);
+    if (!preset) return;
+    setFormData((prev) => ({
+      ...convertTemplateUnits(prev, prev.unit, preset.unit),
+      width: preset.width,
+      height: preset.height,
+      orientation: preset.orientation,
+    }));
+  };
+
   /* ---------- Fields ---------- */
 
-  const handleAddField = (fieldName) => {
-    setFormData((prev) => {
-      if (prev.fields.some((f) => f.field === fieldName) || prev.fields.length >= TEMPLATE_MAX_FIELDS) return prev;
-      const lastY = prev.fields.reduce((max, f) => Math.max(max, toNumber(f.y)), 0);
+  const handleAddField = (side, fieldName) => {
+    updateSide(side, (s, prev) => {
+      const repeatable = TEMPLATE_REPEATABLE_FIELDS.includes(fieldName);
+      if ((!repeatable && s.fields.some((f) => f.field === fieldName)) || s.fields.length >= TEMPLATE_MAX_FIELDS) return {};
+      const lastY = s.fields.reduce((max, f) => Math.max(max, toNumber(f.y)), 0);
       const gap = lengthForUnit(5, prev.unit);
       const fontSize = fontForUnit(8, prev.unit);
-      const y = clamp(round2(lastY + gap), 0, Math.max(0, toNumber(prev.height) - gap));
-      const x = clamp(lengthForUnit(34, prev.unit), 0, Math.max(0, toNumber(prev.width) - gap));
-      return { ...prev, fields: [...prev.fields, makeField(fieldName, { x, y, fontSize })] };
+      const y = clamp(round2(s.fields.length ? lastY + gap : gap), 0, Math.max(0, toNumber(prev.height) - gap));
+      const x = clamp(lengthForUnit(side === TEMPLATE_SIDES.BACK ? 5 : 34, prev.unit), 0, Math.max(0, toNumber(prev.width) - gap));
+      return { fields: [...s.fields, makeField(fieldName, { x, y, fontSize })] };
     });
   };
 
-  const handleUpdateField = (index, patch) => {
-    setFormData((prev) => {
-      const fields = [...prev.fields];
+  const handleUpdateField = (side, index, patch) => {
+    updateSide(side, (s) => {
+      const fields = [...s.fields];
       fields[index] = { ...fields[index], ...patch };
-      return { ...prev, fields };
+      return { fields };
     });
     if (errors.fields) setErrors((prev) => ({ ...prev, fields: null }));
   };
 
-  const handleRemoveField = (index) => {
-    setFormData((prev) => ({ ...prev, fields: prev.fields.filter((_, i) => i !== index) }));
+  const handleRemoveField = (side, index) => {
+    updateSide(side, (s) => ({ fields: s.fields.filter((_, i) => i !== index) }));
   };
 
   /* ---------- Photo & QR ---------- */
 
-  const handleAddPhoto = () => setFormData((prev) => ({ ...prev, photo: makePhoto(prev.unit) }));
-  const handleUpdatePhoto = (photo) => setFormData((prev) => ({ ...prev, photo }));
-  const handleAddQrCode = () =>
-    setFormData((prev) => ({
-      ...prev,
-      qrCode: makeQrCode(prev.unit, toNumber(prev.width), toNumber(prev.height)),
-    }));
-  const handleUpdateQrCode = (qrCode) => setFormData((prev) => ({ ...prev, qrCode }));
+  const handleAddPhoto = (side) => updateSide(side, (s, prev) => ({ photo: makePhoto(prev.unit) }));
+  const handleUpdatePhoto = (side, photo) => updateSide(side, () => ({ photo }));
+  const handleAddQrCode = (side) =>
+    updateSide(side, (s, prev) => ({ qrCode: makeQrCode(prev.unit, toNumber(prev.width), side) }));
+  const handleUpdateQrCode = (side, qrCode) => updateSide(side, () => ({ qrCode }));
 
   /* ---------- Image layers ---------- */
 
   // Returns the new layer's key so the designer can select it
-  const handleAddLayer = (type) => {
-    if (formData.imageLayers.length >= TEMPLATE_MAX_IMAGE_LAYERS) return null;
+  const handleAddLayer = (side, type) => {
+    const layers = sideOf(formData, side).imageLayers;
+    if (layers.length >= TEMPLATE_MAX_IMAGE_LAYERS) return null;
     const assetType = TEMPLATE_IMAGE_LAYER_ASSET_TYPE[type];
     const candidates = usableAssets.filter((a) => !assetType || a.type === assetType);
     if (candidates.length === 0) return null;
 
-    const usedIds = new Set(formData.imageLayers.map((l) => String(l.assetId)));
+    const cardWidth = toNumber(formData.width, 86);
+    const cardHeight = toNumber(formData.height, 54);
+    const usedIds = new Set(layers.map((l) => String(l.assetId)));
     const asset = candidates.find((a) => !usedIds.has(String(a._id))) || candidates[0];
     const defaults = TEMPLATE_IMAGE_LAYER_DEFAULTS[type] || TEMPLATE_IMAGE_LAYER_DEFAULTS.CUSTOM;
     const width = Math.min(lengthForUnit(defaults.width, unit), cardWidth);
@@ -330,22 +455,88 @@ export const TemplateForm = ({
       zIndex: defaults.zIndex,
       visible: true,
     };
-    setFormData((prev) => ({ ...prev, imageLayers: [...prev.imageLayers, layer] }));
+    updateSide(side, (s) => ({ imageLayers: [...s.imageLayers, layer] }));
     return clientId;
   };
 
-  const handleUpdateLayer = (key, patch) => {
-    setFormData((prev) => ({
-      ...prev,
-      imageLayers: prev.imageLayers.map((l) => (getLayerKey(l) === key ? { ...l, ...patch } : l)),
+  const handleUpdateLayer = (side, key, patch) => {
+    updateSide(side, (s) => ({
+      imageLayers: s.imageLayers.map((l) => (getLayerKey(l) === key ? { ...l, ...patch } : l)),
     }));
   };
 
-  const handleRemoveLayer = (key) => {
-    setFormData((prev) => ({
-      ...prev,
-      imageLayers: prev.imageLayers.filter((l) => getLayerKey(l) !== key),
-    }));
+  const handleRemoveLayer = (side, key) => {
+    updateSide(side, (s) => ({ imageLayers: s.imageLayers.filter((l) => getLayerKey(l) !== key) }));
+  };
+
+  /* ---------- Theme, background, back side, validity ---------- */
+
+  // Preset se shuru: override colors / decorations hatao; letterhead wali side letterhead hi rahe
+  const handleApplyPreset = (preset) => {
+    setFormData((prev) => {
+      const presetBg = preset.background?.type || TEMPLATE_BACKGROUND_TYPES.SOLID;
+      const keepImage = (type, assetId) => type === TEMPLATE_BACKGROUND_TYPES.IMAGE && assetId;
+      return {
+        ...prev,
+        theme: normalizeTheme({ presetKey: preset.key }),
+        frontBackgroundType: keepImage(prev.frontBackgroundType, prev.backgroundAssetId) ? TEMPLATE_BACKGROUND_TYPES.IMAGE : presetBg,
+        back: prev.back
+          ? {
+            ...prev.back,
+            backgroundType: keepImage(prev.back.backgroundType, prev.back.backgroundAssetId) ? TEMPLATE_BACKGROUND_TYPES.IMAGE : presetBg,
+          }
+          : prev.back,
+      };
+    });
+  };
+
+  const handleThemeChange = (patch) => setFormData((prev) => ({ ...prev, theme: { ...prev.theme, ...patch } }));
+
+  const handleSideBackgroundChange = (side, patch) => updateSide(side, () => patch);
+
+  const handleToggleBack = (enabled) =>
+    setFormData((prev) => ({ ...prev, hasBack: enabled, back: enabled ? prev.back || newBackSide() : prev.back }));
+
+  const handleApplyRecommendedBack = () =>
+    setFormData((prev) => {
+      const layout = buildRecommendedBackLayout(
+        { unit: prev.unit, width: prev.width, height: prev.height },
+        { signatureAsset: usableAssets.find((a) => a.type === 'SIGNATURE') || null }
+      );
+      // Back ka background (type / letterhead) waisa hi rahe
+      const current = prev.back || newBackSide();
+      return {
+        ...prev,
+        hasBack: true,
+        back: {
+          ...layout,
+          backgroundType: current.backgroundType,
+          backgroundAssetId: current.backgroundAssetId,
+          background: current.background,
+          backgroundFit: current.backgroundFit,
+        },
+      };
+    });
+
+  const handleValidityChange = (patch) => setFormData((prev) => ({ ...prev, validity: { ...prev.validity, ...patch } }));
+
+  const designerHandlers = {
+    onAddField: handleAddField,
+    onUpdateField: handleUpdateField,
+    onRemoveField: handleRemoveField,
+    onAddPhoto: handleAddPhoto,
+    onUpdatePhoto: handleUpdatePhoto,
+    onAddQrCode: handleAddQrCode,
+    onUpdateQrCode: handleUpdateQrCode,
+    onAddLayer: handleAddLayer,
+    onUpdateLayer: handleUpdateLayer,
+    onRemoveLayer: handleRemoveLayer,
+    onApplyPreset: handleApplyPreset,
+    onThemeChange: handleThemeChange,
+    onSideBackgroundChange: handleSideBackgroundChange,
+    onToggleBack: handleToggleBack,
+    onApplyRecommendedBack: handleApplyRecommendedBack,
+    onValidityChange: handleValidityChange,
   };
 
   /* ---------- Validation & submit ---------- */
@@ -360,19 +551,27 @@ export const TemplateForm = ({
     if (!(toNumber(formData.width) > 0)) newErrors.width = 'Width must be a positive number';
     if (!(toNumber(formData.height) > 0)) newErrors.height = 'Height must be a positive number';
 
-    if (formData.fields.length === 0) newErrors.fields = 'Add at least one student field to the card';
-    if (formData.fields.length > TEMPLATE_MAX_FIELDS) newErrors.fields = `A card can have at most ${TEMPLATE_MAX_FIELDS} fields`;
+    if (formData.fields.length === 0) newErrors.fields = 'Add at least one student field to the front of the card';
+    if (formData.fields.length > TEMPLATE_MAX_FIELDS) newErrors.fields = `A card side can have at most ${TEMPLATE_MAX_FIELDS} fields`;
 
-    if (formData.imageLayers.length > TEMPLATE_MAX_IMAGE_LAYERS) {
-      newErrors.imageLayers = `A card can have at most ${TEMPLATE_MAX_IMAGE_LAYERS} images`;
-    } else {
-      const unknown = formData.imageLayers.findIndex(
-        (l) => !l.assetId || !usableAssets.some((a) => String(a._id) === String(l.assetId))
+    // Custom text / QR custom text khaali nahi (dono sides)
+    const sides = [TEMPLATE_SIDES.FRONT, ...(formData.hasBack ? [TEMPLATE_SIDES.BACK] : [])];
+    const emptyText = sides.some((side) => {
+      const s = sideOf(formData, side);
+      return (
+        s.fields.some((f) => f.field === TEMPLATE_FIELDS.CUSTOM_TEXT && !f.customText?.trim()) ||
+        (s.qrCode?.contentType === TEMPLATE_QR_CONTENT_TYPES.CUSTOM_TEXT && !s.qrCode.customText?.trim())
       );
-      // Assets load na hue hon to ye check skip (backend phir bhi verify karta hai)
-      if (!assetsLoading && !assetsError && unknown !== -1) {
-        newErrors.imageLayers = `Image ${unknown + 1} on the card is no longer available. Pick another image or remove it.`;
-      }
+    });
+    if (emptyText) newErrors.customText = 'Every custom text field (and custom-text QR) needs some text';
+
+    const allLayers = sides.flatMap((side) => sideOf(formData, side).imageLayers);
+    const unknown = allLayers.findIndex(
+      (l) => !l.assetId || !usableAssets.some((a) => String(a._id) === String(l.assetId))
+    );
+    // Assets load na hue hon to ye check skip (backend phir bhi verify karta hai)
+    if (!assetsLoading && !assetsError && unknown !== -1) {
+      newErrors.imageLayers = 'An image on the card is no longer available. Pick another image or remove it.';
     }
 
     if (outOfBounds.length) newErrors.layout = `These go outside the card: ${outOfBounds.join(', ')}`;
@@ -381,92 +580,26 @@ export const TemplateForm = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const buildPayload = () => {
-    const num = (v, fallback = 0) => round2(toNumber(v, fallback));
-    return {
-      name: formData.name.trim(),
-      orientation: formData.orientation,
-      unit: formData.unit,
-      width: num(formData.width),
-      height: num(formData.height),
-      // Letterhead asset ho to backend uska url `background` mein khud copy karta hai
-      backgroundAssetId: formData.backgroundAssetId || null,
-      background: formData.backgroundAssetId ? undefined : formData.background || null,
-      backgroundFit: formData.backgroundFit,
-      logo: formData.logo || null,
-      primaryColor: formData.primaryColor?.trim() || null,
-      secondaryColor: formData.secondaryColor?.trim() || null,
-      fields: formData.fields.map((f) => ({
-        field: f.field,
-        label: f.label?.trim() || null,
-        x: num(f.x),
-        y: num(f.y),
-        width: f.width === null || f.width === '' ? null : num(f.width),
-        fontSize: num(f.fontSize, 12),
-        fontWeight: f.fontWeight || TEMPLATE_FONT_WEIGHTS.NORMAL,
-        fontFamily: f.fontFamily || 'Arial',
-        color: f.color || '#000000',
-        textAlign: f.textAlign || TEMPLATE_TEXT_ALIGNS.LEFT,
-        maxLines: Math.round(toNumber(f.maxLines, 1)),
-        visible: f.visible !== false,
-      })),
-      photo: formData.photo
-        ? {
-          x: num(formData.photo.x),
-          y: num(formData.photo.y),
-          width: num(formData.photo.width),
-          height: num(formData.photo.height),
-          shape: formData.photo.shape,
-          borderRadius: num(formData.photo.borderRadius),
-          borderWidth: num(formData.photo.borderWidth),
-          borderColor: formData.photo.borderColor || null,
-          objectFit: formData.photo.objectFit,
-          visible: formData.photo.visible !== false,
-        }
-        : null,
-      qrCode: formData.qrCode
-        ? {
-          x: num(formData.qrCode.x),
-          y: num(formData.qrCode.y),
-          width: num(formData.qrCode.width),
-          height: num(formData.qrCode.height),
-          visible: formData.qrCode.visible !== false,
-        }
-        : null,
-      // url nahi bhejte — backend asset se copy karta hai. Saved layers apna _id rakhte hain.
-      imageLayers: formData.imageLayers.map((l) => ({
-        ...(l._id ? { _id: l._id } : {}),
-        type: l.type,
-        assetId: String(l.assetId),
-        x: num(l.x),
-        y: num(l.y),
-        width: num(l.width),
-        height: num(l.height),
-        opacity: num(l.opacity, 1),
-        rotation: num(l.rotation),
-        zIndex: Math.round(toNumber(l.zIndex, 10)),
-        visible: l.visible !== false,
-      })),
-    };
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLoading) return;
     if (!validate()) return;
 
     // undefined keys hata do (JSON mein waise bhi nahi jaate, par saaf rakhna)
-    const payload = JSON.parse(JSON.stringify(buildPayload()));
+    const payload = JSON.parse(JSON.stringify(buildTemplatePayload(formData)));
     onSubmit(payload);
   };
 
   const handleCancel = () => (onCancel ? onCancel() : navigate(ROUTES.TEMPLATES));
 
-  const selectedLetterhead = letterheads.find((a) => String(a._id) === String(formData.backgroundAssetId));
-  const errorList = [errors.fields, errors.imageLayers, errors.layout].filter(Boolean);
+  const errorList = [errors.fields, errors.customText, errors.imageLayers, errors.layout].filter(Boolean);
+  const sizePresetKey =
+    TEMPLATE_SIZE_PRESETS.find(
+      (p) => p.unit === unit && p.width === toNumber(formData.width) && p.height === toNumber(formData.height)
+    )?.key || '';
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6 max-w-6xl">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {errorMessage && <ErrorMessage message={errorMessage} title="Couldn't save the template" />}
 
       {errorList.length > 0 && (
@@ -482,13 +615,13 @@ export const TemplateForm = ({
         </div>
       )}
 
-      {/* Section 1: Basics (always visible) */}
+      {/* Section 1: Basics */}
       <div className={sectionClass}>
         <SectionHeader
           icon={CreditCard}
           tone="bg-indigo-50 border-indigo-100 text-indigo-600"
           title="Template Details"
-          subtitle="Name, orientation and card size"
+          subtitle="Name, card size and orientation"
           action={
             isEdit && formData.version ? (
               <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
@@ -498,8 +631,8 @@ export const TemplateForm = ({
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="sm:col-span-2 lg:col-span-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5">
+          <div className="sm:col-span-2 lg:col-span-3">
             <label htmlFor="template-name" className={labelClass}>
               Template Name <span className="text-rose-500">*</span>
             </label>
@@ -516,7 +649,23 @@ export const TemplateForm = ({
             {errors.name && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>}
           </div>
 
-          <div>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <label htmlFor="template-size-preset" className={labelClass}>Card size</label>
+            <select
+              id="template-size-preset"
+              value={sizePresetKey}
+              disabled={isLoading}
+              onChange={(e) => handleSizePreset(e.target.value)}
+              className={`${inputClass} border-slate-200 cursor-pointer`}
+            >
+              <option value="">Custom size</option>
+              {TEMPLATE_SIZE_PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="lg:col-span-2">
             <label htmlFor="template-orientation" className={labelClass}>Orientation</label>
             <select
               id="template-orientation"
@@ -531,7 +680,7 @@ export const TemplateForm = ({
             </select>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label htmlFor="template-unit" className={labelClass}>Measurement Unit</label>
             <select
               id="template-unit"
@@ -583,7 +732,7 @@ export const TemplateForm = ({
           </div>
         </div>
         <p className="text-[11px] text-slate-400 -mt-2">
-          Standard ID card: 86 × 54 mm. Changing the unit converts every position and size on the card.
+          Standard ID card (CR80): 86 × 54 mm. Changing the unit converts every position and size on both sides.
         </p>
       </div>
 
@@ -597,33 +746,12 @@ export const TemplateForm = ({
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200" role="tablist">
-        {[
-          { key: 'DESIGN', icon: Layout, label: 'Card Designer' },
-          { key: 'SETUP', icon: Settings2, label: 'Letterhead & Theme' },
-        ].map(({ key, icon: Icon, label }) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all ${activeTab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Asset loading problems affect both tabs */}
+      {/* Asset loading problems */}
       {assetsError && (
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           <span className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            College images (letterhead, logo, signature, stamp) couldn&apos;t be loaded: {assetsError}
+            School images (letterhead, logo, signature, stamp) couldn&apos;t be loaded: {assetsError}
           </span>
           <button type="button" onClick={reloadAssets} className="inline-flex items-center gap-1 font-semibold hover:underline">
             <RefreshCw className="w-3.5 h-3.5" /> Retry
@@ -632,172 +760,46 @@ export const TemplateForm = ({
       )}
       {!assetsLoading && unusableAssetCount > 0 && (
         <p className="text-xs text-slate-500">
-          {unusableAssetCount} college {unusableAssetCount === 1 ? 'image is' : 'images are'} hidden because{' '}
+          {unusableAssetCount} school {unusableAssetCount === 1 ? 'image is' : 'images are'} hidden because{' '}
           {unusableAssetCount === 1 ? 'it was' : 'they were'} saved as embedded data instead of an uploaded file link.
-          Re-upload {unusableAssetCount === 1 ? 'it' : 'them'} in the College profile to use on cards.
+          Re-upload {unusableAssetCount === 1 ? 'it' : 'them'} in the school profile to use on cards.
         </p>
       )}
 
-      {activeTab === 'DESIGN' && (
-        <Suspense fallback={<RouteLoader message="Loading card designer..." />}>
-          <TemplateDesigner
-            formData={formData}
-            usableAssets={usableAssets}
-            assetsLoading={assetsLoading}
-            onAddField={handleAddField}
-            onUpdateField={handleUpdateField}
-            onRemoveField={handleRemoveField}
-            onAddPhoto={handleAddPhoto}
-            onUpdatePhoto={handleUpdatePhoto}
-            onAddQrCode={handleAddQrCode}
-            onUpdateQrCode={handleUpdateQrCode}
-            onAddLayer={handleAddLayer}
-            onUpdateLayer={handleUpdateLayer}
-            onRemoveLayer={handleRemoveLayer}
-          />
-        </Suspense>
+      {/* Old templates: background URL without an asset / old logo link */}
+      {!formData.backgroundAssetId && formData.background && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+          <span>This template uses an older background image link. Pick a letterhead in Design → Background to replace it.</span>
+          <button type="button" onClick={() => update({ background: null, frontBackgroundType: TEMPLATE_BACKGROUND_TYPES.SOLID })} className="inline-flex items-center gap-1 font-semibold text-rose-600 hover:text-rose-700 shrink-0">
+            <X className="w-3.5 h-3.5" /> Remove
+          </button>
+        </div>
+      )}
+      {formData.logo && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+          <span>
+            This template has an older logo link. Add a <strong>Logo</strong> image in Elements instead, then remove the old one.
+          </span>
+          <button type="button" onClick={() => update({ logo: null })} className="inline-flex items-center gap-1 font-semibold text-rose-600 hover:text-rose-700 shrink-0">
+            <X className="w-3.5 h-3.5" /> Remove old logo
+          </button>
+        </div>
       )}
 
-      {activeTab === 'SETUP' && (
-        <>
-          {/* Letterhead */}
-          <div className={sectionClass}>
-            <SectionHeader
-              icon={FileImage}
-              tone="bg-emerald-50 border-emerald-100 text-emerald-600"
-              title="Letterhead (Card Background)"
-              subtitle="Pick one of the college's uploaded letterhead designs"
-            />
-
-            {assetsLoading ? (
-              <p className="text-sm text-slate-500">Loading letterheads…</p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                <button
-                  type="button"
-                  onClick={() => update({ backgroundAssetId: null, background: null })}
-                  aria-pressed={!formData.backgroundAssetId && !formData.background}
-                  className={`aspect-[86/54] rounded-xl border-2 grid place-items-center text-xs font-semibold transition-colors ${!formData.backgroundAssetId && !formData.background
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-dashed border-slate-300 text-slate-500 hover:border-slate-400'
-                    }`}
-                >
-                  No letterhead
-                </button>
-
-                {letterheads.map((asset) => {
-                  const isSelected = String(asset._id) === String(formData.backgroundAssetId);
-                  return (
-                    <button
-                      key={asset._id}
-                      type="button"
-                      onClick={() => update({ backgroundAssetId: asset._id, background: asset.url })}
-                      aria-pressed={isSelected}
-                      title={asset.name}
-                      className={`relative aspect-[86/54] rounded-xl border-2 overflow-hidden bg-slate-50 transition-colors ${isSelected ? 'border-indigo-500' : 'border-slate-200 hover:border-slate-400'
-                        }`}
-                    >
-                      <img src={asset.url} alt={asset.name || 'Letterhead'} className="w-full h-full object-cover" />
-                      {isSelected && (
-                        <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-indigo-600 text-white grid place-items-center">
-                          <Check className="w-3 h-3" />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {!assetsLoading && letterheads.length === 0 && (
-              <p className="text-xs text-slate-500">
-                No letterhead uploaded for this college yet. Upload one as a college asset of type LETTERHEAD to use it here.
-              </p>
-            )}
-
-            {/* Old templates: background URL without an asset */}
-            {!formData.backgroundAssetId && formData.background && (
-              <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
-                <span>This template uses an older background image link. Pick a letterhead above to replace it.</span>
-                <button type="button" onClick={() => update({ background: null })} className="inline-flex items-center gap-1 font-semibold text-rose-600 hover:text-rose-700 shrink-0">
-                  <X className="w-3.5 h-3.5" /> Remove
-                </button>
-              </div>
-            )}
-
-            {(formData.backgroundAssetId || formData.background) && (
-              <div className="max-w-xs">
-                <label htmlFor="template-bg-fit" className={labelClass}>Background fit</label>
-                <select
-                  id="template-bg-fit"
-                  value={formData.backgroundFit}
-                  onChange={(e) => update({ backgroundFit: e.target.value })}
-                  className={`${inputClass} border-slate-200 cursor-pointer`}
-                >
-                  {TEMPLATE_BACKGROUND_FIT_VALUES.map((f) => (
-                    <option key={f} value={f}>{TEMPLATE_BACKGROUND_FIT_LABELS[f] || f}</option>
-                  ))}
-                </select>
-                {selectedLetterhead && (
-                  <p className="text-[11px] text-slate-400 mt-1.5 truncate">Selected: {selectedLetterhead.name}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Theme colors */}
-          <div className={sectionClass}>
-            <SectionHeader
-              icon={Palette}
-              tone="bg-purple-50 border-purple-100 text-purple-600"
-              title="Theme Colors"
-              subtitle="Used for the accent bars when the card has no letterhead"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {[
-                { key: 'primaryColor', label: 'Primary color', fallback: '#4F46E5' },
-                { key: 'secondaryColor', label: 'Secondary color', fallback: '#9333EA' },
-              ].map(({ key, label, fallback }) => (
-                <div key={key}>
-                  <label htmlFor={`template-${key}`} className={labelClass}>{label}</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      value={/^#[0-9a-f]{6}$/i.test(formData[key] || '') ? formData[key] : fallback}
-                      disabled={isLoading}
-                      onChange={(e) => update({ [key]: e.target.value })}
-                      className="w-10 h-10 p-0 border border-slate-200 rounded-xl cursor-pointer shrink-0"
-                      aria-label={`${label} picker`}
-                    />
-                    <input
-                      id={`template-${key}`}
-                      type="text"
-                      maxLength={50}
-                      value={formData[key] || ''}
-                      disabled={isLoading}
-                      onChange={(e) => update({ [key]: e.target.value })}
-                      placeholder={fallback}
-                      className={`${inputClass} border-slate-200 font-mono`}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Old logo link (only for older templates) */}
-          {formData.logo && (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-              <span>
-                This template has an older logo link. Add a <strong>Logo</strong> image in the Card Designer instead, then remove the old one.
-              </span>
-              <button type="button" onClick={() => update({ logo: null })} className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 shrink-0">
-                <X className="w-3.5 h-3.5" /> Remove old logo
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <Suspense fallback={<RouteLoader message="Loading card designer..." />}>
+        <CardDesigner
+          formData={formData}
+          themes={themes}
+          themesLoading={themesLoading}
+          usableAssets={usableAssets}
+          assetsLoading={assetsLoading}
+          previewData={previewData}
+          previewLoading={previewLoading}
+          previewError={previewError}
+          invalidLabels={invalidLabels}
+          handlers={designerHandlers}
+        />
+      </Suspense>
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-3 pt-2">

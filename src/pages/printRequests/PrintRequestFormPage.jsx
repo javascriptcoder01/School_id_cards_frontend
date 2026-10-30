@@ -1,5 +1,5 @@
 // PrintRequestFormPage.jsx — Class Teacher: New / Edit print request (3 steps: Template → Students → Review)
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, LayoutTemplate, Users, ClipboardCheck, Loader2, Save, Send, AlertTriangle, Info } from 'lucide-react';
@@ -8,7 +8,7 @@ import {
   fetchWizardStudentsRequested,
   fetchRequestsRequested,
   fetchRequestRequested,
-  fetchPreviewsRequested,
+  fetchWizardCardPreviewRequested,
   saveRequestRequested,
   clearWizard,
   clearRequestDetail,
@@ -27,8 +27,7 @@ import {
   selectPrintRequestStudents,
   selectPrintRequestDetailLoading,
   selectPrintRequestDetailError,
-  selectCardPreviews,
-  selectCardPreviewsLoading,
+  selectWizardCardPreviews,
   selectPrintRequestSaving,
   selectPrintRequestFormError,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
@@ -38,12 +37,11 @@ import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import Loader from '../../components/common/Loader.jsx';
 import StudentPickerTable from '../../components/printRequests/StudentPickerTable.jsx';
-import TemplateLivePreview from '../../components/templates/designer/TemplateLivePreview.jsx';
-import IdCardPreview from '../../components/idCards/IdCardPreview.jsx';
+import TemplateFlipPreview from '../../components/templates/TemplateFlipPreview.jsx';
+import IdCardPreviewCarousel from '../../components/idCards/IdCardPreviewCarousel.jsx';
 
 const MAX_STUDENTS = 100;
 const NOTE_MAX = 500;
-const PREVIEW_COUNT = 3;
 // "Student already in an open request" lock ke liye (query ke status codes)
 const OPEN_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'REJECTED_BY_ADMIN', 'APPROVED', 'PRINTING'];
 
@@ -154,8 +152,7 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
   const studentsError = useSelector(selectWizardStudentsError);
   const classScope = useSelector(selectWizardClassScope);
   const openRequests = useSelector(selectPrintRequests);
-  const previews = useSelector(selectCardPreviews);
-  const previewsLoading = useSelector(selectCardPreviewsLoading);
+  const cardPreviews = useSelector(selectWizardCardPreviews);
   const saving = useSelector(selectPrintRequestSaving);
   const formError = useSelector(selectPrintRequestFormError);
 
@@ -164,6 +161,8 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
   const [selectedIds, setSelectedIds] = useState(initial.studentIds);
   const [note, setNote] = useState(initial.note);
   const [pendingAction, setPendingAction] = useState(null); // 'draft' | 'submit'
+  // "Front aur back dekh liye" — isi template + students ke liye (badle to dobara tick)
+  const [checkedKey, setCheckedKey] = useState(null);
 
   // Student → doosri open request ka number (ye request khud chhod kar) → picker mein locked
   const lockedBy = useMemo(() => {
@@ -190,14 +189,22 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
 
   const goToStep = (next) => {
     dispatch(clearFormError());
-    if (next === 3) {
-      dispatch(fetchPreviewsRequested({ templateId, studentIds: validSelected.slice(0, PREVIEW_COUNT) }));
-    }
     setStep(next);
   };
 
+  // Review carousel: jo card dikh raha hai uska preview (saga cache karta hai)
+  const needPreview = useCallback(
+    (studentId) => {
+      if (templateId) dispatch(fetchWizardCardPreviewRequested({ templateId, studentId }));
+    },
+    [dispatch, templateId]
+  );
+  const reviewKey = `${templateId}|${validSelected.join(',')}`;
+  const cardsChecked = checkedKey === reviewKey;
+
   const save = (submit) => {
     if (saving || !templateId || validSelected.length === 0) return;
+    if (submit && !cardsChecked) return;
     setPendingAction(submit ? 'submit' : 'draft');
     dispatch(
       saveRequestRequested({
@@ -283,7 +290,7 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
                     className={`text-left rounded-2xl border bg-white p-4 shadow-xs transition-all ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-200'}`}
                   >
                     <div className="flex justify-center rounded-xl bg-slate-50 p-3 overflow-hidden">
-                      <TemplateLivePreview template={template} scale={0.6} />
+                      <TemplateFlipPreview templateId={template.id || template._id} size="sm" interactive={false} />
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <div className="min-w-0">
@@ -365,28 +372,29 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
             </div>
           </div>
 
-          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <h2 className="text-sm font-bold text-slate-800">
-              Card preview <span className="font-normal text-slate-500">(first {Math.min(PREVIEW_COUNT, validSelected.length)} of {validSelected.length})</span>
-            </h2>
-            {previewsLoading ? (
-              <div className="flex items-center gap-2 py-10 justify-center text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading previews…
-              </div>
-            ) : (
-              <div className="mt-4 flex flex-wrap gap-5">
-                {validSelected.slice(0, PREVIEW_COUNT).map((id) => (
-                  <div key={id} className="space-y-1.5">
-                    {previews[id] ? (
-                      <IdCardPreview renderData={previews[id]} width={260} showWarnings={false} className="rounded-xl overflow-hidden" />
-                    ) : (
-                      <div className="flex h-40 w-64 items-center justify-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-400">Preview not available</div>
-                    )}
-                    <p className="text-xs font-semibold text-slate-600">{studentsById.get(id)?.name}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-bold text-slate-800">Check every card — front and back</h2>
+              <p className="text-xs text-slate-500">Click a card or press Space to flip it.</p>
+            </div>
+            <IdCardPreviewCarousel
+              students={validSelected.map((id) => ({ id, name: studentsById.get(id)?.name, studentId: studentsById.get(id)?.studentId }))}
+              getPreview={(id) => cardPreviews[id]}
+              onNeedPreview={needPreview}
+              size="md"
+            />
+            <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={cardsChecked}
+                onChange={(e) => setCheckedKey(e.target.checked ? reviewKey : null)}
+                className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>
+                <span className="font-semibold">I have checked the front and back of the cards</span>
+                <span className="block text-xs text-slate-500">Names, photos and details are correct for all {validSelected.length} student(s).</span>
+              </span>
+            </label>
           </div>
         </section>
       )}
@@ -433,7 +441,8 @@ const PrintRequestWizard = ({ isEdit, request, initial }) => {
             <button
               type="button"
               onClick={() => save(true)}
-              disabled={saving || validSelected.length === 0}
+              disabled={saving || validSelected.length === 0 || !cardsChecked}
+              title={cardsChecked ? undefined : 'Tick "I have checked the front and back of the cards" first'}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-md shadow-indigo-600/30 disabled:opacity-50"
             >
               {saving && pendingAction === 'submit' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

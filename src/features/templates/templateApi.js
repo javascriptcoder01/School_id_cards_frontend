@@ -43,11 +43,34 @@ export const updateTemplateStatus = async (templateId, isActive) => {
   return response;
 };
 
+// Card themes: presets, decorations, QR types, field groups, default labels (sab roles)
+export const getThemes = async () => {
+  const response = await apiClient.get('/templates/themes');
+  return response;
+};
+
+// Designer draft (bina save) ka render data — { renderData, student, validationErrors } (COLLEGE_ADMIN)
+export const previewRender = async ({ template, studentId } = {}) => {
+  const body = { template };
+  if (studentId) body.studentId = studentId;
+  const response = await apiClient.post('/templates/preview-render', body);
+  return response;
+};
+
+// Saved template ka sample-student preview — { renderData, student } (jo template padh sakta hai)
+export const getSavedTemplatePreview = async (templateId) => {
+  const response = await apiClient.get(`/templates/${templateId}/preview`);
+  return response;
+};
+
 export default {
   getTemplates,
   getTemplateById,
   createTemplate,
   updateTemplate,
   updateTemplateStatus,
+  getThemes,
+  previewRender,
+  getSavedTemplatePreview,
 };
 

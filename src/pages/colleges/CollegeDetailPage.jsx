@@ -32,6 +32,7 @@ import { selectCurrentUser, selectUserRole } from '../../features/auth/authSelec
 import { ROUTES, getCollegeEditRoute } from '../../constants/routes.js';
 import Loader from '../../components/common/Loader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
+import IdCardContactsCard from '../../components/colleges/IdCardContactsCard.jsx';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -398,6 +399,13 @@ export const CollegeDetailPage = () => {
             <DetailRow label="Country">{address.country || <NotProvided />}</DetailRow>
           </div>
         </div>
+
+        {/* ID card back side: school numbers (School Admin apna school, Super Admin koi bhi) */}
+        <IdCardContactsCard
+          college={college}
+          canEdit={isCollegeAdmin || isSuperAdmin}
+          isMine={isCollegeAdmin}
+        />
 
         {/* Record info */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-3 md:col-span-2">

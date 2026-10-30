@@ -1,15 +1,17 @@
 // PrintRequestDetailPage.jsx — Print request detail (Class Teacher / School Admin / Print Center).
 // Kaun se buttons dikhenge ye backend ka `availableActions` batata hai; status label `statusView` se.
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, FileArchive, Loader2, Pencil, AlertTriangle, StickyNote, Printer } from 'lucide-react';
+import { ArrowLeft, Download, FileArchive, Loader2, Pencil, AlertTriangle, StickyNote, Printer, Eye } from 'lucide-react';
 import {
   fetchRequestRequested,
   clearRequestDetail,
   requestActionRequested,
   downloadFileRequested,
-  fetchPreviewsRequested,
+  fetchRequestCardPreviewRequested,
+  clearRequestCardPreviews,
+  cardPreviewKey,
   startPrintRequestPolling,
   stopPrintRequestPolling,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
@@ -20,10 +22,10 @@ import {
   selectPrintRequestDetailError,
   selectPrintRequestLoadingAction,
   selectPrintRequestDownloadKey,
-  selectCardPreviews,
-  selectCardPreviewsLoading,
+  selectRequestCardPreviews,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
-import IdCardPreview from '../../components/idCards/IdCardPreview.jsx';
+import IdCardPreviewCarousel from '../../components/idCards/IdCardPreviewCarousel.jsx';
+import IdCardPreviewModal from '../../components/idCards/IdCardPreviewModal.jsx';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
 import { ROLES } from '../../constants/roles.js';
 import { ROUTES, getPrintRequestEditRoute } from '../../constants/routes.js';
@@ -39,7 +41,22 @@ import { formatDateTime } from '../../utils/idCardFormat.js';
 
 // Print files sirf in statuses mein (backend bhi yahi check karta hai — 409 warna)
 const PRINT_FILE_STATUSES = ['PRINTING', 'COMPLETED'];
-const PREVIEW_COUNT = 3;
+
+// "Print copy" = approve par bana snapshot (yahi print hoga); "Live preview" = abhi ke template + student se
+const PreviewSourceBadge = ({ entry }) => {
+  if (!entry?.source) return null;
+  const snapshot = entry.source === 'SNAPSHOT';
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+        snapshot ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+      }`}
+    >
+      {snapshot ? 'Print copy' : 'Live preview'}
+      {snapshot && entry.cardNumber && <span className="font-mono font-normal">· {entry.cardNumber}</span>}
+    </span>
+  );
+};
 
 const SummaryRow = ({ label, children }) => (
   <div className="flex justify-between gap-3 py-1.5">
@@ -60,10 +77,10 @@ export const PrintRequestDetailPage = () => {
   const loadingAction = useSelector(selectPrintRequestLoadingAction);
   const downloadKey = useSelector(selectPrintRequestDownloadKey);
 
-  const previews = useSelector(selectCardPreviews);
-  const previewsLoading = useSelector(selectCardPreviewsLoading);
+  const cardPreviews = useSelector(selectRequestCardPreviews);
 
   const [modalAction, setModalAction] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Load + live refresh (30 s / tab focus); jaate waqt band
   useEffect(() => {
@@ -75,15 +92,18 @@ export const PrintRequestDetailPage = () => {
     };
   }, [dispatch, requestId]);
 
-  // School Admin approve karne se pehle kuch cards dekh le (approve par yahi data lock hota hai)
-  const showPreviews = role === ROLES.COLLEGE_ADMIN && Boolean(request?.availableActions?.includes('APPROVE'));
-  const previewStudentKey = students.slice(0, PREVIEW_COUNT).map((s) => s.id).join(',');
-  const templateId = request?.template?.id;
+  // Status badla (polling se bhi) → card previews dobara (approve ke baad "Print copy")
+  const status = request?.status;
   useEffect(() => {
-    if (showPreviews && templateId && previewStudentKey) {
-      dispatch(fetchPreviewsRequested({ templateId, studentIds: previewStudentKey.split(',') }));
-    }
-  }, [dispatch, showPreviews, templateId, previewStudentKey]);
+    if (status) dispatch(clearRequestCardPreviews());
+  }, [dispatch, status]);
+
+  // Carousel: jo card dikh raha hai uska preview (saga cache by request + student)
+  const needCardPreview = useCallback(
+    (studentId) => dispatch(fetchRequestCardPreviewRequested({ requestId, studentId })),
+    [dispatch, requestId]
+  );
+  const getCardPreview = (studentId) => cardPreviews[cardPreviewKey(requestId, studentId)];
 
   const backTo = role === ROLES.SUPER_ADMIN ? ROUTES.PRINT_CENTER : ROUTES.PRINT_REQUESTS;
   const backLabel = role === ROLES.SUPER_ADMIN ? 'Print Center' : 'Print Requests';
@@ -106,6 +126,8 @@ export const PrintRequestDetailPage = () => {
   const actions = sortActions(request.availableActions || []);
   const canEdit = role === ROLES.OPERATOR && actions.includes('SUBMIT');
   const canDownload = role === ROLES.SUPER_ADMIN && PRINT_FILE_STATUSES.includes(request.status);
+  // School Admin approve se pehle saare cards dekh sake (approve par yahi data lock hota hai)
+  const canApprovePreview = role === ROLES.COLLEGE_ADMIN && actions.includes('APPROVE');
   const modalConfig = modalAction ? REQUEST_ACTION_CONFIG[modalAction] : null;
   const classLabel = request.className ? `${request.className}${request.section ? ` - ${request.section}` : ''}` : '—';
 
@@ -156,7 +178,7 @@ export const PrintRequestDetailPage = () => {
           {/* Action bar */}
           <div className="flex flex-wrap items-center gap-2">
             {canDownload && downloadButton('print', Printer, 'Print Cards')}
-            {canDownload && downloadButton('pdf', Download, 'Download PDF')}
+            {canDownload && downloadButton('pdf', Download, 'Download PDF (front + back)')}
             {canDownload && downloadButton('zip', FileArchive, 'Download ZIP')}
             {canEdit && (
               <Link
@@ -204,33 +226,35 @@ export const PrintRequestDetailPage = () => {
         </div>
       )}
 
-      {/* School Admin: approve se pehle card preview */}
-      {showPreviews && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-bold text-slate-800">
-              Preview cards <span className="font-normal text-slate-500">(first {Math.min(PREVIEW_COUNT, students.length)} of {students.length})</span>
-            </h2>
-            <p className="text-xs text-slate-500">Approving locks these photos and this template for printing.</p>
+      {/* Card preview: sab roles — approve ke baad print copy (snapshot), pehle live */}
+      {students.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Card Preview</h2>
+              <p className="text-xs text-slate-500">
+                {['APPROVED', 'PRINTING', 'COMPLETED'].includes(request.status)
+                  ? 'These are the exact cards that print.'
+                  : 'Live preview from the current template and student details.'}
+              </p>
+            </div>
+            {canApprovePreview && (
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                <Eye className="h-4 w-4" /> Preview all cards
+              </button>
+            )}
           </div>
-          {previewsLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading previews…
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-5">
-              {students.slice(0, PREVIEW_COUNT).map((student) => (
-                <div key={student.id} className="space-y-1.5">
-                  {previews[student.id] ? (
-                    <IdCardPreview renderData={previews[student.id]} width={260} className="rounded-xl overflow-hidden" />
-                  ) : (
-                    <div className="flex h-40 w-64 items-center justify-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-400">Preview not available</div>
-                  )}
-                  <p className="text-xs font-semibold text-slate-600">{student.name}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <IdCardPreviewCarousel
+            students={students}
+            getPreview={getCardPreview}
+            onNeedPreview={needCardPreview}
+            size="md"
+            renderBadge={(studentId) => <PreviewSourceBadge entry={getCardPreview(studentId)} />}
+          />
         </div>
       )}
 
@@ -280,6 +304,45 @@ export const PrintRequestDetailPage = () => {
           </div>
         </div>
       </div>
+
+      <IdCardPreviewModal
+        open={previewOpen}
+        title={`All cards — ${request.requestNumber || 'Print request'}`}
+        subtitle={`${students.length} student(s). Approving locks these photos and this template for printing.`}
+        onClose={() => setPreviewOpen(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Close
+            </button>
+            {canApprovePreview && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewOpen(false);
+                  setModalAction('APPROVE');
+                }}
+                disabled={Boolean(loadingAction)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60"
+              >
+                {REQUEST_ACTION_CONFIG.APPROVE?.label || 'Approve'}
+              </button>
+            )}
+          </>
+        }
+      >
+        <IdCardPreviewCarousel
+          students={students}
+          getPreview={getCardPreview}
+          onNeedPreview={needCardPreview}
+          size="lg"
+          renderBadge={(studentId) => <PreviewSourceBadge entry={getCardPreview(studentId)} />}
+        />
+      </IdCardPreviewModal>
 
       <ConfirmActionModal
         open={Boolean(modalConfig)}

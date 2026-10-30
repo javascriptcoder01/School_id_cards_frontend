@@ -28,7 +28,36 @@ export const selectTemplateStatusLoading = (state) => Boolean(state.templates?.l
 
 export const selectTemplateError = (state) => state.templates?.error || null;
 
+// Card themes catalog
+export const selectCardThemes = (state) => state.templates?.themes?.data || null;
+export const selectCardThemesLoading = (state) => Boolean(state.templates?.themes?.loading);
+export const selectCardThemesError = (state) => state.templates?.themes?.error || null;
+
+// Designer live preview
+export const selectDesignerPreview = (state) => state.templates?.designerPreview?.data || null;
+export const selectDesignerPreviewStudent = (state) => state.templates?.designerPreview?.student || null;
+const EMPTY_ERRORS = [];
+export const selectDesignerValidationErrors = (state) =>
+  state.templates?.designerPreview?.validationErrors || EMPTY_ERRORS;
+export const selectDesignerPreviewLoading = (state) => Boolean(state.templates?.designerPreview?.loading);
+export const selectDesignerPreviewError = (state) => state.templates?.designerPreview?.error || null;
+
+// Saved template sample preview: selectSavedTemplatePreview(templateId)(state) → { data, loading, error } | undefined
+export const selectSavedTemplatePreviews = (state) => state.templates?.savedPreviews?.byId || {};
+export const selectSavedTemplatePreview = (templateId) => (state) =>
+  state.templates?.savedPreviews?.byId?.[templateId];
+
 export default {
+  selectCardThemes,
+  selectCardThemesLoading,
+  selectCardThemesError,
+  selectDesignerPreview,
+  selectDesignerPreviewStudent,
+  selectDesignerValidationErrors,
+  selectDesignerPreviewLoading,
+  selectDesignerPreviewError,
+  selectSavedTemplatePreviews,
+  selectSavedTemplatePreview,
   selectTemplatesState,
   selectTemplates,
   selectSelectedTemplate,

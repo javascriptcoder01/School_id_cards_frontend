@@ -9,6 +9,7 @@ import {
 } from '../../features/operator/operatorSelectors.js';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import PageLoader from '../../components/common/PageLoader.jsx';
+import TemplateFlipPreview from '../../components/templates/TemplateFlipPreview.jsx';
 
 export const OperatorTemplateDetailPage = () => {
   const { templateId } = useParams();
@@ -81,6 +82,16 @@ export const OperatorTemplateDetailPage = () => {
             <span className="text-sm font-extrabold text-emerald-600 mt-1 block">Active</span>
           </div>
         </div>
+
+        {/* Card preview: front + back with a sample student */}
+        {templateId && (
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Card Preview</h3>
+            <div className="flex justify-center rounded-2xl border border-slate-200 bg-slate-100/70 p-6">
+              <TemplateFlipPreview templateId={templateId} size="lg" />
+            </div>
+          </div>
+        )}
 
         {/* Fields list */}
         <div className="space-y-3 pt-4 border-t border-slate-100">

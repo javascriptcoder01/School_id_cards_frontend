@@ -78,6 +78,13 @@ export const getBulkPrintPdf = async (requestIds) => {
   return blob;
 };
 
+// Request ke ek student ka card (front + back): approve ke baad snapshot, warna live
+// → { renderData, source: 'SNAPSHOT' | 'LIVE', cardNumber, cardStatus }
+export const getRequestCardPreview = async (requestId, studentId) => {
+  const response = await apiClient.get(`${BASE}/${requestId}/cards/${studentId}/preview`);
+  return response;
+};
+
 // Wizard helpers (ID cards feature ke API reuse)
 export const getWizardTemplates = getCardTemplates;
 export const getWizardStudents = getCardStudents;

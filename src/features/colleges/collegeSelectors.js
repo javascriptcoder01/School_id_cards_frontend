@@ -32,7 +32,13 @@ export const selectCollegeUpdateError = (state) => state.colleges?.updateError |
 
 export const selectCollegeStatusError = (state) => state.colleges?.statusError || null;
 
+// ID card contact details (school profile)
+export const selectIdCardContactsSaving = (state) => Boolean(state.colleges?.contactsSaving);
+export const selectIdCardContactsError = (state) => state.colleges?.contactsError || null;
+
 export default {
+  selectIdCardContactsSaving,
+  selectIdCardContactsError,
   selectCollegesState,
   selectCollegesList,
   selectSelectedCollege,

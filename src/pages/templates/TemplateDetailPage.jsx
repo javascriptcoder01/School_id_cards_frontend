@@ -24,7 +24,7 @@ import { ROUTES, getTemplateEditRoute } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import { TEMPLATE_FIELD_LABELS } from '../../constants/template.js';
 import TemplateStatusBadge from '../../components/templates/TemplateStatusBadge.jsx';
-import TemplateLivePreview from '../../components/templates/designer/TemplateLivePreview.jsx';
+import TemplateFlipPreview from '../../components/templates/TemplateFlipPreview.jsx';
 import Loader from '../../components/common/Loader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 
@@ -136,13 +136,13 @@ export const TemplateDetailPage = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800">Visual Card Layout</h2>
-              <p className="text-xs text-slate-500">Rendered preview with sample student mock credentials</p>
+              <p className="text-xs text-slate-500">Front and back with a sample student — exactly what prints</p>
             </div>
           </div>
         </div>
 
         <div className="flex justify-center p-6 bg-slate-100/70 rounded-2xl border border-slate-200">
-          <TemplateLivePreview template={template} scale={1.1} />
+          <TemplateFlipPreview templateId={template.id} size="lg" />
         </div>
       </div>
 

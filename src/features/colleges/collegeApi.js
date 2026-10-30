@@ -46,7 +46,14 @@ export const updateCollegeStatusApi = async (collegeId, isActive) => {
   return response;
 };
 
+// School Admin: apne school ke ID card contact numbers (sirf bheje gaye keys badalte hain)
+export const updateMyIdCardContactsApi = async (contacts) => {
+  const response = await apiClient.patch('/colleges/me/id-card-contacts', contacts);
+  return response;
+};
+
 export default {
+  updateMyIdCardContactsApi,
   getCollegesApi,
   getMyCollegeApi,
   getCollegeByIdApi,

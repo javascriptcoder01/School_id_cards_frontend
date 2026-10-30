@@ -56,12 +56,18 @@ export const getOutOfBoundsElements = (template) => {
         if (toNumber(el.x) + w > cardWidth || toNumber(el.y) + h > cardHeight) outside.push(label);
     };
 
-    (template.fields || []).forEach((f) => check(`Field "${f.field}"`, f));
-    check('Photo', template.photo);
-    check('QR Code', template.qrCode);
-    (template.imageLayers || []).forEach((layer, i) =>
-        check(`Image layer ${i + 1} (${layer.type})`, layer)
-    );
+    const checkSide = (prefix, side) => {
+        (side.fields || []).forEach((f) => check(`${prefix}Field "${f.field}"`, f));
+        check(`${prefix}Photo`, side.photo);
+        check(`${prefix}QR Code`, side.qrCode);
+        (side.imageLayers || []).forEach((layer, i) =>
+            check(`${prefix}Image layer ${i + 1} (${layer.type})`, layer)
+        );
+    };
+
+    checkSide('', template);
+    // Back side (backend jaisa hi "Back: " prefix)
+    if (template.hasBack && template.back) checkSide('Back: ', template.back);
 
     return outside;
 };
@@ -103,27 +109,37 @@ export const convertTemplateUnits = (template, fromUnit, toUnit) => {
     const box = (el) =>
         el ? { ...el, x: len(el.x), y: len(el.y), width: len(el.width), height: len(el.height) } : el;
 
-    return {
-        ...template,
-        unit: toUnit,
-        width: len(template.width),
-        height: len(template.height),
-        fields: (template.fields || []).map((f) => ({
+    // Ek side ke elements (front = top-level, back = template.back)
+    const convertSide = (side) => ({
+        fields: (side.fields || []).map((f) => ({
             ...f,
             x: len(f.x),
             y: len(f.y),
             width: len(f.width),
             fontSize: round2(toNumber(f.fontSize, 12) * fontFactor),
+            // letter spacing font jaisi unit mein (MM: pt, PX: px)
+            ...(f.letterSpacing !== undefined ? { letterSpacing: round2(toNumber(f.letterSpacing) * fontFactor) } : {}),
         })),
-        photo: template.photo
+        photo: side.photo
             ? {
-                ...box(template.photo),
-                borderRadius: len(template.photo.borderRadius),
-                borderWidth: len(template.photo.borderWidth),
+                ...box(side.photo),
+                borderRadius: len(side.photo.borderRadius),
+                borderWidth: len(side.photo.borderWidth),
             }
-            : template.photo,
-        qrCode: box(template.qrCode),
-        imageLayers: (template.imageLayers || []).map(box),
+            : side.photo,
+        qrCode: side.qrCode
+            ? { ...box(side.qrCode), ...(side.qrCode.padding !== undefined ? { padding: len(side.qrCode.padding) } : {}) }
+            : side.qrCode,
+        imageLayers: (side.imageLayers || []).map(box),
+    });
+
+    return {
+        ...template,
+        unit: toUnit,
+        width: len(template.width),
+        height: len(template.height),
+        ...convertSide(template),
+        ...(template.back ? { back: { ...template.back, ...convertSide(template.back) } } : {}),
     };
 };
 

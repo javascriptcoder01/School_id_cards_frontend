@@ -50,7 +50,16 @@ export const selectCardPreviews = (state) => state.printRequestWorkflow?.wizard?
 export const selectCardPreviewsLoading = (state) => Boolean(state.printRequestWorkflow?.wizard?.previews?.loading);
 export const selectCardPreviewsError = (state) => state.printRequestWorkflow?.wizard?.previews?.error || null;
 
+// Request card previews (carousel): poora map ("requestId:studentId" → entry)
+export const selectRequestCardPreviews = (state) => state.printRequestWorkflow?.cardPreviews?.byKey || {};
+
+// Review step carousel cache: studentId → { data, loading, error } (sirf current template ka)
+const EMPTY_MAP = {};
+export const selectWizardCardPreviews = (state) => state.printRequestWorkflow?.wizard?.cardPreviews?.byStudentId || EMPTY_MAP;
+
 export default {
+  selectWizardCardPreviews,
+  selectRequestCardPreviews,
   selectPrintRequestWorkflowState,
   selectPrintRequests,
   selectPrintRequestPagination,

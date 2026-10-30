@@ -33,6 +33,13 @@ import {
   fetchPreviewsFailed,
   startPrintRequestPolling,
   stopPrintRequestPolling,
+  fetchRequestCardPreviewRequested,
+  fetchRequestCardPreviewSucceeded,
+  fetchRequestCardPreviewFailed,
+  cardPreviewKey,
+  fetchWizardCardPreviewRequested,
+  fetchWizardCardPreviewSucceeded,
+  fetchWizardCardPreviewFailed,
 } from './printRequestWorkflowSlice.js';
 import {
   getRequests,
@@ -44,6 +51,7 @@ import {
   downloadRequestPdf,
   downloadRequestZip,
   getBulkPrintPdf,
+  getRequestCardPreview,
   getWizardTemplates,
   getWizardStudents,
   previewCard,
@@ -345,6 +353,53 @@ export function* fetchPreviewsWorker(action) {
   }
 }
 
+/**
+ * Request ke ek student ka card (carousel lazy load). Cache mein ho to dobara nahi (payload.force se dobara).
+ * payload: { requestId, studentId, force? }
+ */
+export function* fetchRequestCardPreviewWorker(action) {
+  const { requestId, studentId, force } = action.payload || {};
+  if (!requestId || !studentId) return;
+  const key = cardPreviewKey(requestId, studentId);
+  const cached = yield select((state) => state.printRequestWorkflow?.cardPreviews?.byKey?.[key]);
+  if (cached?.data && !force) {
+    yield put(
+      fetchRequestCardPreviewSucceeded({
+        key,
+        data: { renderData: cached.data, source: cached.source, cardNumber: cached.cardNumber, cardStatus: cached.cardStatus },
+      })
+    );
+    return;
+  }
+  try {
+    const response = yield call(getRequestCardPreview, requestId, studentId);
+    yield put(fetchRequestCardPreviewSucceeded({ key, data: dataOf(response) }));
+  } catch (error) {
+    yield put(fetchRequestCardPreviewFailed({ key, error: errorMessage(error, 'Failed to load card preview') }));
+  }
+}
+
+/**
+ * Review step carousel: ek student ka card (POST /id-cards/preview). Same template ke liye cache.
+ * payload: { templateId, studentId }
+ */
+export function* fetchWizardCardPreviewWorker(action) {
+  const { templateId, studentId } = action.payload || {};
+  if (!templateId || !studentId) return;
+  const cached = yield select((state) => state.printRequestWorkflow?.wizard?.cardPreviews);
+  const entry = cached?.templateId === templateId ? cached.byStudentId?.[studentId] : null;
+  if (entry?.data) {
+    yield put(fetchWizardCardPreviewSucceeded({ templateId, studentId, data: entry.data }));
+    return;
+  }
+  try {
+    const response = yield call(previewCard, { templateId, studentId });
+    yield put(fetchWizardCardPreviewSucceeded({ templateId, studentId, data: dataOf(response)?.renderData || null }));
+  } catch (error) {
+    yield put(fetchWizardCardPreviewFailed({ templateId, studentId, error: errorMessage(error, 'Failed to load card') }));
+  }
+}
+
 /* ---------------- Polling: har 30 s + tab wapas visible hone par ---------------- */
 
 const createVisibilityChannel = () =>
@@ -386,6 +441,8 @@ export function* watchPrintRequestWorkflow() {
   yield takeLatest(requestActionRequested.type, requestActionWorker);
   // Har file ka download alag (ek doosre ko cancel na kare)
   yield takeEvery(downloadFileRequested.type, downloadFileWorker);
+  yield takeEvery(fetchRequestCardPreviewRequested.type, fetchRequestCardPreviewWorker);
+  yield takeEvery(fetchWizardCardPreviewRequested.type, fetchWizardCardPreviewWorker);
   yield takeLatest(fetchWizardTemplatesRequested.type, fetchWizardTemplatesWorker);
   yield takeLatest(fetchWizardStudentsRequested.type, fetchWizardStudentsWorker);
   yield takeLatest(fetchPreviewsRequested.type, fetchPreviewsWorker);

@@ -22,6 +22,24 @@ const initialState = {
     status: false,
   },
   error: null,
+  // Card themes catalog (ek baar load, phir cache)
+  themes: {
+    data: null, // { presets, decorationStyles, backgroundTypes, qrContentTypes, fieldGroups, defaultLabels }
+    loading: false,
+    error: null,
+  },
+  // Designer ka live preview (bina save kiye draft) — backend se exact render data
+  designerPreview: {
+    data: null, // renderData
+    student: null, // { id, name, isSample }
+    validationErrors: [],
+    loading: false,
+    error: null,
+  },
+  // Saved template ka sample preview (list grid / detail) — templateId → { data, loading, error }
+  savedPreviews: {
+    byId: {},
+  },
 };
 
 export const templateSlice = createSlice({
@@ -147,7 +165,79 @@ export const templateSlice = createSlice({
     clearTemplateErrors: (state) => {
       state.error = null;
     },
+
+    // Themes catalog
+    fetchThemesRequested: (state) => {
+      if (!state.themes.data) state.themes.loading = true;
+      state.themes.error = null;
+    },
+    fetchThemesSucceeded: (state, action) => {
+      state.themes.loading = false;
+      state.themes.data = action.payload || null;
+    },
+    fetchThemesFailed: (state, action) => {
+      state.themes.loading = false;
+      state.themes.error = action.payload || 'Failed to load card themes';
+    },
+
+    // Designer live preview (saga 400 ms debounce karta hai)
+    previewRenderRequested: (state) => {
+      state.designerPreview.loading = true;
+      state.designerPreview.error = null;
+    },
+    previewRenderSucceeded: (state, action) => {
+      state.designerPreview.loading = false;
+      state.designerPreview.data = action.payload?.renderData || null;
+      state.designerPreview.student = action.payload?.student || null;
+      state.designerPreview.validationErrors = action.payload?.validationErrors || [];
+    },
+    previewRenderFailed: (state, action) => {
+      state.designerPreview.loading = false;
+      state.designerPreview.error = action.payload || 'Failed to render preview';
+    },
+    clearDesignerPreview: (state) => {
+      state.designerPreview = { ...initialState.designerPreview };
+    },
+
+    // Saved template sample preview (cache by templateId)
+    fetchSavedPreviewRequested: (state, action) => {
+      const templateId = action.payload?.templateId;
+      if (!templateId) return;
+      if (!state.savedPreviews) state.savedPreviews = { byId: {} };
+      const current = state.savedPreviews.byId[templateId];
+      state.savedPreviews.byId[templateId] = { data: current?.data || null, loading: true, error: null };
+    },
+    fetchSavedPreviewSucceeded: (state, action) => {
+      const { templateId, data } = action.payload || {};
+      if (!templateId) return;
+      if (!state.savedPreviews) state.savedPreviews = { byId: {} };
+      state.savedPreviews.byId[templateId] = { data: data || null, loading: false, error: null };
+    },
+    fetchSavedPreviewFailed: (state, action) => {
+      const { templateId, error } = action.payload || {};
+      if (!templateId) return;
+      if (!state.savedPreviews) state.savedPreviews = { byId: {} };
+      const current = state.savedPreviews.byId[templateId];
+      state.savedPreviews.byId[templateId] = {
+        data: current?.data || null,
+        loading: false,
+        error: error || 'Failed to load preview',
+      };
+    },
+
     resetTemplateState: () => initialState,
+  },
+  extraReducers: (builder) => {
+    // Template badla (save / status) → uska purana sample preview hatao
+    builder.addMatcher(
+      (action) =>
+        action.type === 'templates/updateTemplateSucceeded' ||
+        action.type === 'templates/updateTemplateStatusSucceeded',
+      (state, action) => {
+        const templateId = action.payload?.id;
+        if (templateId && state.savedPreviews?.byId) delete state.savedPreviews.byId[templateId];
+      }
+    );
   },
 });
 
@@ -172,6 +262,16 @@ export const {
   setTemplatePagination,
   clearSelectedTemplate,
   clearTemplateErrors,
+  fetchThemesRequested,
+  fetchThemesSucceeded,
+  fetchThemesFailed,
+  previewRenderRequested,
+  previewRenderSucceeded,
+  previewRenderFailed,
+  clearDesignerPreview,
+  fetchSavedPreviewRequested,
+  fetchSavedPreviewSucceeded,
+  fetchSavedPreviewFailed,
   resetTemplateState,
 } = templateSlice.actions;
 

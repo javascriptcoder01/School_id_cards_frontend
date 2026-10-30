@@ -43,8 +43,16 @@ const initialState = {
     templates: { items: [], loading: false, error: null },
     students: { items: [], classScope: undefined, loading: false, error: null },
     previews: { byStudentId: {}, loading: false, error: null },
+    // Review step carousel: ek-ek student (lazy). Template badle to cache saaf.
+    cardPreviews: { templateId: null, byStudentId: {} },
+  },
+  // Request detail ka card carousel: "requestId:studentId" → { data, source, cardNumber, loading, error }
+  cardPreviews: {
+    byKey: {},
   },
 };
+
+export const cardPreviewKey = (requestId, studentId) => `${requestId}:${studentId}`;
 
 const isSilent = (action) => Boolean(action.payload?.silent);
 
@@ -111,6 +119,37 @@ export const printRequestWorkflowSlice = createSlice({
     clearRequestDetail: (state) => {
       state.detail = { ...initialState.detail };
       state.actionState = { ...initialState.actionState };
+      state.cardPreviews = { byKey: {} };
+    },
+
+    // Request card preview (lazy, cache by request + student)
+    fetchRequestCardPreviewRequested: (state, action) => {
+      const { requestId, studentId } = action.payload || {};
+      if (!requestId || !studentId) return;
+      const key = cardPreviewKey(requestId, studentId);
+      const current = state.cardPreviews.byKey[key];
+      state.cardPreviews.byKey[key] = { ...current, data: current?.data || null, loading: true, error: null };
+    },
+    fetchRequestCardPreviewSucceeded: (state, action) => {
+      const { key, data } = action.payload || {};
+      if (!key) return;
+      state.cardPreviews.byKey[key] = {
+        data: data?.renderData || null,
+        source: data?.source || null,
+        cardNumber: data?.cardNumber || null,
+        cardStatus: data?.cardStatus || null,
+        loading: false,
+        error: null,
+      };
+    },
+    fetchRequestCardPreviewFailed: (state, action) => {
+      const { key, error } = action.payload || {};
+      if (!key) return;
+      const current = state.cardPreviews.byKey[key];
+      state.cardPreviews.byKey[key] = { ...current, loading: false, error: error || 'Failed to load card preview' };
+    },
+    clearRequestCardPreviews: (state) => {
+      state.cardPreviews = { byKey: {} };
     },
 
     // Create / update (+ optional submit)
@@ -136,6 +175,8 @@ export const printRequestWorkflowSlice = createSlice({
     },
     requestActionSucceeded: (state, action) => {
       state.actionState.loadingAction = null;
+      // Status badla (e.g. approve → ab snapshot) → card previews dobara aayein
+      state.cardPreviews = { byKey: {} };
       // Detail khula hai to turant naya status (refetch baad mein students bhi laata hai)
       if (state.detail.data?.request && action.payload?.id === state.detail.data.request.id) {
         state.detail.data.request = action.payload;
@@ -202,6 +243,31 @@ export const printRequestWorkflowSlice = createSlice({
       state.wizard.previews.loading = false;
       state.wizard.previews.error = action.payload || 'Failed to load card previews';
     },
+    // Review carousel: payload { templateId, studentId }
+    fetchWizardCardPreviewRequested: (state, action) => {
+      const { templateId, studentId } = action.payload || {};
+      if (!templateId || !studentId) return;
+      const cache = state.wizard.cardPreviews || { templateId: null, byStudentId: {} };
+      if (cache.templateId !== templateId) {
+        cache.templateId = templateId;
+        cache.byStudentId = {};
+      }
+      const current = cache.byStudentId[studentId];
+      cache.byStudentId[studentId] = { data: current?.data || null, loading: true, error: null };
+      state.wizard.cardPreviews = cache;
+    },
+    fetchWizardCardPreviewSucceeded: (state, action) => {
+      const { templateId, studentId, data } = action.payload || {};
+      // Beech mein template badal gaya → purana jawab ignore
+      if (state.wizard.cardPreviews?.templateId !== templateId) return;
+      state.wizard.cardPreviews.byStudentId[studentId] = { data: data || null, loading: false, error: null };
+    },
+    fetchWizardCardPreviewFailed: (state, action) => {
+      const { templateId, studentId, error } = action.payload || {};
+      if (state.wizard.cardPreviews?.templateId !== templateId) return;
+      state.wizard.cardPreviews.byStudentId[studentId] = { data: null, loading: false, error: error || 'Failed to load card' };
+    },
+
     clearWizard: (state) => {
       state.wizard = { ...initialState.wizard };
       state.form = { ...initialState.form };
@@ -234,6 +300,10 @@ export const {
   fetchRequestSucceeded,
   fetchRequestFailed,
   clearRequestDetail,
+  fetchRequestCardPreviewRequested,
+  fetchRequestCardPreviewSucceeded,
+  fetchRequestCardPreviewFailed,
+  clearRequestCardPreviews,
   saveRequestRequested,
   saveRequestSucceeded,
   saveRequestFailed,
@@ -253,6 +323,9 @@ export const {
   fetchPreviewsRequested,
   fetchPreviewsSucceeded,
   fetchPreviewsFailed,
+  fetchWizardCardPreviewRequested,
+  fetchWizardCardPreviewSucceeded,
+  fetchWizardCardPreviewFailed,
   clearWizard,
   startPrintRequestPolling,
   stopPrintRequestPolling,

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -23,6 +23,9 @@ import {
 import { ROUTES, getStudentEditRoute } from '../../constants/routes.js';
 import Loader from '../../components/common/Loader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
+import StudentIdCardPanel from '../../components/students/StudentIdCardPanel.jsx';
+import { selectUserRole } from '../../features/auth/authSelectors.js';
+import { ROLES } from '../../constants/roles.js';
 
 export const StudentDetailPage = () => {
   const { studentId } = useParams();
@@ -31,6 +34,8 @@ export const StudentDetailPage = () => {
   const student = useSelector(selectSelectedStudent);
   const isLoading = useSelector(selectStudentDetailLoading);
   const error = useSelector(selectStudentDetailError);
+  const role = useSelector(selectUserRole);
+  const [tab, setTab] = useState('DETAILS'); // 'DETAILS' | 'ID_CARD'
 
   useEffect(() => {
     if (studentId) {
@@ -150,7 +155,31 @@ export const StudentDetailPage = () => {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Student sections">
+        {[
+          { key: 'DETAILS', label: 'Details' },
+          { key: 'ID_CARD', label: 'ID Card' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${tab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'ID_CARD' && (
+        <StudentIdCardPanel studentId={student._id || student.id} isOperator={role === ROLES.OPERATOR} />
+      )}
+
       {/* Profile Details Grid */}
+      {tab === 'DETAILS' && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Academic & Personal Details */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
@@ -192,6 +221,13 @@ export const StudentDetailPage = () => {
               <span className="text-slate-500">Gender:</span>
               <span className="font-medium text-slate-900 capitalize">
                 {student.gender ? student.gender.toLowerCase() : <span className="text-slate-400 italic">Not specified</span>}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
+              <span className="text-slate-500">Blood Group:</span>
+              <span className="font-medium text-slate-900">
+                {student.bloodGroup || <span className="text-slate-400 italic">Not specified</span>}
               </span>
             </div>
           </div>
@@ -296,9 +332,9 @@ export const StudentDetailPage = () => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
 
 export default StudentDetailPage;
-

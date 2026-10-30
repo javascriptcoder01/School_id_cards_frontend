@@ -1,6 +1,16 @@
 // templateSaga.js
-import { takeLatest, call, put } from 'redux-saga/effects';
+import { takeLatest, takeEvery, debounce, call, put, select } from 'redux-saga/effects';
+import { createAction } from '@reduxjs/toolkit';
 import {
+  fetchThemesRequested,
+  fetchThemesSucceeded,
+  fetchThemesFailed,
+  previewRenderRequested,
+  previewRenderSucceeded,
+  previewRenderFailed,
+  fetchSavedPreviewRequested,
+  fetchSavedPreviewSucceeded,
+  fetchSavedPreviewFailed,
   fetchTemplatesRequested,
   fetchTemplatesSucceeded,
   fetchTemplatesFailed,
@@ -23,7 +33,66 @@ import {
   createTemplate,
   updateTemplate,
   updateTemplateStatus,
+  getThemes,
+  previewRender,
+  getSavedTemplatePreview,
 } from './templateApi.js';
+import { selectCardThemes, selectSavedTemplatePreview } from './templateSelectors.js';
+
+// apiClient body lautata hai: { success, message, data }
+const dataOf = (response) => response?.data ?? response;
+
+// Debounce ke baad ka internal action (state nahi badalta) — takeLatest purani request cancel karta hai
+const previewRenderDebounced = createAction('templates/previewRenderDebounced');
+const PREVIEW_DEBOUNCE_MS = 400;
+
+/* ---------------- Themes / previews ---------------- */
+
+// Ek baar load (cache). payload { force: true } se dobara.
+export function* fetchThemesWorker(action) {
+  const cached = yield select(selectCardThemes);
+  if (cached && !action.payload?.force) {
+    yield put(fetchThemesSucceeded(cached));
+    return;
+  }
+  try {
+    const response = yield call(getThemes);
+    yield put(fetchThemesSucceeded(dataOf(response)));
+  } catch (error) {
+    yield put(fetchThemesFailed(error?.message || 'Failed to load card themes'));
+  }
+}
+
+function* debouncePreviewRender(action) {
+  yield put(previewRenderDebounced(action.payload));
+}
+
+// payload: { template, studentId? } — designer ka poora draft
+export function* previewRenderWorker(action) {
+  try {
+    const response = yield call(previewRender, action.payload || {});
+    yield put(previewRenderSucceeded(dataOf(response)));
+  } catch (error) {
+    yield put(previewRenderFailed(error?.message || 'Failed to render preview'));
+  }
+}
+
+// payload: { templateId, force? } — cache mein ho to dobara nahi
+export function* fetchSavedPreviewWorker(action) {
+  const { templateId, force } = action.payload || {};
+  if (!templateId) return;
+  const cached = yield select(selectSavedTemplatePreview(templateId));
+  if (cached?.data && !force) {
+    yield put(fetchSavedPreviewSucceeded({ templateId, data: cached.data }));
+    return;
+  }
+  try {
+    const response = yield call(getSavedTemplatePreview, templateId);
+    yield put(fetchSavedPreviewSucceeded({ templateId, data: dataOf(response)?.renderData || null }));
+  } catch (error) {
+    yield put(fetchSavedPreviewFailed({ templateId, error: error?.message || 'Failed to load preview' }));
+  }
+}
 
 export function* fetchTemplatesWorker(action) {
   try {
@@ -119,6 +188,11 @@ export function* watchTemplates() {
   yield takeLatest(createTemplateRequested.type, createTemplateWorker);
   yield takeLatest(updateTemplateRequested.type, updateTemplateWorker);
   yield takeLatest(updateTemplateStatusRequested.type, updateTemplateStatusWorker);
+  yield takeLatest(fetchThemesRequested.type, fetchThemesWorker);
+  // Har change par 400 ms ruko, phir sirf aakhri draft render (purani chalti request cancel)
+  yield debounce(PREVIEW_DEBOUNCE_MS, previewRenderRequested.type, debouncePreviewRender);
+  yield takeLatest(previewRenderDebounced.type, previewRenderWorker);
+  yield takeEvery(fetchSavedPreviewRequested.type, fetchSavedPreviewWorker);
 }
 
 export default watchTemplates;

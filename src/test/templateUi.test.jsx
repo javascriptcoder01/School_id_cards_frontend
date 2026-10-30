@@ -6,6 +6,13 @@ import TemplateTable from '../components/templates/TemplateTable.jsx';
 import TemplateStatusBadge from '../components/templates/TemplateStatusBadge.jsx';
 import TemplateSearch from '../components/templates/TemplateSearch.jsx';
 import TemplateForm from '../components/templates/TemplateForm.jsx';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import templateReducer from '../features/templates/templateSlice.js';
+
+// TemplateForm themes + live preview Redux se leta hai (saga nahi chalti — sirf store)
+const renderWithStore = (ui) =>
+  render(<Provider store={configureStore({ reducer: { templates: templateReducer } })}>{ui}</Provider>);
 
 describe('TEMPLATE MANAGEMENT UI COMPONENTS', () => {
   beforeEach(() => {
@@ -95,7 +102,7 @@ describe('TEMPLATE MANAGEMENT UI COMPONENTS', () => {
   it('5. TemplateForm enforces validation for required fields', async () => {
     const onSubmit = vi.fn();
 
-    render(
+    renderWithStore(
       <MemoryRouter>
         <TemplateForm onSubmit={onSubmit} isEdit={false} />
       </MemoryRouter>
@@ -114,7 +121,7 @@ describe('TEMPLATE MANAGEMENT UI COMPONENTS', () => {
   it('6. TemplateForm submits formatted payload when inputs are valid', () => {
     const onSubmit = vi.fn();
 
-    render(
+    renderWithStore(
       <MemoryRouter>
         <TemplateForm onSubmit={onSubmit} isEdit={false} />
       </MemoryRouter>

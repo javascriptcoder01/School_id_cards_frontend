@@ -19,6 +19,7 @@ import { selectCurrentUser } from '../../features/auth/authSelectors.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 import OperatorAssignmentBanner from './OperatorAssignmentBanner.jsx';
 import StudentPhotoUpload from './StudentPhotoUpload.jsx';
+import { BLOOD_GROUP_VALUES } from '../../constants/bloodGroup.js';
 
 const inputBase =
   'w-full py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all';
@@ -61,6 +62,7 @@ const buildInitialState = (values, isOperator, currentUser) => {
     rollNumber: values?.rollNumber || '',
     dateOfBirth: toDateInput(values?.dateOfBirth),
     gender: values?.gender || '',
+    bloodGroup: values?.bloodGroup || '',
     email: values?.email || '',
     phone: values?.phone || '',
     studentPhoto: getInitialPhoto(values),
@@ -192,6 +194,7 @@ export const StudentForm = ({
       rollNumber: formData.rollNumber.trim() || null,
       dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
       gender: formData.gender || null,
+      bloodGroup: formData.bloodGroup || null,
       email: formData.email.trim().toLowerCase() || null,
       phone: formData.phone.trim() || null,
       guardianName: formData.guardianName.trim() || null,
@@ -386,6 +389,22 @@ export const StudentForm = ({
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
               <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="student-blood-group" className={labelClass}>Blood Group (optional)</label>
+            <select
+              id="student-blood-group"
+              value={formData.bloodGroup}
+              disabled={isLoading}
+              onChange={(e) => handleChange('bloodGroup', e.target.value)}
+              className={`${inputBase} px-4 border-slate-200 cursor-pointer`}
+            >
+              <option value="">Not known</option>
+              {BLOOD_GROUP_VALUES.map((group) => (
+                <option key={group} value={group}>{group}</option>
+              ))}
             </select>
           </div>
 

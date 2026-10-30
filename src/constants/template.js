@@ -33,6 +33,21 @@ export const TEMPLATE_FIELDS = {
   COLLEGE_CODE: 'collegeCode',
   // Purane templates ke liye. Naye templates mein signature imageLayers (SIGNATURE) se lagta hai.
   COLLEGE_ADMIN_SIGNATURE: 'collegeAdminSignature',
+  // School details / student extra / card info (back side)
+  COLLEGE_EMAIL: 'collegeEmail',
+  COLLEGE_PHONE: 'collegePhone',
+  COLLEGE_ADDRESS: 'collegeAddress',
+  COLLEGE_WEBSITE: 'collegeWebsite',
+  EMERGENCY_NUMBER: 'emergencyNumber',
+  TOLL_FREE_NUMBER: 'tollFreeNumber',
+  RECEPTION_NUMBER: 'receptionNumber',
+  PRINCIPAL_NUMBER: 'principalNumber',
+  STUDENT_ADDRESS: 'studentAddress',
+  BLOOD_GROUP: 'bloodGroup',
+  SESSION: 'session',
+  VALID_TILL: 'validTill',
+  CARD_NUMBER: 'cardNumber',
+  CUSTOM_TEXT: 'customText',
 };
 
 export const TEMPLATE_FIELD_LABELS = {
@@ -50,7 +65,42 @@ export const TEMPLATE_FIELD_LABELS = {
   collegeName: 'College Name',
   collegeCode: 'College Code',
   collegeAdminSignature: 'Admin Signature (old style)',
+  collegeEmail: 'School Email',
+  collegePhone: 'School Phone',
+  collegeAddress: 'School Address',
+  collegeWebsite: 'School Website',
+  emergencyNumber: 'Emergency No.',
+  tollFreeNumber: 'Toll-free No.',
+  receptionNumber: 'Reception / Office No.',
+  principalNumber: 'Principal No.',
+  studentAddress: 'Student Address',
+  bloodGroup: 'Blood Group',
+  session: 'Session',
+  validTill: 'Valid Till',
+  cardNumber: 'Card Number',
+  customText: 'Custom Text',
 };
+
+// Purane palette fields ke saath label bhi lagta tha; naye fields mein label khaali → backend ka chhota default label
+export const TEMPLATE_NEW_FIELDS = [
+  'collegeEmail',
+  'collegePhone',
+  'collegeAddress',
+  'collegeWebsite',
+  'emergencyNumber',
+  'tollFreeNumber',
+  'receptionNumber',
+  'principalNumber',
+  'studentAddress',
+  'bloodGroup',
+  'session',
+  'validTill',
+  'cardNumber',
+  'customText',
+];
+
+// Ek side par ek se zyada baar aa sakte hain
+export const TEMPLATE_REPEATABLE_FIELDS = ['customText'];
 
 export const TEMPLATE_FIELD_VALUES = Object.values(TEMPLATE_FIELDS);
 
@@ -207,6 +257,86 @@ export const DESIGNER_ELEMENT_TYPES = {
   QR: 'QR',
   LAYER: 'LAYER',
 };
+
+/* ---------- Sides, themes, QR (backend constants jaise) ---------- */
+
+export const TEMPLATE_SIDES = {
+  FRONT: 'FRONT',
+  BACK: 'BACK',
+};
+
+export const TEMPLATE_BACKGROUND_TYPES = {
+  SOLID: 'SOLID',
+  GRADIENT: 'GRADIENT',
+  IMAGE: 'IMAGE',
+};
+
+export const TEMPLATE_BACKGROUND_TYPE_LABELS = {
+  SOLID: 'Solid color',
+  GRADIENT: 'Gradient',
+  IMAGE: 'Letterhead',
+};
+
+export const TEMPLATE_QR_CONTENT_TYPES = {
+  STUDENT_VERIFICATION: 'STUDENT_VERIFICATION',
+  SCHOOL_DETAILS: 'SCHOOL_DETAILS',
+  SCHOOL_CONTACT_CARD: 'SCHOOL_CONTACT_CARD',
+  CUSTOM_TEXT: 'CUSTOM_TEXT',
+};
+
+export const TEMPLATE_QR_CONTENT_TYPE_LABELS = {
+  STUDENT_VERIFICATION: 'Student verification',
+  SCHOOL_DETAILS: 'School details (text)',
+  SCHOOL_CONTACT_CARD: 'School contact card (save contact)',
+  CUSTOM_TEXT: 'Custom text',
+};
+
+export const TEMPLATE_FONT_STYLES = {
+  NORMAL: 'NORMAL',
+  ITALIC: 'ITALIC',
+};
+
+export const TEMPLATE_TEXT_TRANSFORMS = {
+  NONE: 'NONE',
+  UPPERCASE: 'UPPERCASE',
+};
+
+// Decoration chips ke naam (styles backend /templates/themes se aate hain)
+export const CARD_DECORATION_LABELS = {
+  NONE: 'None',
+  HEADER_BAND: 'Header band',
+  CURVE_HEADER: 'Curved header',
+  WAVE_HEADER: 'Wave header',
+  WAVE_FOOTER: 'Wave footer',
+  DIAGONAL_CORNERS: 'Corners',
+  CIRCLES: 'Circles',
+  STRIPES: 'Stripes',
+  DOT_GRID: 'Dot grid',
+  TOP_BOTTOM_BANDS: 'Top & bottom bands',
+  FULL_GRADIENT: 'Full gradient',
+};
+
+// Designer mein badalne wale theme colors (accent ke saath)
+export const CARD_THEME_EDITABLE_COLORS = [
+  { key: 'primary', label: 'Primary' },
+  { key: 'secondary', label: 'Secondary' },
+  { key: 'accent', label: 'Accent' },
+  { key: 'background', label: 'Background' },
+  { key: 'text', label: 'Text' },
+];
+
+export const DEFAULT_CARD_THEME_KEY = 'CLASSIC_WHITE';
+
+// Card size presets (CR80 = standard ID card)
+export const TEMPLATE_SIZE_PRESETS = [
+  { key: 'CR80_LANDSCAPE_MM', label: 'CR80 landscape — 86 × 54 mm', unit: 'MM', width: 86, height: 54, orientation: 'LANDSCAPE' },
+  { key: 'CR80_PORTRAIT_MM', label: 'CR80 portrait — 54 × 86 mm', unit: 'MM', width: 54, height: 86, orientation: 'PORTRAIT' },
+  { key: 'CR80_LANDSCAPE_PX', label: 'CR80 landscape — 1011 × 638 px', unit: 'PX', width: 1011, height: 638, orientation: 'LANDSCAPE' },
+  { key: 'CR80_PORTRAIT_PX', label: 'CR80 portrait — 638 × 1011 px', unit: 'PX', width: 638, height: 1011, orientation: 'PORTRAIT' },
+];
+
+// QR ke chaaron taraf jagah (naye QR par; MM mein, PX mein convert)
+export const DEFAULT_QR_PADDING_MM = 1;
 
 export const DESIGNER_BASE_WIDTH_PX = 420;
 export const DEFAULT_DESIGNER_ZOOM = 1.0;

@@ -19,6 +19,10 @@ import {
   PHOTO_BOX_MIN_HEIGHT,
   PHOTO_MAX_BORDER_WIDTH,
   DESIGNER_ELEMENT_TYPES,
+  TEMPLATE_QR_CONTENT_TYPES,
+  TEMPLATE_QR_CONTENT_TYPE_LABELS,
+  TEMPLATE_FONT_STYLES,
+  TEMPLATE_TEXT_TRANSFORMS,
 } from '../../../constants/template.js';
 import { clamp, round2, toNumber, getLayerKey } from '../../../utils/templateLayout.js';
 
@@ -136,6 +140,48 @@ const Panel = ({ children }) => (
   <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">{children}</div>
 );
 
+// Color input + hex; onClear se "default" (null)
+const ColorField = ({ label, value, fallback = '#000000', onChange, onClear }) => (
+  <div>
+    <label className={labelClass}>{label}</label>
+    <div className="flex items-center gap-1.5">
+      <input
+        type="color"
+        value={/^#[0-9a-f]{6}$/i.test(value || '') ? value : fallback}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-9 h-8.5 p-0.5 border border-slate-200 rounded-xl cursor-pointer shrink-0"
+        aria-label={`${label} picker`}
+      />
+      <input
+        type="text"
+        maxLength={7}
+        value={value || ''}
+        placeholder={onClear ? 'Default' : fallback}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputClass} font-mono`}
+        aria-label={`${label} hex`}
+      />
+      {onClear && value && (
+        <button type="button" onClick={onClear} className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 shrink-0">
+          Reset
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+// Chhota on/off toggle button (Italic, UPPERCASE)
+const ToggleChip = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold border ${active ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600'}`}
+  >
+    {children}
+  </button>
+);
+
 export const PropertiesPanel = ({
   selectedElement,
   formData,
@@ -228,6 +274,52 @@ export const PropertiesPanel = ({
         />
         <BoxFields box={qr} cardWidth={cardWidth} cardHeight={cardHeight} unitLabel={u} onChange={set} />
         <p className="text-[11px] text-slate-400">Keep width and height equal so the code scans reliably.</p>
+
+        <div>
+          <label className={labelClass}>QR contains</label>
+          <select
+            value={qr.contentType || TEMPLATE_QR_CONTENT_TYPES.STUDENT_VERIFICATION}
+            onChange={(e) => set({ contentType: e.target.value })}
+            className={inputClass}
+          >
+            {Object.values(TEMPLATE_QR_CONTENT_TYPES).map((type) => (
+              <option key={type} value={type}>{TEMPLATE_QR_CONTENT_TYPE_LABELS[type]}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {qr.contentType === TEMPLATE_QR_CONTENT_TYPES.SCHOOL_DETAILS
+              ? 'Shows school name, numbers and address on any phone scanner.'
+              : qr.contentType === TEMPLATE_QR_CONTENT_TYPES.SCHOOL_CONTACT_CARD
+                ? 'Scanning offers "Save contact" with the school numbers.'
+                : qr.contentType === TEMPLATE_QR_CONTENT_TYPES.CUSTOM_TEXT
+                  ? 'Any text you type below.'
+                  : 'Verifies the card online (unique per student).'}
+          </p>
+        </div>
+        {qr.contentType === TEMPLATE_QR_CONTENT_TYPES.CUSTOM_TEXT && (
+          <div>
+            <label className={labelClass}>QR text</label>
+            <textarea
+              rows={3}
+              maxLength={500}
+              value={qr.customText || ''}
+              onChange={(e) => set({ customText: e.target.value })}
+              className={inputClass}
+              placeholder="Text to encode"
+            />
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <ColorField label="Code color" value={qr.foregroundColor || '#000000'} onChange={(v) => set({ foregroundColor: v })} />
+          <ColorField label="Background" value={qr.backgroundColor || '#FFFFFF'} fallback="#FFFFFF" onChange={(v) => set({ backgroundColor: v })} />
+          <NumberField
+            label={`Padding (${u})`}
+            value={qr.padding ?? 0}
+            min={0}
+            max={Math.max(0, Math.min(toNumber(qr.width), toNumber(qr.height)) / 4)}
+            onCommit={(v) => set({ padding: v })}
+          />
+        </div>
       </Panel>
     );
   }
@@ -294,7 +386,10 @@ export const PropertiesPanel = ({
   }
 
   /* ---------- Text field ---------- */
-  const fieldIndex = (formData.fields || []).findIndex((f) => f.field === selectedElement.id);
+  // index se (ek side par kai customText ho sakte hain); purane callers sirf field name dete hain
+  const fieldIndex = Number.isInteger(selectedElement.index)
+    ? selectedElement.index
+    : (formData.fields || []).findIndex((f) => f.field === selectedElement.id);
   const field = formData.fields?.[fieldIndex];
   if (!field) return <Panel><p className="text-xs text-slate-400">This field is no longer on the card.</p></Panel>;
 
@@ -316,9 +411,33 @@ export const PropertiesPanel = ({
         removeLabel={`Remove ${field.field}`}
       />
 
+      {field.field === 'customText' && (
+        <div>
+          <label className={labelClass}>Text</label>
+          <textarea
+            rows={2}
+            maxLength={300}
+            value={field.customText ?? ''}
+            onChange={(e) => set({ customText: e.target.value })}
+            placeholder="e.g. If found, please return to the school"
+            className={inputClass}
+          />
+          {!field.customText?.trim() && <p className="text-[11px] text-rose-500 mt-1">Type the text to print.</p>}
+        </div>
+      )}
+
       <div>
         <label className={labelClass}>Label printed before value</label>
-        <input type="text" maxLength={100} value={field.label ?? ''} onChange={(e) => set({ label: e.target.value })} placeholder="Leave empty to print only the value" className={inputClass} />
+        <input type="text" maxLength={100} value={field.label ?? ''} onChange={(e) => set({ label: e.target.value })} placeholder="Leave empty for the default" className={inputClass} />
+        <label className="mt-2 inline-flex items-center gap-2 text-[11px] font-medium text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={field.showLabel !== false}
+            onChange={(e) => set({ showLabel: e.target.checked })}
+            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Show label on the card
+        </label>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -362,6 +481,36 @@ export const PropertiesPanel = ({
               </button>
             ))}
           </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className={labelClass}>Style</label>
+          <div className="flex gap-1.5">
+            <ToggleChip
+              active={field.fontStyle === TEMPLATE_FONT_STYLES.ITALIC}
+              onClick={() => set({ fontStyle: field.fontStyle === TEMPLATE_FONT_STYLES.ITALIC ? TEMPLATE_FONT_STYLES.NORMAL : TEMPLATE_FONT_STYLES.ITALIC })}
+            >
+              <span className="italic">Italic</span>
+            </ToggleChip>
+            <ToggleChip
+              active={field.textTransform === TEMPLATE_TEXT_TRANSFORMS.UPPERCASE}
+              onClick={() => set({ textTransform: field.textTransform === TEMPLATE_TEXT_TRANSFORMS.UPPERCASE ? TEMPLATE_TEXT_TRANSFORMS.NONE : TEMPLATE_TEXT_TRANSFORMS.UPPERCASE })}
+            >
+              UPPERCASE
+            </ToggleChip>
+          </div>
+        </div>
+        <NumberField label={`Letter spacing (${fontUnit})`} value={field.letterSpacing ?? 0} min={0} max={20} step={0.1} onCommit={(v) => set({ letterSpacing: v })} />
+        <NumberField label="Line height" value={field.lineHeight ?? 1.2} min={0.8} max={3} step={0.1} onCommit={(v) => set({ lineHeight: v })} />
+        <div className="col-span-2">
+          <ColorField
+            label="Label color"
+            value={field.labelColor || ''}
+            fallback={field.color || '#000000'}
+            onChange={(v) => set({ labelColor: v })}
+            onClear={() => set({ labelColor: null })}
+          />
         </div>
       </div>
       {!field.width && (
