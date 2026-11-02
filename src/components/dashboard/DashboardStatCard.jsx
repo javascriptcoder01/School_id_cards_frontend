@@ -1,5 +1,4 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
 
 export const DashboardStatCard = ({
   title,
@@ -8,6 +7,7 @@ export const DashboardStatCard = ({
   subtitle = null,
   isLoading = false,
   colorScheme = 'indigo', // 'indigo' | 'emerald' | 'amber' | 'purple' | 'blue'
+  valueClassName = 'text-3xl', // Lambi value (₹ amount) ke liye chhota size
 }) => {
   const colorMap = {
     indigo: {
@@ -40,7 +40,7 @@ export const DashboardStatCard = ({
   const scheme = colorMap[colorScheme] || colorMap.indigo;
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
+    <div className="min-w-0 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between gap-4">
         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
           {title}
@@ -58,7 +58,7 @@ export const DashboardStatCard = ({
         {isLoading ? (
           <div className="h-9 w-20 bg-slate-100 rounded-lg animate-pulse" />
         ) : (
-          <p className="text-3xl font-black text-slate-900 font-mono tracking-tight">
+          <p className={`${valueClassName} font-black text-slate-900 font-mono tracking-tight`}>
             {value}
           </p>
         )}

@@ -40,6 +40,12 @@ const initialState = {
   savedPreviews: {
     byId: {},
   },
+  // Designer ke School Images (logo / principal signature / stamp) — designer khulte hi load
+  designerContext: {
+    data: null, // { referenceCard, schoolImages, combos }
+    loading: false,
+    error: null,
+  },
 };
 
 export const templateSlice = createSlice({
@@ -225,6 +231,21 @@ export const templateSlice = createSlice({
       };
     },
 
+    // Designer context (school profile images)
+    fetchDesignerContextRequested: (state) => {
+      if (!state.designerContext) state.designerContext = { ...initialState.designerContext };
+      state.designerContext.loading = true;
+      state.designerContext.error = null;
+    },
+    fetchDesignerContextSucceeded: (state, action) => {
+      state.designerContext = { data: action.payload || null, loading: false, error: null };
+    },
+    fetchDesignerContextFailed: (state, action) => {
+      if (!state.designerContext) state.designerContext = { ...initialState.designerContext };
+      state.designerContext.loading = false;
+      state.designerContext.error = action.payload || 'Failed to load school images';
+    },
+
     resetTemplateState: () => initialState,
   },
   extraReducers: (builder) => {
@@ -272,6 +293,9 @@ export const {
   fetchSavedPreviewRequested,
   fetchSavedPreviewSucceeded,
   fetchSavedPreviewFailed,
+  fetchDesignerContextRequested,
+  fetchDesignerContextSucceeded,
+  fetchDesignerContextFailed,
   resetTemplateState,
 } = templateSlice.actions;
 

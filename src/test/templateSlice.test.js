@@ -45,6 +45,7 @@ describe('TEMPLATE REDUX SLICE', () => {
     themes: { data: null, loading: false, error: null },
     designerPreview: { data: null, student: null, validationErrors: [], loading: false, error: null },
     savedPreviews: { byId: {} },
+    designerContext: { data: null, loading: false, error: null },
   };
 
   it('1. Returns initial state on init', () => {

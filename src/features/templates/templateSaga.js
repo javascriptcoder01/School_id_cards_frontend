@@ -11,6 +11,9 @@ import {
   fetchSavedPreviewRequested,
   fetchSavedPreviewSucceeded,
   fetchSavedPreviewFailed,
+  fetchDesignerContextRequested,
+  fetchDesignerContextSucceeded,
+  fetchDesignerContextFailed,
   fetchTemplatesRequested,
   fetchTemplatesSucceeded,
   fetchTemplatesFailed,
@@ -36,6 +39,7 @@ import {
   getThemes,
   previewRender,
   getSavedTemplatePreview,
+  getDesignerContext,
 } from './templateApi.js';
 import { selectCardThemes, selectSavedTemplatePreview } from './templateSelectors.js';
 
@@ -91,6 +95,16 @@ export function* fetchSavedPreviewWorker(action) {
     yield put(fetchSavedPreviewSucceeded({ templateId, data: dataOf(response)?.renderData || null }));
   } catch (error) {
     yield put(fetchSavedPreviewFailed({ templateId, error: error?.message || 'Failed to load preview' }));
+  }
+}
+
+// Designer khulte hi har baar taaza (Super Admin ne beech mein image badli ho sakti hai)
+export function* fetchDesignerContextWorker() {
+  try {
+    const response = yield call(getDesignerContext);
+    yield put(fetchDesignerContextSucceeded(dataOf(response)));
+  } catch (error) {
+    yield put(fetchDesignerContextFailed(error?.message || 'Failed to load school images'));
   }
 }
 
@@ -193,6 +207,7 @@ export function* watchTemplates() {
   yield debounce(PREVIEW_DEBOUNCE_MS, previewRenderRequested.type, debouncePreviewRender);
   yield takeLatest(previewRenderDebounced.type, previewRenderWorker);
   yield takeEvery(fetchSavedPreviewRequested.type, fetchSavedPreviewWorker);
+  yield takeLatest(fetchDesignerContextRequested.type, fetchDesignerContextWorker);
 }
 
 export default watchTemplates;

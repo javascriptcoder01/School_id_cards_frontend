@@ -18,6 +18,7 @@ import {
 import PageHeader from '../../components/common/PageHeader.jsx';
 import InlineLoader from '../../components/common/InlineLoader.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
+import IdCardFlip from '../../components/idCards/IdCardFlip.jsx';
 
 export const OperatorIdCardPreviewPage = () => {
   const dispatch = useDispatch();
@@ -63,6 +64,8 @@ export const OperatorIdCardPreviewPage = () => {
     );
   };
 
+  // Backend { student, template, renderData } deta hai → front / back flip; purana image link ho to wahi
+  const renderData = preview?.renderData || preview?.data?.renderData || null;
   const previewImage = preview?.previewImage || preview?.previewUrl || preview?.data?.previewUrl;
 
   return (
@@ -163,15 +166,19 @@ export const OperatorIdCardPreviewPage = () => {
               <div className="w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
               <p className="text-xs font-medium text-slate-500">Generating real pixel card render...</p>
             </div>
-          ) : previewImage ? (
+          ) : renderData || previewImage ? (
             <div className="flex flex-col items-center gap-5 w-full">
-              <div className="border border-slate-200 rounded-2xl p-2 bg-slate-50 shadow-inner max-w-sm">
-                <img
-                  src={previewImage}
-                  alt="ID Card Preview"
-                  className="rounded-xl shadow-md max-h-[440px] object-contain mx-auto"
-                />
-              </div>
+              {renderData ? (
+                <IdCardFlip renderData={renderData} size="md" />
+              ) : (
+                <div className="border border-slate-200 rounded-2xl p-2 bg-slate-50 shadow-inner max-w-sm">
+                  <img
+                    src={previewImage}
+                    alt="ID Card Preview"
+                    className="rounded-xl shadow-md max-h-[440px] object-contain mx-auto"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <button

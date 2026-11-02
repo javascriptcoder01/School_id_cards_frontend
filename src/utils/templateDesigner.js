@@ -11,7 +11,13 @@ import {
   TEMPLATE_QR_CONTENT_TYPES,
   TEMPLATE_FONT_STYLES,
   TEMPLATE_TEXT_TRANSFORMS,
+  TEMPLATE_IMAGE_SOURCES,
+  TEMPLATE_IMAGE_ALIGNS,
+  TEMPLATE_IMAGE_LAYER_DEFAULTS,
+  PROFILE_IMAGE_MAX_ROTATION,
+  IMAGE_LAYER_MAX_ROTATION,
   MM_PER_PT,
+  isProfileImageLayer,
 } from '../constants/template.js';
 import { toNumber, round2, clamp, createClientId, lengthForUnit, fontForUnit } from './templateLayout.js';
 
@@ -130,12 +136,15 @@ const qrPayload = (q) =>
     }
     : null;
 
-// url nahi bhejte — backend asset se copy karta hai. Saved layers apna _id rakhte hain.
+// url nahi bhejte — backend asset / school profile se leta hai. Saved layers apna _id rakhte hain.
+// School profile image: source + profileKey (assetId nahi).
 const layersPayload = (layers) =>
   (layers || []).map((l) => ({
     ...(l._id ? { _id: l._id } : {}),
+    ...(isProfileImageLayer(l)
+      ? { source: TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE, profileKey: l.profileKey }
+      : { source: TEMPLATE_IMAGE_SOURCES.ASSET, assetId: String(l.assetId) }),
     type: l.type,
-    assetId: String(l.assetId),
     x: num(l.x),
     y: num(l.y),
     width: num(l.width),
@@ -144,6 +153,8 @@ const layersPayload = (layers) =>
     rotation: num(l.rotation),
     zIndex: Math.round(toNumber(l.zIndex, 10)),
     visible: l.visible !== false,
+    lockAspectRatio: l.lockAspectRatio !== false,
+    align: l.align || null,
   }));
 
 const themePayload = (theme = {}) => ({
@@ -263,8 +274,9 @@ const placeholderValue = (f) => (f.field === 'customText' ? f.customText || 'Cus
 /**
  * Preview aane tak canvas draft ke hisaab se turant badle: content (values, photo, QR data, theme)
  * aakhri backend preview se, position / size / style draft se.
+ * profileUrls: { LOGO, PRINCIPAL_SIGNATURE, STAMP } → school profile image ka url (designer-context)
  */
-export const mergeDraftIntoRender = (renderData, formData, side) => {
+export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = null) => {
   if (!renderData?.sides) return renderData;
   const key = isBackSide(side) ? 'back' : 'front';
   const draft = sideOf(formData, side);
@@ -313,19 +325,26 @@ export const mergeDraftIntoRender = (renderData, formData, side) => {
 
   const photo = draft.photo ? { source: base.photo?.source || null, ...draft.photo } : null;
   const qrCode = draft.qrCode ? { data: base.qrCode?.data || 'Preview', source: null, ...draft.qrCode } : null;
-  const imageLayers = (draft.imageLayers || []).map((l) => ({
-    id: l._id || l.clientId,
-    type: l.type,
-    source: l.url,
-    x: l.x,
-    y: l.y,
-    width: l.width,
-    height: l.height,
-    opacity: l.opacity,
-    rotation: l.rotation,
-    zIndex: l.zIndex,
-    visible: l.visible !== false,
-  }));
+  const imageLayers = (draft.imageLayers || []).map((l) => {
+    const profile = isProfileImageLayer(l);
+    const source = profile ? (profileUrls ? profileUrls[l.profileKey] || null : l.url || null) : l.url;
+    return {
+      id: l._id || l.clientId,
+      type: l.type,
+      source,
+      imageSource: profile ? TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE : TEMPLATE_IMAGE_SOURCES.ASSET,
+      profileKey: profile ? l.profileKey : null,
+      missing: profile && !source,
+      x: l.x,
+      y: l.y,
+      width: l.width,
+      height: l.height,
+      opacity: l.opacity,
+      rotation: l.rotation,
+      zIndex: l.zIndex,
+      visible: l.visible !== false,
+    };
+  });
 
   return {
     ...renderData,
@@ -491,3 +510,209 @@ export const buildRecommendedBackLayout = ({ unit, width, height }, { signatureA
 
 // Default text size naye field ke liye (MM 8pt, PX ~11px)
 export const defaultFontSize = (unit) => fontForUnit(8, unit);
+
+/* ------------------------------------------------------------------ */
+/* School profile images (logo / principal signature / stamp)          */
+/* ------------------------------------------------------------------ */
+
+export const maxRotationFor = (layer) =>
+  isProfileImageLayer(layer) ? PROFILE_IMAGE_MAX_ROTATION : IMAGE_LAYER_MAX_ROTATION;
+
+// Koi bhi angle → -180..180 → layer ka range
+export const normalizeRotation = (degrees, layer) => {
+  const wrapped = ((((toNumber(degrees) + 180) % 360) + 360) % 360) - 180;
+  const max = maxRotationFor(layer);
+  return round2(clamp(wrapped, -max, max));
+};
+
+// Size card mein fit (ratio wahi)
+const fitSize = (width, height, maxWidth, maxHeight) => {
+  const k = Math.min(1, maxWidth / width, maxHeight / height);
+  return { width: round2(width * k), height: round2(height * k) };
+};
+
+/**
+ * designer-context ka suggested size (reference card, PX) → is card ki units.
+ * Card ki chhoti side ke hisaab se scale, taaki landscape card par bhi sahi lage.
+ */
+export const scaleSuggestedSize = (image, referenceCard, cardWidth, cardHeight) => {
+  const refShort = Math.min(toNumber(referenceCard?.width, 638), toNumber(referenceCard?.height, 1011)) || 638;
+  const scale = Math.min(cardWidth, cardHeight) / refShort;
+  const width = Math.max(toNumber(image?.suggested?.width, refShort * 0.2), 1) * scale;
+  const height = Math.max(toNumber(image?.suggested?.height, refShort * 0.2), 1) * scale;
+  return fitSize(width, height, cardWidth, cardHeight);
+};
+
+const clampPosition = (box, W, H) => ({
+  x: round2(clamp(box.x, 0, Math.max(0, W - box.width))),
+  y: round2(clamp(box.y, 0, Math.max(0, H - box.height))),
+});
+
+/**
+ * School image ki naya layer. at = { x, y } (drop point, template units) ho to wahan beech mein,
+ * warna suggested align: logo upar, signature / stamp neeche.
+ * @param {object} image - designer-context schoolImages[] item
+ * @param {{ unit, width, height }} card
+ * @param {object} referenceCard
+ * @param {{ x: number, y: number }|null} [at]
+ */
+export const buildProfileImageLayer = (image, card, referenceCard, at = null) => {
+  const W = toNumber(card.width);
+  const H = toNumber(card.height);
+  const margin = lengthForUnit(3, card.unit);
+  const { width, height } = scaleSuggestedSize(image, referenceCard, W, H);
+  const align = image.suggested?.align || TEMPLATE_IMAGE_ALIGNS.LEFT;
+
+  let x;
+  let y;
+  if (at) {
+    x = at.x - width / 2;
+    y = at.y - height / 2;
+  } else {
+    x = align === TEMPLATE_IMAGE_ALIGNS.RIGHT ? W - width - margin : align === TEMPLATE_IMAGE_ALIGNS.CENTER ? (W - width) / 2 : margin;
+    y = image.layerType === 'LOGO' ? margin : H - height - margin;
+  }
+  const defaults = TEMPLATE_IMAGE_LAYER_DEFAULTS[image.layerType] || TEMPLATE_IMAGE_LAYER_DEFAULTS.CUSTOM;
+
+  return {
+    clientId: createClientId(),
+    source: TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE,
+    profileKey: image.key,
+    type: image.layerType,
+    assetId: null,
+    url: image.url || null,
+    lockAspectRatio: true,
+    align: at ? null : align,
+    ...clampPosition({ x, y, width, height }, W, H),
+    width,
+    height,
+    opacity: image.suggested?.opacity ?? 1,
+    rotation: image.suggested?.rotation ?? 0,
+    zIndex: defaults.zIndex,
+    visible: true,
+  };
+};
+
+/**
+ * "Principal Sign + Seal": signature neeche-daayein, stamp uske daayein aadhe hisse par (0.85 opacity, -12°,
+ * upar), signature ke neeche "Principal" text. existingSign ho to usi ke hisaab se stamp lagta hai.
+ * @returns {{ sign: object, stamp: object, caption: { x, y, width, fontSize } }}
+ */
+export const buildSignWithSealLayout = (signImage, stampImage, card, referenceCard, existingSign = null) => {
+  const W = toNumber(card.width);
+  const H = toNumber(card.height);
+  const margin = lengthForUnit(3, card.unit);
+  const fontSize = defaultFontSize(card.unit);
+  const lineHeight = fontUnitsOf(fontSize, card.unit) * 1.3;
+
+  let sign = existingSign;
+  if (!sign) {
+    sign = buildProfileImageLayer(signImage, card, referenceCard);
+    sign = {
+      ...sign,
+      ...clampPosition(
+        { x: W - sign.width - margin, y: H - margin - lineHeight - sign.height, width: sign.width, height: sign.height },
+        W,
+        H
+      ),
+    };
+  }
+  const sx = toNumber(sign.x);
+  const sy = toNumber(sign.y);
+  const sw = toNumber(sign.width);
+  const sh = toNumber(sign.height);
+
+  const base = buildProfileImageLayer(stampImage, card, referenceCard);
+  const size = round2(Math.max(Math.min(base.width, sw * 0.7, H), 1));
+  const stamp = {
+    ...base,
+    align: null,
+    width: size,
+    height: size,
+    ...clampPosition({ x: sx + sw * 0.75 - size / 2, y: sy + sh / 2 - size / 2, width: size, height: size }, W, H),
+    opacity: 0.85,
+    rotation: -12,
+    zIndex: Math.max(toNumber(sign.zIndex, 11) + 1, base.zIndex),
+  };
+
+  return {
+    sign,
+    stamp,
+    caption: {
+      x: round2(sx),
+      y: round2(clamp(sy + sh, 0, Math.max(0, H - lineHeight))),
+      width: round2(sw),
+      fontSize,
+    },
+  };
+};
+
+/**
+ * Properties panel: width ya height badle to ratio ke saath doosra bhi; card ke andar raho.
+ */
+export const lockedSizePatch = (layer, patch, cardWidth, cardHeight) => {
+  const w0 = toNumber(layer.width);
+  const h0 = toNumber(layer.height);
+  if (!(w0 > 0 && h0 > 0)) return patch;
+  const ratio = h0 / w0;
+  let width;
+  let height;
+  if (patch.width !== undefined && patch.width !== null) {
+    width = toNumber(patch.width);
+    height = width * ratio;
+  } else if (patch.height !== undefined && patch.height !== null) {
+    height = toNumber(patch.height);
+    width = height / ratio;
+  } else {
+    return patch;
+  }
+  return fitSize(width, height, cardWidth - toNumber(layer.x), cardHeight - toNumber(layer.y));
+};
+
+/**
+ * Canvas: ratio lock ke saath resize. Corner = saamne wala kona tika rahe; edge = doosri axis beech se.
+ * @param {{ x, y, width, height }} start
+ * @param {string} handle - nw | n | ne | e | se | s | sw | w
+ */
+export const resizeLockedBox = (start, handle, dx, dy, cardWidth, cardHeight, minSize = 1) => {
+  const x0 = toNumber(start.x);
+  const y0 = toNumber(start.y);
+  const w0 = Math.max(toNumber(start.width), 0.01);
+  const h0 = Math.max(toNumber(start.height), 0.01);
+  const ratio = h0 / w0;
+  const horizontal = handle.includes('e') || handle.includes('w');
+  const vertical = handle.includes('n') || handle.includes('s');
+  const sx = handle.includes('w') ? -1 : 1;
+  const sy = handle.includes('n') ? -1 : 1;
+
+  let width;
+  if (horizontal && vertical) {
+    // Corner: jis taraf zyada kheecha, wahi
+    const fromX = w0 + sx * dx;
+    const fromY = (h0 + sy * dy) / ratio;
+    width = Math.abs(fromX - w0) >= Math.abs(fromY - w0) ? fromX : fromY;
+  } else if (horizontal) {
+    width = w0 + sx * dx;
+  } else {
+    width = (h0 + sy * dy) / ratio;
+  }
+  // Tika hua kona / beech wahin rahe — utni hi jagah tak bado
+  const roomX = horizontal ? (handle.includes('w') ? x0 + w0 : cardWidth - x0) : Math.min(x0 + w0 / 2, cardWidth - x0 - w0 / 2) * 2;
+  const roomY = vertical ? (handle.includes('n') ? y0 + h0 : cardHeight - y0) : Math.min(y0 + h0 / 2, cardHeight - y0 - h0 / 2) * 2;
+  width = Math.max(width, minSize, minSize / ratio);
+  width = Math.min(width, cardWidth, cardHeight / ratio, Math.max(roomX, minSize), Math.max(roomY, minSize) / ratio);
+  const height = width * ratio;
+
+  let x;
+  let y;
+  if (horizontal) x = handle.includes('w') ? x0 + w0 - width : x0;
+  else x = x0 + (w0 - width) / 2;
+  if (vertical) y = handle.includes('n') ? y0 + h0 - height : y0;
+  else y = y0 + (h0 - height) / 2;
+
+  return {
+    ...clampPosition({ x, y, width, height }, cardWidth, cardHeight),
+    width: round2(width),
+    height: round2(height),
+  };
+};

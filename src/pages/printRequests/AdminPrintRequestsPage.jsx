@@ -44,6 +44,10 @@ import RequestSummaryCards from '../../components/printRequests/RequestSummaryCa
 import RequestStatusBadge from '../../components/printRequests/RequestStatusBadge.jsx';
 import ConfirmActionModal from '../../components/printRequests/ConfirmActionModal.jsx';
 import { REQUEST_ACTION_CONFIG } from '../../components/printRequests/requestActionConfig.js';
+import PaymentStatusBadge from '../../components/commission/PaymentStatusBadge.jsx';
+import RequestAmount from '../../components/commission/RequestAmount.jsx';
+import { PAYMENT_STATUS_OPTIONS } from '../../constants/commission.js';
+import { approveAmountMessage } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 
 // Tab → statuses (default: Pending Approval)
@@ -58,7 +62,7 @@ const TABS = [
 ];
 
 const PAGE_SIZE = 10;
-const EMPTY_FILTERS = { className: '', section: '', search: '', from: '', to: '' };
+const EMPTY_FILTERS = { className: '', section: '', search: '', from: '', to: '', paymentStatus: '' };
 
 const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
@@ -189,7 +193,18 @@ export const AdminPrintRequestsPage = () => {
         <input aria-label="Section" placeholder="Section" value={filterInput.section} onChange={(e) => setFilterInput((f) => ({ ...f, section: e.target.value }))} className={inputClass} />
         <input aria-label="From date" type="date" value={filterInput.from} onChange={(e) => setFilterInput((f) => ({ ...f, from: e.target.value }))} className={inputClass} />
         <input aria-label="To date" type="date" value={filterInput.to} min={filterInput.from || undefined} onChange={(e) => setFilterInput((f) => ({ ...f, to: e.target.value }))} className={inputClass} />
-        <div className="col-span-2 md:col-span-6 flex justify-end gap-2">
+        <select
+          aria-label="Payment status"
+          value={filterInput.paymentStatus}
+          onChange={(e) => setFilterInput((f) => ({ ...f, paymentStatus: e.target.value }))}
+          className={`${inputClass} col-span-2 cursor-pointer`}
+        >
+          <option value="">All payments</option>
+          {PAYMENT_STATUS_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        <div className="col-span-2 md:col-span-4 flex justify-end gap-2">
           {hasFilters && (
             <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50">
               <X className="h-4 w-4" /> Clear
@@ -220,6 +235,8 @@ export const AdminPrintRequestsPage = () => {
                   <th className="px-4 py-3">Class Teacher</th>
                   <th className="px-4 py-3">Template</th>
                   <th className="px-4 py-3 text-center">Students</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Submitted</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 sm:px-6 py-3 text-right">Actions</th>
@@ -229,7 +246,7 @@ export const AdminPrintRequestsPage = () => {
                 {loading && requests.length === 0
                   ? Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      {Array.from({ length: 8 }).map((__, j) => (
+                      {Array.from({ length: 10 }).map((__, j) => (
                         <td key={j} className="px-4 py-4"><span className="block h-4 rounded bg-slate-100" /></td>
                       ))}
                     </tr>
@@ -249,6 +266,8 @@ export const AdminPrintRequestsPage = () => {
                         <td className="px-4 py-3.5 text-slate-700">{request.createdBy?.name || '—'}</td>
                         <td className="px-4 py-3.5 text-slate-700">{request.template?.name || '—'}</td>
                         <td className="px-4 py-3.5 text-center font-semibold tabular-nums">{request.studentCount}</td>
+                        <td className="px-4 py-3.5 text-right whitespace-nowrap"><RequestAmount request={request} /></td>
+                        <td className="px-4 py-3.5"><PaymentStatusBadge payment={request.payment} /></td>
                         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(request.submittedAt)}</td>
                         <td className="px-4 py-3.5"><RequestStatusBadge statusView={request.statusView} /></td>
                         <td className="px-4 sm:px-6 py-3.5">
@@ -295,7 +314,7 @@ export const AdminPrintRequestsPage = () => {
       <ConfirmActionModal
         open={Boolean(quickConfig)}
         title={quickConfig ? `${quickConfig.title.replace('?', '')} ${quickAction.request.requestNumber || ''}?`.trim() : ''}
-        message={quickConfig ? `${quickAction.request.studentCount} student(s), class ${quickAction.request.className || '—'}${quickAction.request.section ? ` - ${quickAction.request.section}` : ''}. ${quickConfig.message}` : ''}
+        message={quickConfig ? `${quickAction.request.studentCount} student(s), class ${quickAction.request.className || '—'}${quickAction.request.section ? ` - ${quickAction.request.section}` : ''}. ${quickConfig.message}${quickAction.action === 'APPROVE' ? ` ${approveAmountMessage(quickAction.request)}` : ''}` : ''}
         confirmLabel={quickConfig?.confirmLabel}
         tone={quickConfig?.tone}
         reasonMode={quickConfig?.reasonMode}

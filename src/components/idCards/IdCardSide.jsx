@@ -262,7 +262,51 @@ const QrCode = ({ qr, verification }) => {
 
 /* ---------------- Image layers ---------------- */
 
-const ImageLayers = ({ layers, template, includeLegacyLogo, W, H }) => {
+// School profile image jo upload nahi hai (layer.missing) — sirf preview mein dashed box (PDF mein kuch nahi chhapta)
+const PROFILE_IMAGE_NAMES = {
+  LOGO: 'School logo',
+  PRINCIPAL_SIGNATURE: 'Principal signature',
+  STAMP: 'School stamp',
+};
+
+const MissingImage = ({ layer, x, y, w, h, rotation, S }) => {
+  const name = PROFILE_IMAGE_NAMES[layer.profileKey] || 'School image';
+  // Text bade px mein render karke scale (browser minimum font size se bachne ke liye)
+  const font = Math.min(h * 0.22, (w / Math.max(name.length, 8)) * 1.7) * S;
+  const stroke = Math.max(Math.min(w, h) * 0.02, 0.2);
+  return (
+    <g transform={rotation ? `rotate(${rotation} ${x + w / 2} ${y + h / 2})` : undefined} data-missing-image={layer.profileKey || ''}>
+      <title>{`${name} is not uploaded in the school profile`}</title>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={Math.min(w, h) * 0.06}
+        fill="#F8FAFC"
+        fillOpacity={0.85}
+        stroke="#94A3B8"
+        strokeWidth={stroke}
+        strokeDasharray={`${stroke * 4} ${stroke * 3}`}
+      />
+      <g transform={`scale(${1 / S})`}>
+        <text
+          x={(x + w / 2) * S}
+          y={(y + h / 2) * S}
+          fontSize={font}
+          fill="#64748B"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontFamily="Arial, Helvetica, sans-serif"
+        >
+          {name}
+        </text>
+      </g>
+    </g>
+  );
+};
+
+const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S }) => {
   const sorted = [...(layers || [])].sort((a, b) => toNumber(a.zIndex, 10) - toNumber(b.zIndex, 10));
   const hasLogoLayer = sorted.some((layer) => layer.type === 'LOGO');
 
@@ -273,13 +317,18 @@ const ImageLayers = ({ layers, template, includeLegacyLogo, W, H }) => {
         <image href={template.logo} x={W * 0.04} y={H * 0.04} width={W * 0.35} height={H * 0.14} preserveAspectRatio={ASPECT.CONTAIN} />
       )}
       {sorted.map((layer, i) => {
-        if (!layer || layer.visible === false || !isImageUrl(layer.source)) return null;
+        if (!layer || layer.visible === false) return null;
+        const missing = layer.missing === true;
+        if (!missing && !isImageUrl(layer.source)) return null;
         const x = toNumber(layer.x);
         const y = toNumber(layer.y);
         const w = toNumber(layer.width);
         const h = toNumber(layer.height);
         if (w <= 0 || h <= 0) return null;
         const rotation = toNumber(layer.rotation);
+        if (missing) {
+          return <MissingImage key={layer.id || i} layer={layer} x={x} y={y} w={w} h={h} rotation={rotation} S={S} />;
+        }
         return (
           <image
             key={layer.id || i}
@@ -340,6 +389,7 @@ export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }
         includeLegacyLogo={!isBack}
         W={W}
         H={H}
+        S={S}
       />
     </svg>
   );

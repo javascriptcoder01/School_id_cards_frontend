@@ -1,8 +1,9 @@
 // IdCardFlip.jsx
-// Card ka front / back — 3D flip (click / Space / Enter), Front–Back toggle, "Side by side" view.
+// Card ka front / back — 3D flip (click / Space / Enter / touch par swipe), Front–Back toggle, "Side by side" view.
+// Mobile (sm se chhota): card min(100%, 360px), toggles poori width.
 // Purane snapshots (renderData.sides nahi) → purana IdCardPreview (sirf front).
 // Pure presentational: Redux nahi.
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { RotateCw, Columns2, AlertTriangle } from 'lucide-react';
 import IdCardSide from './IdCardSide.jsx';
 import IdCardPreview from './IdCardPreview.jsx';
@@ -14,6 +15,11 @@ const SIZE_WIDTH = {
 };
 
 const VIEWS = { FLIP: 'FLIP', SIDE_BY_SIDE: 'SIDE_BY_SIDE' };
+
+// Desktop: size wali width (container se zyada nahi); sm se chhota: min(100%, 360px)
+const CARD_WIDTH_CLASS = 'w-[min(100%,var(--card-w))] max-sm:w-[min(100%,360px)]';
+// Itna aadha khiskao (px) to swipe = flip
+const SWIPE_MIN_PX = 40;
 
 const toggleClass = (active, disabled) =>
   `px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
@@ -73,8 +79,35 @@ export const IdCardFlip = ({
   const width = SIZE_WIDTH[size] || SIZE_WIDTH.md;
   const showingBack = hasBack && isBack;
 
+  const swipeRef = useRef(null);
+  const swipedRef = useRef(false);
+
   const flip = () => {
     if (hasBack) setIsBack((prev) => !prev);
+  };
+
+  // Touch / pen: left-right swipe se flip (mouse par sirf click)
+  const onPointerDown = (event) => {
+    swipeRef.current = event.pointerType === 'mouse' ? null : { x: event.clientX, y: event.clientY };
+  };
+  const onPointerUp = (event) => {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy)) {
+      swipedRef.current = true;
+      flip();
+    }
+  };
+  const onClick = () => {
+    // Swipe ke baad aane wala click dobara flip na kare
+    if (swipedRef.current) {
+      swipedRef.current = false;
+      return;
+    }
+    flip();
   };
 
   const onKeyDown = (event) => {
@@ -98,7 +131,7 @@ export const IdCardFlip = ({
     <div className={`space-y-3 ${className}`}>
       {showToggle && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex rounded-xl bg-slate-100 p-1" role="group" aria-label="Card side">
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 max-sm:grid max-sm:w-full max-sm:grid-cols-2" role="group" aria-label="Card side">
             <button
               type="button"
               onClick={() => {
@@ -127,7 +160,7 @@ export const IdCardFlip = ({
             type="button"
             onClick={() => setView((v) => (v === VIEWS.SIDE_BY_SIDE ? VIEWS.FLIP : VIEWS.SIDE_BY_SIDE))}
             disabled={!hasBack}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors max-sm:w-full max-sm:justify-center ${
               view === VIEWS.SIDE_BY_SIDE
                 ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
@@ -142,7 +175,7 @@ export const IdCardFlip = ({
       {view === VIEWS.SIDE_BY_SIDE && hasBack ? (
         <div className="flex flex-wrap gap-3">
           {['FRONT', 'BACK'].map((side) => (
-            <figure key={side} className="space-y-1" style={{ width, maxWidth: '100%' }}>
+            <figure key={side} className={`space-y-1 ${CARD_WIDTH_CLASS}`} style={{ '--card-w': `${width}px` }}>
               <div className="rounded-xl overflow-hidden shadow-sm ring-1 ring-slate-200">
                 <IdCardSide renderData={renderData} side={side} />
               </div>
@@ -153,16 +186,21 @@ export const IdCardFlip = ({
           ))}
         </div>
       ) : (
-        <div style={{ width, maxWidth: '100%', perspective: '1200px' }}>
+        <div className={CARD_WIDTH_CLASS} style={{ '--card-w': `${width}px`, perspective: '1200px' }}>
           <div
             role="button"
             tabIndex={0}
             aria-pressed={showingBack}
             aria-disabled={!hasBack}
             aria-label={hasBack ? (showingBack ? 'Show front side' : 'Show back side') : 'ID card front (no back side)'}
-            onClick={flip}
+            onClick={onClick}
             onKeyDown={onKeyDown}
-            className={`relative grid rounded-xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-transform duration-[600ms] ease-in-out motion-reduce:transition-none ${
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={() => {
+              swipeRef.current = null;
+            }}
+            className={`relative grid rounded-xl touch-pan-y focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 transition-transform duration-[600ms] ease-in-out motion-reduce:transition-none ${
               hasBack ? 'cursor-pointer' : 'cursor-default'
             }`}
             style={{ transformStyle: 'preserve-3d', transform: showingBack ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
@@ -185,7 +223,9 @@ export const IdCardFlip = ({
           <p className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
             {hasBack ? (
               <>
-                <RotateCw className="h-3 w-3" /> Click or press Space to flip
+                <RotateCw className="h-3 w-3" />
+                <span className="pointer-coarse:hidden">Click or press Space to flip</span>
+                <span className="hidden pointer-coarse:inline">Tap or swipe to flip</span>
               </>
             ) : (
               'No back side in this template'

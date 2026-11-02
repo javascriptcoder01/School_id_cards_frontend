@@ -15,6 +15,8 @@ import watchOperator from '../features/operator/operatorSaga.js';
 import watchCollegeProgress from '../features/collegeProgress/collegeProgressSaga.js';
 import watchIdCards from '../features/idCards/idCardSaga.js';
 import watchPrintRequestWorkflow from '../features/printRequestWorkflow/printRequestWorkflowSaga.js';
+import watchCommission from '../features/commission/commissionSaga.js';
+import watchDashboardOverview from '../features/dashboard/dashboardOverviewSaga.js';
 
 export function* rootSaga() {
   yield all([
@@ -34,6 +36,8 @@ export function* rootSaga() {
     fork(watchCollegeProgress),
     fork(watchIdCards),
     fork(watchPrintRequestWorkflow),
+    fork(watchCommission),
+    fork(watchDashboardOverview),
   ]);
 }
 

@@ -4,12 +4,17 @@ import { useDispatch, useSelector } from 'react-redux';
 import { LogOut, User, Menu } from 'lucide-react';
 import { logout } from '../../features/auth/authSlice.js';
 import { selectCurrentUser } from '../../features/auth/authSelectors.js';
-import { toggleSidebar } from '../../store/slices/appSlice.js';
+import { toggleSidebar, openMobileNav, selectMobileNavOpen } from '../../store/slices/appSlice.js';
 import { ROUTES } from '../../constants/routes.js';
+
+// Sidebar.jsx ke drawer ka id (aria-controls) aur band hone par focus yahin lautta hai
+export const MOBILE_NAV_ID = 'mobile-nav-drawer';
+export const MOBILE_NAV_TOGGLE_ID = 'mobile-nav-toggle';
 
 export const Header = () => {
   const dispatch = useDispatch();
   const user = useSelector(selectCurrentUser);
+  const mobileNavOpen = useSelector(selectMobileNavOpen);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -31,10 +36,23 @@ export const Header = () => {
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       <div className="flex items-center gap-3">
+        {/* lg se chhota: overlay drawer kholta hai */}
+        <button
+          type="button"
+          id={MOBILE_NAV_TOGGLE_ID}
+          onClick={() => dispatch(openMobileNav())}
+          className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          aria-label="Open menu"
+          aria-expanded={mobileNavOpen}
+          aria-controls={MOBILE_NAV_ID}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        {/* lg aur upar: pehle jaisa sidebar chhota / bada */}
         <button
           type="button"
           onClick={() => dispatch(toggleSidebar())}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          className="hidden lg:block p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           aria-label="Toggle navigation menu"
         >
           <Menu className="w-5 h-5" />

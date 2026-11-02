@@ -212,8 +212,23 @@ export const getOperatorSummary = async () => {
   }
 };
 
+// Commission overview (SUPER_ADMIN): { from, to } khaali ho to all time
+export const getSuperAdminOverview = async (params = {}) => {
+  const query = Object.fromEntries(Object.entries(params).filter(([, value]) => Boolean(value)));
+  const response = await apiClient.get('/dashboard/super-admin', { params: query });
+  return response;
+};
+
+// Commission overview (COLLEGE_ADMIN): sirf apna school
+export const getCollegeAdminOverview = async () => {
+  const response = await apiClient.get('/dashboard/college-admin');
+  return response;
+};
+
 export default {
   getSuperAdminSummary,
   getCollegeAdminSummary,
   getOperatorSummary,
+  getSuperAdminOverview,
+  getCollegeAdminOverview,
 };

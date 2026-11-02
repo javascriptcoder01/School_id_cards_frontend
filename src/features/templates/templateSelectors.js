@@ -47,7 +47,19 @@ export const selectSavedTemplatePreviews = (state) => state.templates?.savedPrev
 export const selectSavedTemplatePreview = (templateId) => (state) =>
   state.templates?.savedPreviews?.byId?.[templateId];
 
+// Designer context: school profile images
+const EMPTY_IMAGES = [];
+export const selectDesignerContext = (state) => state.templates?.designerContext?.data || null;
+export const selectDesignerSchoolImages = (state) =>
+  state.templates?.designerContext?.data?.schoolImages || EMPTY_IMAGES;
+export const selectDesignerContextLoading = (state) => Boolean(state.templates?.designerContext?.loading);
+export const selectDesignerContextError = (state) => state.templates?.designerContext?.error || null;
+
 export default {
+  selectDesignerContext,
+  selectDesignerSchoolImages,
+  selectDesignerContextLoading,
+  selectDesignerContextError,
   selectCardThemes,
   selectCardThemesLoading,
   selectCardThemesError,

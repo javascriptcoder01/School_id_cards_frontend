@@ -63,8 +63,15 @@ export const getSavedTemplatePreview = async (templateId) => {
   return response;
 };
 
+// Designer ke "School Images": profile ki logo / principal signature / stamp + suggested size (COLLEGE_ADMIN)
+export const getDesignerContext = async () => {
+  const response = await apiClient.get('/templates/designer-context');
+  return response;
+};
+
 export default {
   getTemplates,
+  getDesignerContext,
   getTemplateById,
   createTemplate,
   updateTemplate,

@@ -3,7 +3,7 @@
 // left (Design / Elements tabs), centre canvas (backend preview + drag / resize), right (properties).
 // Saara data TemplateForm ke paas; ye selection, tabs, zoom sambhalta hai.
 import React, { useState } from 'react';
-import { Minus, Plus, Magnet, Loader2, AlertTriangle, Palette, Layers } from 'lucide-react';
+import { Minus, Plus, Magnet, Loader2, AlertTriangle, Palette, Layers, Sliders } from 'lucide-react';
 import DesignerCanvas from './DesignerCanvas.jsx';
 import ThemeDesignPanel from './ThemeDesignPanel.jsx';
 import ElementsPanel from './ElementsPanel.jsx';
@@ -14,8 +14,9 @@ import {
   TEMPLATE_SIDES,
   TEMPLATE_REPEATABLE_FIELDS,
   LETTERHEAD_ASSET_TYPE,
+  SIGN_WITH_SEAL_COMBO,
 } from '../../../constants/template.js';
-import { toNumber } from '../../../utils/templateLayout.js';
+import { toNumber, clamp, getLayerKey } from '../../../utils/templateLayout.js';
 import { sideOf, mergeDraftIntoRender } from '../../../utils/templateDesigner.js';
 
 const MIN_ZOOM = 0.5;
@@ -24,6 +25,13 @@ const ZOOM_STEP = 0.1;
 
 const panelClass = 'bg-white p-4 rounded-3xl border border-slate-200 shadow-xs';
 
+// lg se chhoti screen: canvas ke neeche ek hi tab bar (Design | Elements | Properties)
+const MOBILE_TABS = [
+  { key: 'DESIGN', label: 'Design', icon: Palette },
+  { key: 'ELEMENTS', label: 'Elements', icon: Layers },
+  { key: 'PROPERTIES', label: 'Properties', icon: Sliders },
+];
+
 /**
  * @param {object} props
  * @param {object} props.formData
@@ -31,6 +39,11 @@ const panelClass = 'bg-white p-4 rounded-3xl border border-slate-200 shadow-xs';
  * @param {boolean} props.themesLoading
  * @param {object[]} props.usableAssets
  * @param {boolean} props.assetsLoading
+ * @param {object[]} props.schoolImages - designer-context schoolImages (logo / principal signature / stamp)
+ * @param {boolean} props.schoolImagesLoading
+ * @param {string|null} props.schoolImagesError
+ * @param {() => void} props.onRetrySchoolImages
+ * @param {object|null} props.profileUrls - profileKey → url | null
  * @param {object|null} props.previewData - backend renderData (preview-render)
  * @param {boolean} props.previewLoading
  * @param {string|null} props.previewError
@@ -43,6 +56,11 @@ export const CardDesigner = ({
   themesLoading,
   usableAssets = [],
   assetsLoading = false,
+  schoolImages = [],
+  schoolImagesLoading = false,
+  schoolImagesError = null,
+  onRetrySchoolImages,
+  profileUrls = null,
   previewData,
   previewLoading,
   previewError,
@@ -53,8 +71,20 @@ export const CardDesigner = ({
   const [leftTab, setLeftTab] = useState('DESIGN');
   const [zoom, setZoom] = useState(1);
   const [snap, setSnap] = useState(true);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelectedState] = useState(null);
+  const [mobileTab, setMobileTab] = useState('DESIGN');
   const [confirmRecommended, setConfirmRecommended] = useState(false);
+
+  // Element select hua → mobile par Properties tab (lg+ par mobileTab ka koi asar nahi)
+  const setSelected = (sel) => {
+    setSelectedState(sel);
+    if (sel) setMobileTab('PROPERTIES');
+  };
+
+  const pickMobileTab = (key) => {
+    setMobileTab(key);
+    if (key !== 'PROPERTIES') setLeftTab(key);
+  };
 
   // Back off ho to front
   const activeSide = side === TEMPLATE_SIDES.BACK && !formData.hasBack ? TEMPLATE_SIDES.FRONT : side;
@@ -64,7 +94,7 @@ export const CardDesigner = ({
   const unit = formData.unit;
   // PropertiesPanel ek side ko "template" ki tarah dekhta hai
   const sideView = { ...sideData, width: formData.width, height: formData.height, unit };
-  const renderData = mergeDraftIntoRender(previewData, formData, activeSide);
+  const renderData = mergeDraftIntoRender(previewData, formData, activeSide, profileUrls);
   const letterheads = usableAssets.filter((a) => a.type === LETTERHEAD_ASSET_TYPE);
 
   const switchSide = (next) => {
@@ -100,6 +130,29 @@ export const CardDesigner = ({
   const addLayer = (type) => {
     const key = handlers.onAddLayer(activeSide, type);
     if (key) setSelected({ type: DESIGNER_ELEMENT_TYPES.LAYER, id: key });
+  };
+
+  // School Images tile click / card par drop (at = drop point, template units)
+  const addSchoolImage = (profileKey, at = null) => {
+    const key =
+      profileKey === SIGN_WITH_SEAL_COMBO
+        ? handlers.onAddSignWithSeal(activeSide)
+        : handlers.onAddProfileImage(activeSide, profileKey, at);
+    if (key) setSelected({ type: DESIGNER_ELEMENT_TYPES.LAYER, id: key });
+  };
+
+  // Layer order: 'FRONT' / 'BACK' (sabse upar / neeche) ya +1 / -1 ([ / ])
+  const reorderLayer = (key, mode) => {
+    const layers = sideData.imageLayers || [];
+    const layer = layers.find((l) => getLayerKey(l) === key);
+    if (!layer) return;
+    const current = toNumber(layer.zIndex, 10);
+    const others = layers.filter((l) => getLayerKey(l) !== key).map((l) => toNumber(l.zIndex, 10));
+    let next = current + (typeof mode === 'number' ? mode : 0);
+    if (mode === 'FRONT') next = others.length ? Math.max(current, Math.max(...others) + 1) : current;
+    if (mode === 'BACK') next = others.length ? Math.min(current, Math.min(...others) - 1) : current;
+    next = clamp(Math.round(next), 0, 100);
+    if (next !== current) handlers.onUpdateLayer(activeSide, key, { zIndex: next });
   };
 
   const backHasElements =
@@ -186,8 +239,13 @@ export const CardDesigner = ({
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
         {/* Left: Design / Elements */}
-        <div className={`${panelClass} xl:col-span-3 order-2 xl:order-1 max-h-[78vh] overflow-y-auto`}>
-          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="tablist">
+        <div
+          className={`${panelClass} xl:col-span-3 order-2 xl:order-1 max-h-[78vh] overflow-y-auto ${
+            mobileTab === 'PROPERTIES' ? 'max-lg:hidden' : ''
+          }`}
+        >
+          {/* lg se chhoti screen par ye tabs canvas ke neeche wale tab bar mein hain */}
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 max-lg:hidden" role="tablist">
             {[
               { key: 'DESIGN', label: 'Design', icon: Palette },
               { key: 'ELEMENTS', label: 'Elements', icon: Layers },
@@ -228,6 +286,11 @@ export const CardDesigner = ({
               sideData={sideData}
               usableAssets={usableAssets}
               assetsLoading={assetsLoading}
+              schoolImages={schoolImages}
+              schoolImagesLoading={schoolImagesLoading}
+              schoolImagesError={schoolImagesError}
+              onRetrySchoolImages={onRetrySchoolImages}
+              onAddSchoolImage={addSchoolImage}
               selected={selected}
               onSelect={setSelected}
               onAddField={addField}
@@ -260,20 +323,47 @@ export const CardDesigner = ({
             onSelect={setSelected}
             onChangeElement={changeElement}
             onRemoveElement={removeElement}
+            onReorderLayer={(sel, delta) => reorderLayer(sel.id, delta)}
+            onDropSchoolImage={addSchoolImage}
             invalidLabels={invalidLabels}
             loading={previewLoading}
           />
-          <p className="text-center text-[11px] text-slate-400">
-            Drag to move · corner handles to resize · arrow keys nudge (Shift = bigger) · Delete removes
+          <p className="text-center text-[11px] text-slate-400 max-lg:hidden">
+            Drag to move · handles to resize (Shift = free resize for images) · top handle rotates (Shift = 15° steps) ·
+            arrow keys nudge (Shift = bigger) · [ ] layer order · Delete removes
+          </p>
+          <p className="text-center text-[11px] text-slate-400 lg:hidden">
+            Tap to select · drag to move · drag handles to resize · top handle rotates
           </p>
         </div>
 
+        {/* Mobile tab bar (lg se chhota): canvas ke theek neeche */}
+        <div className="order-1 lg:hidden grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Designer panels">
+          {MOBILE_TABS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={mobileTab === key}
+              onClick={() => pickMobileTab(key)}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
+                mobileTab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+
         {/* Right: properties */}
-        <div className="xl:col-span-3 order-3">
+        <div className={`xl:col-span-3 order-3 ${mobileTab === 'PROPERTIES' ? '' : 'max-lg:hidden'}`}>
           <PropertiesPanel
             selectedElement={selected}
             formData={sideView}
             usableAssets={usableAssets}
+            schoolImages={schoolImages}
+            profileUrls={profileUrls}
+            onReorderLayer={reorderLayer}
             onUpdateField={(index, patch) => handlers.onUpdateField(activeSide, index, patch)}
             onRemoveField={(index) => {
               handlers.onRemoveField(activeSide, index);

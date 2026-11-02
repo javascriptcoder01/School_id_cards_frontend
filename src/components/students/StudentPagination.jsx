@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 export const StudentPagination = ({
   pagination = { page: 1, limit: 10, total: 0, totalPages: 0 },
   onPageChange,
+  itemLabel = 'students',
 }) => {
   const { page = 1, limit = 10, total = 0, totalPages = 0 } = pagination;
 
@@ -23,7 +24,7 @@ export const StudentPagination = ({
       <div>
         Showing <span className="font-semibold text-slate-700">{startRecord}</span> to{' '}
         <span className="font-semibold text-slate-700">{endRecord}</span> of{' '}
-        <span className="font-semibold text-slate-700">{total}</span> students
+        <span className="font-semibold text-slate-700">{total}</span> {itemLabel}
       </div>
 
       <div className="flex items-center gap-1.5">

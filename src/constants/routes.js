@@ -60,6 +60,10 @@ export const ROUTES = {
   PRINT_CENTER_DETAIL: '/print-center/:requestId',
   ADMIN_PRINT_REQUESTS: '/admin/print-requests',
 
+  // Commission (SUPER_ADMIN)
+  COMMISSION: '/commission',
+  COMMISSION_COLLEGE: '/commission/colleges/:collegeId',
+
   UNAUTHORIZED: '/unauthorized',
   NOT_FOUND: '*',
 };
@@ -101,5 +105,7 @@ export const getPrintRequestDetailRoute = (requestId) =>
 export const getPrintRequestEditRoute = (requestId) => `/print-requests/${requestId}/edit`;
 
 export const getPrintCenterDetailRoute = (requestId) => `/print-center/${requestId}`;
+
+export const getCommissionCollegeRoute = (collegeId) => `/commission/colleges/${collegeId}`;
 
 export default ROUTES;

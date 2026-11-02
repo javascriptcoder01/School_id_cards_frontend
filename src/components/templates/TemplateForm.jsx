@@ -31,6 +31,9 @@ import {
   TEMPLATE_TEXT_TRANSFORMS,
   DEFAULT_CARD_THEME_KEY,
   DEFAULT_QR_PADDING_MM,
+  TEMPLATE_COLLEGE_PROFILE_IMAGES,
+  TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS,
+  isProfileImageLayer,
 } from '../../constants/template.js';
 import {
   toNumber,
@@ -50,14 +53,21 @@ import {
   newBackSide,
   buildTemplatePayload,
   buildRecommendedBackLayout,
+  buildProfileImageLayer,
+  buildSignWithSealLayout,
 } from '../../utils/templateDesigner.js';
 import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
 import {
   fetchThemesRequested,
   previewRenderRequested,
   clearDesignerPreview,
+  fetchDesignerContextRequested,
 } from '../../features/templates/templateSlice.js';
 import {
+  selectDesignerContext,
+  selectDesignerSchoolImages,
+  selectDesignerContextLoading,
+  selectDesignerContextError,
   selectCardThemes,
   selectCardThemesLoading,
   selectDesignerPreview,
@@ -285,10 +295,6 @@ const SectionHeader = ({ icon: Icon, tone, title, subtitle, action }) => (
   </div>
 );
 
-/* ------------------------------------------------------------------ */
-/* Form                                                                */
-/* ------------------------------------------------------------------ */
-
 export const TemplateForm = ({
   initialValues = null,
   isEdit = false,
@@ -308,6 +314,10 @@ export const TemplateForm = ({
   const previewLoading = useSelector(selectDesignerPreviewLoading);
   const previewError = useSelector(selectDesignerPreviewError);
   const validationErrors = useSelector(selectDesignerValidationErrors);
+  const designerContext = useSelector(selectDesignerContext);
+  const schoolImages = useSelector(selectDesignerSchoolImages);
+  const schoolImagesLoading = useSelector(selectDesignerContextLoading);
+  const schoolImagesError = useSelector(selectDesignerContextError);
 
   const { assets, isLoading: assetsLoading, error: assetsError, reload: reloadAssets } = useCollegeAssets();
 
@@ -315,9 +325,10 @@ export const TemplateForm = ({
     if (initialValues) setFormData(buildInitialState(initialValues));
   }, [initialValues]);
 
-  // Themes catalog (cache) + page band hone par preview saaf
+  // Themes catalog (cache), school profile images + page band hone par preview saaf
   useEffect(() => {
     dispatch(fetchThemesRequested());
+    dispatch(fetchDesignerContextRequested());
     return () => {
       dispatch(clearDesignerPreview());
     };
@@ -335,6 +346,15 @@ export const TemplateForm = ({
   const invalidLabels = useMemo(
     () => [...new Set([...outOfBounds, ...labelsFromErrors(validationErrors)])],
     [outOfBounds, validationErrors]
+  );
+
+  // School profile image key → url (null = upload nahi hai); context na aaya ho to null (layer ka cached url chalega)
+  const profileUrls = useMemo(
+    () =>
+      designerContext
+        ? Object.fromEntries(schoolImages.map((img) => [img.key, img.available ? img.url : null]))
+        : null,
+    [designerContext, schoolImages]
   );
 
   const unit = formData.unit;
@@ -459,6 +479,58 @@ export const TemplateForm = ({
     return clientId;
   };
 
+  const availableSchoolImage = (key) => schoolImages.find((img) => img.key === key && img.available) || null;
+  const cardOf = (data) => ({ unit: data.unit, width: toNumber(data.width, 86), height: toNumber(data.height, 54) });
+
+  // School profile image (logo / principal signature / stamp). at = drop point. Returns the new layer's key.
+  const handleAddProfileImage = (side, profileKey, at = null) => {
+    const image = availableSchoolImage(profileKey);
+    if (!image || sideOf(formData, side).imageLayers.length >= TEMPLATE_MAX_IMAGE_LAYERS) return null;
+    const layer = buildProfileImageLayer(image, cardOf(formData), designerContext?.referenceCard, at);
+    updateSide(side, (s) => ({ imageLayers: [...s.imageLayers, layer] }));
+    return layer.clientId;
+  };
+
+  // "Principal Sign + Seal": jo nahi laga wo add (signature, stamp uske upar, "Principal" text). Returns signature key.
+  const handleAddSignWithSeal = (side) => {
+    const signImage = availableSchoolImage(TEMPLATE_COLLEGE_PROFILE_IMAGES.PRINCIPAL_SIGNATURE);
+    const stampImage = availableSchoolImage(TEMPLATE_COLLEGE_PROFILE_IMAGES.STAMP);
+    if (!signImage || !stampImage) return null;
+
+    const s = sideOf(formData, side);
+    const findProfile = (key) => s.imageLayers.find((l) => isProfileImageLayer(l) && l.profileKey === key) || null;
+    const existingSign = findProfile(TEMPLATE_COLLEGE_PROFILE_IMAGES.PRINCIPAL_SIGNATURE);
+    const existingStamp = findProfile(TEMPLATE_COLLEGE_PROFILE_IMAGES.STAMP);
+    if (existingSign && existingStamp) return getLayerKey(existingSign);
+
+    const needed = (existingSign ? 0 : 1) + (existingStamp ? 0 : 1);
+    if (s.imageLayers.length + needed > TEMPLATE_MAX_IMAGE_LAYERS) return null;
+
+    const { sign, stamp, caption } = buildSignWithSealLayout(signImage, stampImage, cardOf(formData), designerContext?.referenceCard, existingSign);
+    const added = [...(existingSign ? [] : [sign]), ...(existingStamp ? [] : [stamp])];
+    const hasCaption = s.fields.some((f) => f.field === TEMPLATE_FIELDS.CUSTOM_TEXT && f.customText?.trim().toLowerCase() === 'principal');
+    const captionField =
+      !hasCaption && s.fields.length < TEMPLATE_MAX_FIELDS
+        ? makeField(TEMPLATE_FIELDS.CUSTOM_TEXT, {
+          label: '',
+          showLabel: false,
+          customText: 'Principal',
+          x: caption.x,
+          y: caption.y,
+          width: caption.width,
+          fontSize: caption.fontSize,
+          fontWeight: TEMPLATE_FONT_WEIGHTS.BOLD,
+          textAlign: TEMPLATE_TEXT_ALIGNS.CENTER,
+        })
+        : null;
+
+    updateSide(side, (cur) => ({
+      imageLayers: [...cur.imageLayers, ...added],
+      ...(captionField ? { fields: [...cur.fields, captionField] } : {}),
+    }));
+    return getLayerKey(sign);
+  };
+
   const handleUpdateLayer = (side, key, patch) => {
     updateSide(side, (s) => ({
       imageLayers: s.imageLayers.map((l) => (getLayerKey(l) === key ? { ...l, ...patch } : l)),
@@ -529,6 +601,8 @@ export const TemplateForm = ({
     onAddQrCode: handleAddQrCode,
     onUpdateQrCode: handleUpdateQrCode,
     onAddLayer: handleAddLayer,
+    onAddProfileImage: handleAddProfileImage,
+    onAddSignWithSeal: handleAddSignWithSeal,
     onUpdateLayer: handleUpdateLayer,
     onRemoveLayer: handleRemoveLayer,
     onApplyPreset: handleApplyPreset,
@@ -566,12 +640,21 @@ export const TemplateForm = ({
     if (emptyText) newErrors.customText = 'Every custom text field (and custom-text QR) needs some text';
 
     const allLayers = sides.flatMap((side) => sideOf(formData, side).imageLayers);
+    // School profile images asset nahi — unka check neeche alag
     const unknown = allLayers.findIndex(
-      (l) => !l.assetId || !usableAssets.some((a) => String(a._id) === String(l.assetId))
+      (l) => !isProfileImageLayer(l) && (!l.assetId || !usableAssets.some((a) => String(a._id) === String(l.assetId)))
     );
     // Assets load na hue hon to ye check skip (backend phir bhi verify karta hai)
     if (!assetsLoading && !assetsError && unknown !== -1) {
       newErrors.imageLayers = 'An image on the card is no longer available. Pick another image or remove it.';
+    }
+    // School profile mein upload nahi (context load hua ho tabhi; backend bhi rokta hai)
+    const missingProfile = profileUrls
+      ? [...new Set(allLayers.filter((l) => isProfileImageLayer(l) && !profileUrls[l.profileKey]).map((l) => l.profileKey))]
+      : [];
+    if (missingProfile.length) {
+      const names = missingProfile.map((key) => TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS[key] || key).join(', ');
+      newErrors.profileImages = `${names} ${missingProfile.length === 1 ? 'is' : 'are'} not uploaded in the school profile. Remove it from the card or ask the Super Admin to upload it.`;
     }
 
     if (outOfBounds.length) newErrors.layout = `These go outside the card: ${outOfBounds.join(', ')}`;
@@ -592,7 +675,7 @@ export const TemplateForm = ({
 
   const handleCancel = () => (onCancel ? onCancel() : navigate(ROUTES.TEMPLATES));
 
-  const errorList = [errors.fields, errors.customText, errors.imageLayers, errors.layout].filter(Boolean);
+  const errorList = [errors.fields, errors.customText, errors.imageLayers, errors.profileImages, errors.layout].filter(Boolean);
   const sizePresetKey =
     TEMPLATE_SIZE_PRESETS.find(
       (p) => p.unit === unit && p.width === toNumber(formData.width) && p.height === toNumber(formData.height)
@@ -793,6 +876,11 @@ export const TemplateForm = ({
           themesLoading={themesLoading}
           usableAssets={usableAssets}
           assetsLoading={assetsLoading}
+          schoolImages={schoolImages}
+          schoolImagesLoading={schoolImagesLoading}
+          schoolImagesError={schoolImagesError}
+          onRetrySchoolImages={() => dispatch(fetchDesignerContextRequested())}
+          profileUrls={profileUrls}
           previewData={previewData}
           previewLoading={previewLoading}
           previewError={previewError}

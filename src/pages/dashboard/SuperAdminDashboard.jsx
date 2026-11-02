@@ -1,18 +1,43 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { School, Users, CreditCard, ShieldCheck, Printer, Sparkles, ArrowRight } from 'lucide-react';
+import {
+  School,
+  Users,
+  CreditCard,
+  ShieldCheck,
+  Printer,
+  ArrowRight,
+  GraduationCap,
+  UserCheck,
+  CalendarClock,
+  BadgeIndianRupee,
+  CheckCircle2,
+} from 'lucide-react';
 import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx';
 import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import RecentActivity from '../../components/dashboard/RecentActivity.jsx';
-import { ROUTES } from '../../constants/routes.js';
+import ErrorMessage from '../../components/common/ErrorMessage.jsx';
+import DateRangeFilter from '../../components/commission/DateRangeFilter.jsx';
+import SchoolRevenueTable from '../../components/commission/SchoolRevenueTable.jsx';
+import { ROUTES, getCommissionCollegeRoute } from '../../constants/routes.js';
 import { fetchSummaryRequested } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import {
   selectPrintRequestCounts,
   selectPrintRequestCardCounts,
   selectPrintRequestSummaryLoading,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
+import { fetchSuperAdminOverviewRequested } from '../../features/dashboard/dashboardOverviewSlice.js';
+import {
+  selectSuperAdminOverview,
+  selectSuperAdminOverviewLoading,
+  selectSuperAdminOverviewError,
+} from '../../features/dashboard/dashboardOverviewSelectors.js';
+import { cardsLabel, toDateRangeParams } from '../../utils/commissionForm.js';
+import { formatInr } from '../../utils/money.js';
+
+const AMOUNT_VALUE_CLASS = 'text-lg sm:text-2xl wrap-anywhere';
 
 export const SuperAdminDashboard = ({
   user,
@@ -26,16 +51,32 @@ export const SuperAdminDashboard = ({
   const printCounts = useSelector(selectPrintRequestCounts);
   const printCardCounts = useSelector(selectPrintRequestCardCounts);
   const isPrintLoading = useSelector(selectPrintRequestSummaryLoading);
+  const overview = useSelector(selectSuperAdminOverview);
+  const isOverviewLoading = useSelector(selectSuperAdminOverviewLoading);
+  const overviewError = useSelector(selectSuperAdminOverviewError);
+
+  const [dateFilter, setDateFilter] = useState({ preset: 'ALL_TIME', customFrom: '', customTo: '' });
+  const dateParams = useMemo(() => toDateRangeParams(dateFilter), [dateFilter]);
 
   // Print Center summary (sabhi schools)
   useEffect(() => {
     dispatch(fetchSummaryRequested({ params: {} }));
   }, [dispatch]);
 
+  // Commission overview: date badalne par dobara
+  useEffect(() => {
+    dispatch(fetchSuperAdminOverviewRequested({ params: dateParams }));
+  }, [dispatch, dateParams]);
+
   const totalColleges = summary?.totalColleges ?? 0;
   const totalUsers = summary?.totalUsers ?? 0;
   const totalTemplates = summary?.totalTemplates ?? 0;
 
+  const totals = overview?.totals;
+  const isKpiLoading = isOverviewLoading && !overview;
+  const upcomingSubtitle = totals?.upcoming?.rateMissing
+    ? `${cardsLabel(totals.upcoming.cards)} · some schools have no rate`
+    : cardsLabel(totals?.upcoming?.cards);
 
   return (
     <div className="space-y-8">
@@ -64,6 +105,94 @@ export const SuperAdminDashboard = ({
           </div>
         </div>
       </div>
+
+      {/* Commission + revenue (sab schools) */}
+      <DashboardSection
+        title="Revenue Overview"
+        subtitle="The date range applies to Paid, Printed and In Print. Upcoming and Pending Payment always show the current position."
+        action={<DateRangeFilter value={dateFilter} onChange={setDateFilter} />}
+      >
+        {overviewError && <ErrorMessage message={overviewError} title="Couldn't load the revenue overview" />}
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <DashboardStatCard
+            title="Schools"
+            value={totals?.schools ?? 0}
+            icon={School}
+            colorScheme="indigo"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Operators"
+            value={totals?.operators ?? 0}
+            icon={UserCheck}
+            colorScheme="purple"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Students"
+            value={totals?.students ?? 0}
+            icon={GraduationCap}
+            colorScheme="blue"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Upcoming (Est.)"
+            value={formatInr(totals?.upcoming?.estimatedAmount)}
+            subtitle={upcomingSubtitle}
+            icon={CalendarClock}
+            colorScheme="blue"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Pending Payment"
+            value={formatInr(totals?.pendingPayment?.amount ?? 0)}
+            subtitle={cardsLabel(totals?.pendingPayment?.cards)}
+            icon={BadgeIndianRupee}
+            colorScheme="amber"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Total Paid"
+            value={formatInr(totals?.paid?.amount ?? 0)}
+            subtitle={cardsLabel(totals?.paid?.cards)}
+            icon={CheckCircle2}
+            colorScheme="emerald"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="Printed"
+            value={totals?.printed?.cards ?? 0}
+            subtitle="cards completed"
+            icon={Printer}
+            colorScheme="emerald"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+          <DashboardStatCard
+            title="In Print"
+            value={totals?.inPrint?.cards ?? 0}
+            subtitle="cards in printing"
+            icon={Printer}
+            colorScheme="purple"
+            valueClassName={AMOUNT_VALUE_CLASS}
+            isLoading={isKpiLoading}
+          />
+        </div>
+
+        <h3 className="text-sm font-bold text-slate-800 pt-2">School-wise revenue</h3>
+        <SchoolRevenueTable
+          colleges={overview?.colleges || []}
+          loading={isOverviewLoading}
+          onRowClick={(college) => navigate(getCommissionCollegeRoute(college.collegeId))}
+        />
+      </DashboardSection>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

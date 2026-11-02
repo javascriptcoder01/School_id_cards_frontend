@@ -17,6 +17,8 @@ import operatorReducer from '../features/operator/operatorSlice.js';
 import collegeProgressReducer from '../features/collegeProgress/collegeProgressSlice.js';
 import idCardReducer from '../features/idCards/idCardSlice.js';
 import printRequestWorkflowReducer from '../features/printRequestWorkflow/printRequestWorkflowSlice.js';
+import commissionReducer from '../features/commission/commissionSlice.js';
+import dashboardOverviewReducer from '../features/dashboard/dashboardOverviewSlice.js';
 
 export const rootReducer = combineReducers({
   auth: authReducer,
@@ -37,6 +39,8 @@ export const rootReducer = combineReducers({
   collegeProgress: collegeProgressReducer,
   idCards: idCardReducer,
   printRequestWorkflow: printRequestWorkflowReducer,
+  commission: commissionReducer,
+  dashboardOverview: dashboardOverviewReducer,
 });
 
 export default rootReducer;

@@ -49,6 +49,9 @@ import RequestSummaryCards from '../../components/printRequests/RequestSummaryCa
 import RequestStatusBadge from '../../components/printRequests/RequestStatusBadge.jsx';
 import ConfirmActionModal from '../../components/printRequests/ConfirmActionModal.jsx';
 import { REQUEST_ACTION_CONFIG } from '../../components/printRequests/requestActionConfig.js';
+import PaymentStatusBadge from '../../components/commission/PaymentStatusBadge.jsx';
+import RequestAmount from '../../components/commission/RequestAmount.jsx';
+import { PAYMENT_STATUS_OPTIONS } from '../../constants/commission.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 
 const TABS = [
@@ -65,7 +68,7 @@ const BULK_PRINT_TABS = ['PRINTING', 'COMPLETED'];
 const BULK_PRINT_MAX = 20;
 const BULK_PRINT_KEY = 'bulk:print';
 const PAGE_SIZE = 20;
-const EMPTY_FILTERS = { collegeId: '', search: '', from: '', to: '' };
+const EMPTY_FILTERS = { collegeId: '', search: '', from: '', to: '', paymentStatus: '' };
 
 const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
@@ -267,6 +270,8 @@ export const PrintCenterPage = () => {
         )}
         <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{classOf(request)}</td>
         <td className="px-4 py-3.5 text-center font-semibold tabular-nums">{request.studentCount}</td>
+        <td className="px-4 py-3.5 text-right whitespace-nowrap"><RequestAmount request={request} /></td>
+        <td className="px-4 py-3.5"><PaymentStatusBadge payment={request.payment} /></td>
         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(request.approvedAt)}</td>
         <td className="px-4 py-3.5"><RequestStatusBadge statusView={request.statusView} /></td>
         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
@@ -295,7 +300,7 @@ export const PrintCenterPage = () => {
     );
   };
 
-  const columnCount = (groupBySchool ? 7 : 8) + (canBulkSelect ? 1 : 0);
+  const columnCount = (groupBySchool ? 9 : 10) + (canBulkSelect ? 1 : 0);
   const quickConfig = quickAction ? REQUEST_ACTION_CONFIG[quickAction.action] : null;
 
   return (
@@ -341,7 +346,18 @@ export const PrintCenterPage = () => {
         <input aria-label="Search request number" placeholder="Request no. (PR-…)" value={filterInput.search} onChange={(e) => setFilterInput((f) => ({ ...f, search: e.target.value }))} className={`${inputClass} col-span-2`} />
         <input aria-label="Approved from" type="date" value={filterInput.from} onChange={(e) => setFilterInput((f) => ({ ...f, from: e.target.value }))} className={inputClass} title="Approved from" />
         <input aria-label="Approved to" type="date" value={filterInput.to} min={filterInput.from || undefined} onChange={(e) => setFilterInput((f) => ({ ...f, to: e.target.value }))} className={inputClass} title="Approved to" />
-        <div className="col-span-2 md:col-span-6 flex flex-wrap items-center justify-between gap-2">
+        <select
+          aria-label="Payment status"
+          value={filterInput.paymentStatus}
+          onChange={(e) => setFilterInput((f) => ({ ...f, paymentStatus: e.target.value }))}
+          className={`${inputClass} col-span-2 cursor-pointer`}
+        >
+          <option value="">All payments</option>
+          {PAYMENT_STATUS_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
+        <div className="col-span-2 md:col-span-4 flex flex-wrap items-center justify-between gap-2">
           <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
             <input type="checkbox" checked={groupBySchool} onChange={(e) => setGroupBySchool(e.target.checked)} className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
             <Layers className="h-4 w-4 text-slate-400" /> Group by school
@@ -425,6 +441,8 @@ export const PrintCenterPage = () => {
                   {!groupBySchool && <th className="px-4 py-3">School</th>}
                   <th className="px-4 py-3">Class</th>
                   <th className="px-4 py-3 text-center">Students</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Approved</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Downloads</th>

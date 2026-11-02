@@ -37,7 +37,11 @@ import StatusTimeline from '../../components/printRequests/StatusTimeline.jsx';
 import StudentPickerTable from '../../components/printRequests/StudentPickerTable.jsx';
 import ConfirmActionModal from '../../components/printRequests/ConfirmActionModal.jsx';
 import { REQUEST_ACTION_CONFIG, sortActions } from '../../components/printRequests/requestActionConfig.js';
+import PaymentStatusBadge from '../../components/commission/PaymentStatusBadge.jsx';
+import RequestAmount from '../../components/commission/RequestAmount.jsx';
+import { approveAmountMessage, cardsLabel } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
+import { formatInrShort } from '../../utils/money.js';
 
 // Print files sirf in statuses mein (backend bhi yahi check karta hai — 409 warna)
 const PRINT_FILE_STATUSES = ['PRINTING', 'COMPLETED'];
@@ -282,6 +286,30 @@ export const PrintRequestDetailPage = () => {
               {request.completedAt && <SummaryRow label="Completed">{formatDateTime(request.completedAt)}</SummaryRow>}
               {request.declinedAt && <SummaryRow label="Declined">{formatDateTime(request.declinedAt)}</SummaryRow>}
               {request.cancelledAt && <SummaryRow label="Cancelled">{formatDateTime(request.cancelledAt)}</SummaryRow>}
+              {/* Sirf School Admin / Super Admin ko API yeh keys bhejti hai; operator ko kuch nahi dikhta */}
+              {request.payment && (
+                <>
+                  <SummaryRow label="Amount">
+                    <RequestAmount request={request} />
+                    {request.pricing && request.payment.status !== 'VOID' && (
+                      <span className="block text-[11px] font-normal text-slate-400">
+                        {cardsLabel(request.pricing.cardCount)} × {formatInrShort(request.pricing.rate)}
+                      </span>
+                    )}
+                    {!request.pricing && request.estimate && (
+                      <span className="block text-[11px] font-normal text-slate-400">
+                        {cardsLabel(request.estimate.cardCount)} × {formatInrShort(request.estimate.rate)}
+                      </span>
+                    )}
+                  </SummaryRow>
+                  <SummaryRow label="Payment">
+                    <PaymentStatusBadge payment={request.payment} />
+                    {request.payment.paidAt && (
+                      <span className="block text-[11px] font-normal text-slate-400">{formatDateTime(request.payment.paidAt)}</span>
+                    )}
+                  </SummaryRow>
+                </>
+              )}
               {role === ROLES.SUPER_ADMIN && (
                 <SummaryRow label="Downloads">
                   {request.downloadCount}
@@ -347,7 +375,7 @@ export const PrintRequestDetailPage = () => {
       <ConfirmActionModal
         open={Boolean(modalConfig)}
         title={modalConfig?.title}
-        message={modalConfig?.message}
+        message={modalAction === 'APPROVE' ? `${modalConfig?.message} ${approveAmountMessage(request)}` : modalConfig?.message}
         confirmLabel={modalConfig?.confirmLabel}
         tone={modalConfig?.tone}
         reasonMode={modalConfig?.reasonMode}

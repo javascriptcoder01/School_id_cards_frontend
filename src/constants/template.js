@@ -230,6 +230,42 @@ export const TEMPLATE_IMAGE_LAYER_DEFAULTS = {
 export const TEMPLATE_MAX_IMAGE_LAYERS = 10;
 export const IMAGE_LAYER_MAX_URL_LENGTH = 1000; // backend schema maxlength
 
+// Image layer kahan se: ASSET = CollegeAsset (purana), COLLEGE_PROFILE = school profile ki live image
+export const TEMPLATE_IMAGE_SOURCES = {
+  ASSET: 'ASSET',
+  COLLEGE_PROFILE: 'COLLEGE_PROFILE',
+};
+
+export const TEMPLATE_COLLEGE_PROFILE_IMAGES = {
+  LOGO: 'LOGO',
+  PRINCIPAL_SIGNATURE: 'PRINCIPAL_SIGNATURE',
+  STAMP: 'STAMP',
+};
+
+export const TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS = {
+  LOGO: 'School Logo',
+  PRINCIPAL_SIGNATURE: 'Principal Signature',
+  STAMP: 'School Seal / Stamp',
+};
+
+export const TEMPLATE_IMAGE_ALIGNS = {
+  LEFT: 'LEFT',
+  CENTER: 'CENTER',
+  RIGHT: 'RIGHT',
+};
+
+// "Principal Sign + Seal" combo (designer-context combos[].key)
+export const SIGN_WITH_SEAL_COMBO = 'SIGN_WITH_SEAL';
+
+// Elements panel se canvas par drag (dataTransfer type; value = profileKey ya SIGN_WITH_SEAL)
+export const SCHOOL_IMAGE_DRAG_TYPE = 'application/x-school-image';
+
+// Rotation range: school profile images ±45°, baaki layers ±180°
+export const PROFILE_IMAGE_MAX_ROTATION = 45;
+export const IMAGE_LAYER_MAX_ROTATION = 180;
+
+export const isProfileImageLayer = (layer) => layer?.source === TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE;
+
 // CollegeAsset type jo letterhead ke liye chahiye
 export const LETTERHEAD_ASSET_TYPE = 'LETTERHEAD';
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, Trash2, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Sliders, Trash2, Eye, EyeOff, AlertTriangle, Lock, Unlock, BringToFront, SendToBack, School } from 'lucide-react';
 import {
   TEMPLATE_FONT_WEIGHTS,
   TEMPLATE_FIELD_LABELS,
@@ -23,8 +23,12 @@ import {
   TEMPLATE_QR_CONTENT_TYPE_LABELS,
   TEMPLATE_FONT_STYLES,
   TEMPLATE_TEXT_TRANSFORMS,
+  TEMPLATE_IMAGE_ALIGNS,
+  TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS,
+  isProfileImageLayer,
 } from '../../../constants/template.js';
-import { clamp, round2, toNumber, getLayerKey } from '../../../utils/templateLayout.js';
+import { clamp, round2, toNumber, getLayerKey, isSafeImageUrl } from '../../../utils/templateLayout.js';
+import { lockedSizePatch, maxRotationFor } from '../../../utils/templateDesigner.js';
 
 const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
@@ -170,6 +174,26 @@ const ColorField = ({ label, value, fallback = '#000000', onChange, onClear }) =
   </div>
 );
 
+// 3 buttons ki segmented row (image align)
+const SegmentRow = ({ label, options, onPick, activeKey }) => (
+  <div>
+    <label className={labelClass}>{label}</label>
+    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
+      {options.map(({ key, text }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onPick(key)}
+          aria-pressed={activeKey === key}
+          className={`py-1.5 rounded-lg text-[11px] font-semibold ${activeKey === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
 // Chhota on/off toggle button (Italic, UPPERCASE)
 const ToggleChip = ({ active, onClick, children }) => (
   <button
@@ -186,6 +210,9 @@ export const PropertiesPanel = ({
   selectedElement,
   formData,
   usableAssets = [],
+  schoolImages = [],
+  profileUrls = null,
+  onReorderLayer,
   onUpdateField,
   onRemoveField,
   onUpdatePhoto,
@@ -331,21 +358,67 @@ export const PropertiesPanel = ({
 
     const key = getLayerKey(layer);
     const set = (patch) => onUpdateLayer(key, patch);
+    const profile = isProfileImageLayer(layer);
     const assetType = TEMPLATE_IMAGE_LAYER_ASSET_TYPE[layer.type];
     const options = usableAssets.filter((a) => !assetType || a.type === assetType);
-    const currentMissing = layer.assetId && !options.some((a) => String(a._id) === String(layer.assetId));
+    const currentMissing = !profile && layer.assetId && !options.some((a) => String(a._id) === String(layer.assetId));
+
+    // Ratio lock: width / height mein se ek badle to doosra bhi
+    const locked = layer.lockAspectRatio !== false;
+    const setBox = (patch) =>
+      set(locked && ('width' in patch || 'height' in patch) ? lockedSizePatch(layer, patch, cardWidth, cardHeight) : patch);
+    const lw = toNumber(layer.width);
+    const lh = toNumber(layer.height);
+    const alignX = (a) =>
+      set({
+        x: round2(a === TEMPLATE_IMAGE_ALIGNS.LEFT ? 0 : a === TEMPLATE_IMAGE_ALIGNS.RIGHT ? cardWidth - lw : (cardWidth - lw) / 2),
+        align: a,
+      });
+    const alignY = (a) => set({ y: round2(a === 'TOP' ? 0 : a === 'BOTTOM' ? cardHeight - lh : (cardHeight - lh) / 2) });
+    const maxRotation = maxRotationFor(layer);
+    const rotation = clamp(toNumber(layer.rotation), -maxRotation, maxRotation);
+
+    // School profile image: live url (designer-context), na mile to cached url
+    const profileUrl = profile ? (profileUrls ? profileUrls[layer.profileKey] : layer.url) : null;
+    const profileMissing = profile && Boolean(profileUrls) && !profileUrl;
+    const profileNote = profile ? schoolImages.find((img) => img.key === layer.profileKey)?.note : null;
+    const profileLabel = profile ? TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS[layer.profileKey] || layer.profileKey : null;
 
     return (
       <Panel>
         <Header
-          title={TEMPLATE_IMAGE_LAYER_LABELS[layer.type]}
-          subtitle="Image from the college's uploaded assets"
+          title={profile ? profileLabel : TEMPLATE_IMAGE_LAYER_LABELS[layer.type]}
+          subtitle={profile ? 'Always the latest image from the school profile' : "Image from the college's uploaded assets"}
           visible={layer.visible !== false}
           onToggleVisible={() => set({ visible: layer.visible === false })}
           onRemove={() => onRemoveLayer(key)}
           removeLabel="Remove image from card"
         />
 
+        {profile ? (
+          <div className="flex items-center gap-3">
+            <div className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              {isSafeImageUrl(profileUrl) ? (
+                <img src={profileUrl} alt={profileLabel} className="max-h-full max-w-full object-contain p-1" />
+              ) : (
+                <span className="text-[10px] text-slate-400">No image</span>
+              )}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                <School className="h-3 w-3" /> From school profile
+              </span>
+              {profileMissing ? (
+                <p className="flex items-start gap-1 text-[11px] text-amber-700">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                  {profileNote || 'Not uploaded — ask the Super Admin.'} It won&apos;t print until it is uploaded.
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-400">Changes in the school profile show on every card automatically.</p>
+              )}
+            </div>
+          </div>
+        ) : (
         <div>
           <label className={labelClass}>Image</label>
           <select
@@ -369,16 +442,80 @@ export const PropertiesPanel = ({
             </p>
           )}
         </div>
+        )}
 
-        <BoxFields box={layer} cardWidth={cardWidth} cardHeight={cardHeight} unitLabel={u} onChange={set} />
+        <BoxFields box={layer} cardWidth={cardWidth} cardHeight={cardHeight} unitLabel={u} onChange={setBox} />
+        <button
+          type="button"
+          onClick={() => set({ lockAspectRatio: !locked })}
+          aria-pressed={locked}
+          className={`-mt-1 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
+            locked ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
+          }`}
+        >
+          {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+          {locked ? 'Proportions locked' : 'Proportions free'}
+        </button>
+
+        <SegmentRow
+          label="Align on card"
+          activeKey={layer.align || null}
+          onPick={alignX}
+          options={[
+            { key: TEMPLATE_IMAGE_ALIGNS.LEFT, text: 'Left' },
+            { key: TEMPLATE_IMAGE_ALIGNS.CENTER, text: 'Centre' },
+            { key: TEMPLATE_IMAGE_ALIGNS.RIGHT, text: 'Right' },
+          ]}
+        />
+        <SegmentRow
+          label="Vertical"
+          activeKey={null}
+          onPick={alignY}
+          options={[
+            { key: 'TOP', text: 'Top' },
+            { key: 'MIDDLE', text: 'Middle' },
+            { key: 'BOTTOM', text: 'Bottom' },
+          ]}
+        />
 
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className={labelClass}>Opacity: {Math.round(toNumber(layer.opacity, 1) * 100)}%</label>
             <input type="range" min="0" max="1" step="0.05" value={toNumber(layer.opacity, 1)} onChange={(e) => set({ opacity: Number(e.target.value) })} className="w-full accent-indigo-600" />
           </div>
-          <NumberField label="Rotation (°)" value={layer.rotation ?? 0} min={-180} max={180} step={1} onCommit={(v) => set({ rotation: v })} />
+          <div className="col-span-2">
+            <label className={labelClass}>Rotation: {Math.round(rotation)}°</label>
+            <input
+              type="range"
+              min={-maxRotation}
+              max={maxRotation}
+              step="1"
+              value={rotation}
+              onChange={(e) => set({ rotation: Number(e.target.value) })}
+              className="w-full accent-indigo-600"
+              aria-label="Rotation"
+            />
+          </div>
+          <NumberField label="Rotation (°)" value={layer.rotation ?? 0} min={-maxRotation} max={maxRotation} step={1} onCommit={(v) => set({ rotation: v })} />
           <NumberField label="Layer order" value={layer.zIndex ?? 10} min={0} max={100} step={1} onCommit={(v) => set({ zIndex: v })} />
+          {onReorderLayer && (
+            <>
+              <button
+                type="button"
+                onClick={() => onReorderLayer(key, 'BACK')}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <SendToBack className="h-3.5 w-3.5" /> Send to back
+              </button>
+              <button
+                type="button"
+                onClick={() => onReorderLayer(key, 'FRONT')}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <BringToFront className="h-3.5 w-3.5" /> Bring to front
+              </button>
+            </>
+          )}
         </div>
         <p className="text-[11px] text-slate-400">Higher layer order sits on top, for example a stamp over the signature.</p>
       </Panel>

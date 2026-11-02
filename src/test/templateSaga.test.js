@@ -125,7 +125,8 @@ describe('TEMPLATE REDUX SAGA', () => {
     expect(generator.next().value).toEqual(
       takeLatest(updateTemplateStatusRequested.type, updateTemplateStatusWorker)
     );
-    // Card themes, designer preview (debounce + latest), saved template previews
+    // Card themes, designer preview (debounce + latest), saved template previews, designer context
+    generator.next();
     generator.next();
     generator.next();
     generator.next();

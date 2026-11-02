@@ -17,10 +17,10 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import apiClient from '../../api/apiClient.js';
-import IdCardPreview from '../idCards/IdCardPreview.jsx';
+import IdCardFlip from '../idCards/IdCardFlip.jsx';
 
-// PNG nahi hai (naye batches sirf PDF banate hain) to card saved renderData se HTML mein dikhta hai
-const PREVIEW_CARD_WIDTH = 520;
+// PNG nahi hai (naye batches sirf PDF banate hain) to card saved renderData se HTML mein dikhta hai (480px)
+const PREVIEW_CARD_SIZE = 'lg';
 
 const hasPngOutput = (card) => Boolean(card?.output?.storageKey || card?.output?.format || card?.hasOutput);
 
@@ -407,11 +407,12 @@ export const SequentialIdCardPreviewModal = ({
                   }}
                   className="max-w-full"
                 >
-                  <IdCardPreview
+                  {/* Front / back flip; purane snapshots (sides nahi) IdCardFlip khud purane renderer se dikhata hai */}
+                  <IdCardFlip
+                    key={currentIndex}
                     renderData={currentCard.renderData}
-                    width={PREVIEW_CARD_WIDTH}
+                    size={PREVIEW_CARD_SIZE}
                     showWarnings={false}
-                    className="rounded-2xl overflow-hidden shadow-2xl"
                   />
                 </div>
               ) : imageError ? (
