@@ -186,6 +186,14 @@ export const templateSlice = createSlice({
       state.themes.error = action.payload || 'Failed to load card themes';
     },
 
+    // School themes: saga kaam karta hai, result callback se (modal apna saving / error rakhta hai)
+    // { name, theme, onSuccess, onError }
+    saveSchoolThemeRequested: () => {},
+    // { themeId, name, onSuccess, onError }
+    renameSchoolThemeRequested: () => {},
+    // { themeId, onSuccess, onError }
+    deleteSchoolThemeRequested: () => {},
+
     // Designer live preview (saga 400 ms debounce karta hai)
     previewRenderRequested: (state) => {
       state.designerPreview.loading = true;
@@ -296,6 +304,9 @@ export const {
   fetchDesignerContextRequested,
   fetchDesignerContextSucceeded,
   fetchDesignerContextFailed,
+  saveSchoolThemeRequested,
+  renameSchoolThemeRequested,
+  deleteSchoolThemeRequested,
   resetTemplateState,
 } = templateSlice.actions;
 

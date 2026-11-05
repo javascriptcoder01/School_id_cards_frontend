@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { School, MapPin, Mail, Phone, Image, Save, PenTool, Stamp, Upload, X } from 'lucide-react';
+import { School, MapPin, Mail, Phone, Image, Save, PenTool, Stamp, Upload, X, AlertCircle } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 
@@ -74,12 +74,29 @@ const ImageUploadField = ({
               }`}
           />
         </div>
-        {error && <p className="text-xs text-rose-500 font-medium">{error}</p>}
-        <p className="text-[11px] text-slate-400">{formatsNote}</p>
+        {/* Formats wala note sirf galat file / URL par, red warning ke andar */}
+        {error && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-linear-to-r from-rose-50 to-red-50 px-3 py-2.5 shadow-2xs animate-[formWarnIn_200ms_ease-out] motion-reduce:animate-none"
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-500 text-white shadow-sm shadow-rose-500/30">
+              <AlertCircle className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0 leading-snug">
+              <p className="text-xs font-semibold text-rose-700">{error}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-rose-600/80">{formatsNote}</p>
+            </div>
+            <style>{'@keyframes formWarnIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}'}</style>
+          </div>
+        )}
       </div>
 
       {/* Preview */}
-      <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 border border-dashed border-slate-200 min-h-[90px]">
+      <div
+        className={`md:col-span-4 flex flex-col items-center justify-center p-3 rounded-2xl border border-dashed min-h-[90px] transition-colors ${error ? 'bg-rose-50/60 border-rose-300' : 'bg-slate-50 border-slate-200'
+          }`}
+      >
         {value?.url ? (
           <div className="relative group w-full flex flex-col items-center">
             <img
@@ -372,9 +389,6 @@ export const CollegeForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">Basic Information</h2>
-            <p className="text-xs text-slate-500">
-              Official college identification, logo, signature and stamp
-            </p>
           </div>
         </div>
 
@@ -419,14 +433,13 @@ export const CollegeForm = ({
                 }`}
             />
             {errors.code && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.code}</p>}
-            <p className="text-[11px] text-slate-400 mt-1">Unique institutional uppercase code</p>
           </div>
 
           {/* College Logo Upload & Preview (same UI as signature) */}
           <ImageUploadField
             id="logo-file-upload"
             label="College Logo"
-            hint="(optional — shown on ID cards and the colleges list)"
+            hint="(optional)"
             icon={Image}
             value={formData.collegeLogo}
             error={errors['collegeLogo.url']}
@@ -434,7 +447,7 @@ export const CollegeForm = ({
             inputRef={logoFileInputRef}
             chooseLabel="Choose Logo Image"
             urlPlaceholder="https://example.com/logo.png (or data URI from file upload)"
-            formatsNote="Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB."
+            formatsNote="Supported PNG, JPG, WebP, upto 2MB."
             emptyText="No logo uploaded"
             removeLabel="Remove Logo"
             previewAlt="College Logo Preview"
@@ -447,7 +460,7 @@ export const CollegeForm = ({
           <ImageUploadField
             id="signature-file-upload"
             label="College Admin Signature"
-            hint="(optional — used for automated ID card generation)"
+            hint="(optional)"
             icon={PenTool}
             value={formData.adminSignature}
             error={errors['adminSignature.url']}
@@ -455,7 +468,7 @@ export const CollegeForm = ({
             inputRef={signatureFileInputRef}
             chooseLabel="Choose Signature Image"
             urlPlaceholder="https://example.com/admin-signature.png (or data URI from file upload)"
-            formatsNote="Supported formats: PNG (transparent recommended), JPG, WebP. Maximum size: 2MB."
+            formatsNote="Supported PNG, JPG, WebP, upto 2MB."
             emptyText="No signature uploaded"
             removeLabel="Remove Signature"
             previewAlt="Admin Signature Preview"
@@ -468,7 +481,7 @@ export const CollegeForm = ({
           <ImageUploadField
             id="stamp-file-upload"
             label="College Stamp / Seal"
-            hint="(optional — printed next to the signature on ID cards)"
+            hint="(optional)"
             icon={Stamp}
             value={formData.collegeStamp}
             error={errors['collegeStamp.url']}
@@ -476,7 +489,7 @@ export const CollegeForm = ({
             inputRef={stampFileInputRef}
             chooseLabel="Choose Stamp Image"
             urlPlaceholder="https://example.com/college-stamp.png (or data URI from file upload)"
-            formatsNote="Supported formats: PNG with transparent background works best, JPG, WebP. Maximum size: 2MB."
+            formatsNote="Supported PNG, JPG, WebP upto 2MB."
             emptyText="No stamp uploaded"
             removeLabel="Remove Stamp"
             previewAlt="College Stamp Preview"
@@ -495,7 +508,6 @@ export const CollegeForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">Contact Information</h2>
-            <p className="text-xs text-slate-500">Official administrative contact channels</p>
           </div>
         </div>
 
@@ -562,7 +574,6 @@ export const CollegeForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">Campus Address</h2>
-            <p className="text-xs text-slate-500">Physical location of the institution</p>
           </div>
         </div>
 

@@ -55,10 +55,15 @@ import {
   buildRecommendedBackLayout,
   buildProfileImageLayer,
   buildSignWithSealLayout,
+  fitLayerPadding,
+  themePayload,
 } from '../../utils/templateDesigner.js';
 import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
 import {
   fetchThemesRequested,
+  saveSchoolThemeRequested,
+  renameSchoolThemeRequested,
+  deleteSchoolThemeRequested,
   previewRenderRequested,
   clearDesignerPreview,
   fetchDesignerContextRequested,
@@ -190,6 +195,13 @@ const normalizeTheme = (theme) => ({
   frontDecoration: theme?.frontDecoration || null,
   backDecoration: theme?.backDecoration || null,
   decorationIntensity: theme?.decorationIntensity ?? null,
+  options: {
+    headerSize: theme?.options?.headerSize ?? null,
+    patternOpacity: theme?.options?.patternOpacity ?? null,
+    frame: { ...(theme?.options?.frame || {}) },
+    textColorMode: theme?.options?.textColorMode || null,
+    cornerStyle: theme?.options?.cornerStyle || null,
+  },
 });
 
 const normalizeBack = (back, unit) =>
@@ -325,14 +337,18 @@ export const TemplateForm = ({
     if (initialValues) setFormData(buildInitialState(initialValues));
   }, [initialValues]);
 
-  // Themes catalog (cache), school profile images + page band hone par preview saaf
+  // School profile images + page band hone par preview saaf
   useEffect(() => {
-    dispatch(fetchThemesRequested());
     dispatch(fetchDesignerContextRequested());
     return () => {
       dispatch(clearDesignerPreview());
     };
   }, [dispatch]);
+
+  // Themes catalog (cache): thumbnails template ki orientation ke hisaab se
+  useEffect(() => {
+    dispatch(fetchThemesRequested({ orientation: formData.orientation }));
+  }, [dispatch, formData.orientation]);
 
   // Har change par backend preview (saga 400 ms debounce + purani request cancel)
   useEffect(() => {
@@ -533,7 +549,18 @@ export const TemplateForm = ({
 
   const handleUpdateLayer = (side, key, patch) => {
     updateSide(side, (s) => ({
-      imageLayers: s.imageLayers.map((l) => (getLayerKey(l) === key ? { ...l, ...patch } : l)),
+      imageLayers: s.imageLayers.map((l) => (getLayerKey(l) === key ? fitLayerPadding({ ...l, ...patch }) : l)),
+    }));
+  };
+
+  // Background removal: dono sides ke har signature + stamp par same settings
+  const handleApplyImageProcessingToAll = (settings) => {
+    const apply = (layers) =>
+      (layers || []).map((l) => (l.type === 'SIGNATURE' || l.type === 'STAMP' ? { ...l, imageProcessing: { ...settings } } : l));
+    setFormData((prev) => ({
+      ...prev,
+      imageLayers: apply(prev.imageLayers),
+      back: prev.back ? { ...prev.back, imageLayers: apply(prev.back.imageLayers) } : prev.back,
     }));
   };
 
@@ -563,6 +590,14 @@ export const TemplateForm = ({
   };
 
   const handleThemeChange = (patch) => setFormData((prev) => ({ ...prev, theme: { ...prev.theme, ...patch } }));
+
+  // School themes: designer ka abhi ka theme (callbacks se modal ka saving / error)
+  const handleSaveSchoolTheme = (name, callbacks) =>
+    dispatch(saveSchoolThemeRequested({ name, theme: themePayload(formData.theme), ...callbacks }));
+  const handleRenameSchoolTheme = (themeId, name, callbacks) =>
+    dispatch(renameSchoolThemeRequested({ themeId, name, ...callbacks }));
+  const handleDeleteSchoolTheme = (themeId, callbacks) =>
+    dispatch(deleteSchoolThemeRequested({ themeId, ...callbacks }));
 
   const handleSideBackgroundChange = (side, patch) => updateSide(side, () => patch);
 
@@ -604,9 +639,13 @@ export const TemplateForm = ({
     onAddProfileImage: handleAddProfileImage,
     onAddSignWithSeal: handleAddSignWithSeal,
     onUpdateLayer: handleUpdateLayer,
+    onApplyImageProcessingToAll: handleApplyImageProcessingToAll,
     onRemoveLayer: handleRemoveLayer,
     onApplyPreset: handleApplyPreset,
     onThemeChange: handleThemeChange,
+    onSaveSchoolTheme: handleSaveSchoolTheme,
+    onRenameSchoolTheme: handleRenameSchoolTheme,
+    onDeleteSchoolTheme: handleDeleteSchoolTheme,
     onSideBackgroundChange: handleSideBackgroundChange,
     onToggleBack: handleToggleBack,
     onApplyRecommendedBack: handleApplyRecommendedBack,

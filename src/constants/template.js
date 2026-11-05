@@ -166,7 +166,14 @@ export const TEMPLATE_FONT_FAMILIES = [
   'Times New Roman',
   'Georgia',
   'Courier New',
+  'Poppins',
+  'Montserrat',
+  'Merriweather',
+  'Noto Sans Devanagari',
 ];
+
+// In fonts ki files aati hain (preview + PDF); baaki naam pehle jaise Helvetica par
+export const TEMPLATE_BUNDLED_FONTS = ['Poppins', 'Montserrat', 'Merriweather', 'Noto Sans Devanagari'];
 
 export const FIELD_MIN_FONT_SIZE = 4;
 export const FIELD_MAX_FONT_SIZE = 72;
@@ -261,6 +268,29 @@ export const SIGN_WITH_SEAL_COMBO = 'SIGN_WITH_SEAL';
 export const SCHOOL_IMAGE_DRAG_TYPE = 'application/x-school-image';
 
 // Rotation range: school profile images ±45°, baaki layers ±180°
+// Image layer: fit + frame (values backend constants/template.js ke saath same)
+export const TEMPLATE_IMAGE_FITS = { CONTAIN: 'CONTAIN', COVER: 'COVER', STRETCH: 'STRETCH' };
+export const TEMPLATE_IMAGE_SHAPES = { RECTANGLE: 'RECTANGLE', ROUNDED: 'ROUNDED', CIRCLE: 'CIRCLE', PILL: 'PILL' };
+export const TEMPLATE_BORDER_STYLES = { SOLID: 'SOLID', DASHED: 'DASHED', DOTTED: 'DOTTED' };
+export const TEMPLATE_IMAGE_BORDER_RADIUS_MAX = 500;
+export const TEMPLATE_IMAGE_BORDER_WIDTH_MAX = 40;
+export const TEMPLATE_IMAGE_PADDING_MAX = 200;
+export const TEMPLATE_IMAGE_DEFAULT_BORDER_COLOR = '#1E3A8A';
+
+// "Reset style" aur purani layers: poori image, bina frame ke
+export const TEMPLATE_IMAGE_STYLE_DEFAULTS = {
+  fit: TEMPLATE_IMAGE_FITS.CONTAIN,
+  shape: TEMPLATE_IMAGE_SHAPES.RECTANGLE,
+  borderRadius: 0,
+  borderWidth: 0,
+  borderColor: null,
+  borderStyle: TEMPLATE_BORDER_STYLES.SOLID,
+  padding: 0,
+  backgroundColor: null,
+  flipX: false,
+  flipY: false,
+};
+
 export const PROFILE_IMAGE_MAX_ROTATION = 45;
 export const IMAGE_LAYER_MAX_ROTATION = 180;
 
@@ -350,6 +380,23 @@ export const CARD_DECORATION_LABELS = {
   DOT_GRID: 'Dot grid',
   TOP_BOTTOM_BANDS: 'Top & bottom bands',
   FULL_GRADIENT: 'Full gradient',
+  SIDE_BAR_LEFT: 'Side bar left',
+  SIDE_BAR_RIGHT: 'Side bar right',
+  DIAGONAL_SPLIT: 'Diagonal split',
+  DOUBLE_WAVE: 'Double wave',
+  ARC_CORNER: 'Arc corner',
+  CHEVRON_BAND: 'Chevron band',
+  RIBBON: 'Ribbon',
+  HEXAGON_GRID: 'Hexagon grid',
+  TRIANGLES: 'Triangles',
+  CONCENTRIC_RINGS: 'Rings',
+  ZIGZAG_FOOTER: 'Zigzag footer',
+  GRID_LINES: 'Grid lines',
+  GLASS_PANEL: 'Glass panel',
+  INNER_FRAME: 'Inner frame',
+  CORNER_ORNAMENTS: 'Corner ornaments',
+  CONFETTI_DOTS: 'Confetti dots',
+  SPLIT_VERTICAL: 'Split vertical',
 };
 
 // Designer mein badalne wale theme colors (accent ke saath)

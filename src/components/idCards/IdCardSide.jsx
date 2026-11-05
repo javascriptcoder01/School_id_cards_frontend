@@ -5,6 +5,7 @@
 // Pure presentational: Redux nahi.
 import React, { useId } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { TEMPLATE_BUNDLED_FONTS as BUNDLED_FONTS } from '../../constants/template.js';
 
 // Purane templates (unit save nahi hua, default PX) ka size mm mein tha → MM (backend jaisa rule)
 const LEGACY_MM_MAX_SIZE = 150;
@@ -41,7 +42,7 @@ const safeId = (id) => id.replace(/[^a-zA-Z0-9_-]/g, '');
 
 /* ---------------- Background + decorations ---------------- */
 
-const SideBackground = ({ background, W, H, uid }) => {
+export const SideBackground = ({ background, W, H, uid }) => {
   const color = colorOr(background?.color, '#FFFFFF');
   const g = background?.gradient;
   const image = background?.image;
@@ -72,7 +73,7 @@ const SideBackground = ({ background, W, H, uid }) => {
   );
 };
 
-const Decorations = ({ shapes, uid }) => (
+export const Decorations = ({ shapes, uid }) => (
   <g>
     {(shapes || []).map((shape, i) => {
       const opacity = Math.min(Math.max(toNumber(shape.opacity, 1), 0), 1);
@@ -201,7 +202,10 @@ const Field = ({ field, unit, W, S }) => {
       <div
         xmlns="http://www.w3.org/1999/xhtml"
         style={{
-          fontFamily: 'Helvetica, Arial, sans-serif',
+          // Bundled font (file aayi ho) warna PDF jaisa Helvetica; purane naam pehle jaise
+          fontFamily: BUNDLED_FONTS.includes(field.fontFamily)
+            ? `'${field.fontFamily}', Helvetica, Arial, sans-serif`
+            : 'Helvetica, Arial, sans-serif',
           fontSize: fontUnits * S,
           fontWeight: String(field.fontWeight).toUpperCase() === 'BOLD' ? 700 : 400,
           fontStyle: String(field.fontStyle).toUpperCase() === 'ITALIC' ? 'italic' : 'normal',
@@ -306,7 +310,89 @@ const MissingImage = ({ layer, x, y, w, h, rotation, S }) => {
   );
 };
 
-const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S }) => {
+// Frame ka shape: background, clip aur border teeno yahi (PDF ke traceImageLayerShape jaisa)
+const layerShape = (shape, x, y, w, h, radius, props = {}) => {
+  if (shape === 'CIRCLE') return <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} {...props} />;
+  const half = Math.min(w, h) / 2;
+  const rx = shape === 'PILL' ? half : shape === 'ROUNDED' ? Math.min(Math.max(radius, 0), half) : 0;
+  return <rect x={x} y={y} width={w} height={h} rx={rx || undefined} {...props} />;
+};
+
+const BORDER_DASHES = {
+  DASHED: (width) => `${width * 3} ${width * 2}`,
+  DOTTED: (width) => `${width} ${width * 1.5}`,
+};
+
+// Purani layer (bina frame): wahi ek <image> jo pehle banta tha
+const isPlainLayer = (layer) =>
+  (!layer.fit || layer.fit === 'CONTAIN')
+  && (!layer.shape || layer.shape === 'RECTANGLE')
+  && !layer.backgroundColor
+  && !toNumber(layer.padding)
+  && !(toNumber(layer.borderWidth) > 0 && layer.borderColor)
+  && layer.flipX !== true
+  && layer.flipY !== true;
+
+// Frame ke saath image. Numbers aur order PDF (drawStyledImageLayer) jaise: background → clip → image → border.
+// Opacity har hisse par alag, jaise PDF mein lagti hai.
+const StyledImageLayer = ({ layer, x, y, w, h, rotation, opacity, clipId }) => {
+  const shape = layer.shape || 'RECTANGLE';
+  const radius = toNumber(layer.borderRadius);
+  const framed = shape !== 'RECTANGLE';
+
+  const padding = Math.min(Math.max(toNumber(layer.padding), 0), Math.max(Math.min(w, h) / 2 - 0.5, 0));
+  const innerX = x + padding;
+  const innerY = y + padding;
+  const innerW = w - padding * 2;
+  const innerH = h - padding * 2;
+
+  const scaleX = layer.flipX === true ? -1 : 1;
+  const scaleY = layer.flipY === true ? -1 : 1;
+  const centerX = innerX + innerW / 2;
+  const centerY = innerY + innerH / 2;
+  const flip = scaleX !== 1 || scaleY !== 1
+    ? `translate(${centerX} ${centerY}) scale(${scaleX} ${scaleY}) translate(${-centerX} ${-centerY})`
+    : undefined;
+
+  const borderWidth = toNumber(layer.borderWidth);
+  const hasBorder = borderWidth > 0 && Boolean(layer.borderColor) && w > borderWidth && h > borderWidth;
+
+  return (
+    <g transform={rotation ? `rotate(${rotation} ${x + w / 2} ${y + h / 2})` : undefined}>
+      {framed && <clipPath id={clipId}>{layerShape(shape, x, y, w, h, radius)}</clipPath>}
+      {layer.backgroundColor && layerShape(shape, x, y, w, h, radius, { fill: layer.backgroundColor, opacity })}
+      <g clipPath={framed ? `url(#${clipId})` : undefined}>
+        <image
+          href={layer.source}
+          x={innerX}
+          y={innerY}
+          width={innerW}
+          height={innerH}
+          opacity={opacity}
+          transform={flip}
+          preserveAspectRatio={ASPECT[layer.fit] || ASPECT.CONTAIN}
+        />
+      </g>
+      {hasBorder && layerShape(
+        shape,
+        x + borderWidth / 2,
+        y + borderWidth / 2,
+        w - borderWidth,
+        h - borderWidth,
+        Math.max(radius - borderWidth / 2, 0),
+        {
+          fill: 'none',
+          stroke: layer.borderColor,
+          strokeWidth: borderWidth,
+          strokeDasharray: BORDER_DASHES[layer.borderStyle]?.(borderWidth),
+          opacity,
+        }
+      )}
+    </g>
+  );
+};
+
+const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S, uid }) => {
   const sorted = [...(layers || [])].sort((a, b) => toNumber(a.zIndex, 10) - toNumber(b.zIndex, 10));
   const hasLogoLayer = sorted.some((layer) => layer.type === 'LOGO');
 
@@ -329,6 +415,22 @@ const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S }) => {
         if (missing) {
           return <MissingImage key={layer.id || i} layer={layer} x={x} y={y} w={w} h={h} rotation={rotation} S={S} />;
         }
+        const opacity = Math.min(Math.max(toNumber(layer.opacity, 1), 0), 1);
+        if (!isPlainLayer(layer)) {
+          return (
+            <StyledImageLayer
+              key={layer.id || i}
+              layer={layer}
+              x={x}
+              y={y}
+              w={w}
+              h={h}
+              rotation={rotation}
+              opacity={opacity}
+              clipId={`${uid}-layer-${i}`}
+            />
+          );
+        }
         return (
           <image
             key={layer.id || i}
@@ -337,7 +439,7 @@ const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S }) => {
             y={y}
             width={w}
             height={h}
-            opacity={Math.min(Math.max(toNumber(layer.opacity, 1), 0), 1)}
+            opacity={opacity}
             transform={rotation ? `rotate(${rotation} ${x + w / 2} ${y + h / 2})` : undefined}
             preserveAspectRatio={ASPECT.CONTAIN}
           />
@@ -371,6 +473,8 @@ export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className={`block w-full h-auto ${className}`}
+      // Sirf preview: print hamesha square
+      style={sideData.cornerStyle === 'ROUNDED' ? { borderRadius: '4%' } : undefined}
       role="img"
       aria-label={title || `${isBack ? 'Back' : 'Front'} of ID card`}
     >
@@ -390,6 +494,7 @@ export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }
         W={W}
         H={H}
         S={S}
+        uid={uid}
       />
     </svg>
   );

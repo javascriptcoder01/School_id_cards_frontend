@@ -99,9 +99,6 @@ export const BulkImportUploader = ({
         </div>
         <div>
           <h2 className="text-base font-bold text-slate-800">Upload Student Data File</h2>
-          <p className="text-xs text-slate-500">
-            Upload CSV or Excel (.xlsx) file containing student records (Max: 10 MB)
-          </p>
         </div>
       </div>
 
@@ -120,8 +117,8 @@ export const BulkImportUploader = ({
           onDragLeave={handleDragLeave}
           onClick={() => !isLoading && fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer ${dragOver
-              ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]'
-              : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50'
+            ? 'border-indigo-500 bg-indigo-50/50 scale-[0.99]'
+            : 'border-slate-300 hover:border-indigo-400 bg-slate-50/50 hover:bg-slate-50'
             } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <input

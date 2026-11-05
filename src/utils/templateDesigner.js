@@ -14,12 +14,47 @@ import {
   TEMPLATE_IMAGE_SOURCES,
   TEMPLATE_IMAGE_ALIGNS,
   TEMPLATE_IMAGE_LAYER_DEFAULTS,
+  TEMPLATE_IMAGE_STYLE_DEFAULTS,
+  TEMPLATE_IMAGE_PADDING_MAX,
   PROFILE_IMAGE_MAX_ROTATION,
   IMAGE_LAYER_MAX_ROTATION,
   MM_PER_PT,
   isProfileImageLayer,
 } from '../constants/template.js';
 import { toNumber, round2, clamp, createClientId, lengthForUnit, fontForUnit } from './templateLayout.js';
+
+/**
+ * Layer ke frame + fit fields, purani layer par defaults ke saath (payload + canvas dono yahi lete hain)
+ */
+export const imageLayerStyleOf = (layer) => ({
+  fit: layer.fit || TEMPLATE_IMAGE_STYLE_DEFAULTS.fit,
+  shape: layer.shape || TEMPLATE_IMAGE_STYLE_DEFAULTS.shape,
+  borderRadius: toNumber(layer.borderRadius),
+  borderWidth: toNumber(layer.borderWidth),
+  borderColor: layer.borderColor || null,
+  borderStyle: layer.borderStyle || TEMPLATE_IMAGE_STYLE_DEFAULTS.borderStyle,
+  padding: toNumber(layer.padding),
+  backgroundColor: layer.backgroundColor || null,
+  flipX: layer.flipX === true,
+  flipY: layer.flipY === true,
+});
+
+/**
+ * Padding ki upar ki had: dono taraf se katne ke baad image ke liye jagah bache
+ * (backend bhi padding × 2 < chhoti side maangta hai, warna preview 400 deta)
+ */
+export const maxLayerPadding = (layer) =>
+  round2(Math.min(Math.min(toNumber(layer.width), toNumber(layer.height)) * 0.45, TEMPLATE_IMAGE_PADDING_MAX));
+
+/**
+ * Size badalne par padding bhi us had ke andar
+ * @returns {object} layer (padding theek ho to wahi object)
+ */
+export const fitLayerPadding = (layer) => {
+  const padding = toNumber(layer.padding);
+  const max = maxLayerPadding(layer);
+  return padding > max ? { ...layer, padding: max } : layer;
+};
 
 const DEFAULT_RETURN_NOTE = 'If found, please return to the school address above.';
 // PDF (Helvetica) line height ≈ 1.156 × font size; template ka 1.2 = PDF default
@@ -155,9 +190,11 @@ const layersPayload = (layers) =>
     visible: l.visible !== false,
     lockAspectRatio: l.lockAspectRatio !== false,
     align: l.align || null,
+    ...imageLayerStyleOf(l),
+    imageProcessing: l.imageProcessing || null,
   }));
 
-const themePayload = (theme = {}) => ({
+export const themePayload = (theme = {}) => ({
   presetKey: theme.presetKey,
   colors: Object.fromEntries(
     ['primary', 'secondary', 'accent', 'background', 'text', 'mutedText', 'onPrimary'].map((key) => [key, hexOrNull(theme.colors?.[key])])
@@ -173,6 +210,17 @@ const themePayload = (theme = {}) => ({
   frontDecoration: theme.frontDecoration || null,
   backDecoration: theme.backDecoration || null,
   decorationIntensity: theme.decorationIntensity ?? null,
+  options: {
+    headerSize: theme.options?.headerSize ?? null,
+    patternOpacity: theme.options?.patternOpacity ?? null,
+    frame: {
+      enabled: theme.options?.frame?.enabled ?? null,
+      color: hexOrNull(theme.options?.frame?.color),
+      width: theme.options?.frame?.width ?? null,
+    },
+    textColorMode: theme.options?.textColorMode || null,
+    cornerStyle: theme.options?.cornerStyle || null,
+  },
 });
 
 /**
@@ -312,6 +360,7 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
       fontSize: f.fontSize,
       fontWeight: f.fontWeight,
       fontStyle: f.fontStyle,
+      fontFamily: f.fontFamily,
       // Default kaala → backend ka readable color (dark theme) rakho
       color: rendered && draftColor.toUpperCase() === '#000000' ? rendered.color : draftColor,
       textAlign: f.textAlign,
@@ -328,10 +377,19 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
   const imageLayers = (draft.imageLayers || []).map((l) => {
     const profile = isProfileImageLayer(l);
     const source = profile ? (profileUrls ? profileUrls[l.profileKey] || null : l.url || null) : l.url;
+    // Background removal ka URL sirf backend banata hai: aakhri preview ki usi image wali layer se lo.
+    // Nayi layer ka id har preview par naya hota hai, isliye type + original url se milan.
+    const rendered = (base.imageLayers || []).find(
+      (r) => r.type === l.type && r.originalSource && r.originalSource === source
+    );
+    const processed = l.imageProcessing?.enabled === true && rendered?.processing?.applied === true;
+    const processing = l.imageProcessing?.enabled === true ? rendered?.processing || null : null;
     return {
       id: l._id || l.clientId,
       type: l.type,
-      source,
+      source: processed ? rendered.source : source,
+      originalSource: source,
+      processing,
       imageSource: profile ? TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE : TEMPLATE_IMAGE_SOURCES.ASSET,
       profileKey: profile ? l.profileKey : null,
       missing: profile && !source,
@@ -343,6 +401,7 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
       rotation: l.rotation,
       zIndex: l.zIndex,
       visible: l.visible !== false,
+      ...imageLayerStyleOf(l),
     };
   });
 
@@ -581,7 +640,8 @@ export const buildProfileImageLayer = (image, card, referenceCard, at = null) =>
     type: image.layerType,
     assetId: null,
     url: image.url || null,
-    lockAspectRatio: true,
+    // Logo chauda / lamba ho sakta hai; sign aur stamp ka ratio na bigde
+    lockAspectRatio: image.layerType !== 'LOGO',
     align: at ? null : align,
     ...clampPosition({ x, y, width, height }, W, H),
     width,

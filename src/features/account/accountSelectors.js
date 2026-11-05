@@ -1,6 +1,3 @@
-/**
- * Account Selectors
- */
 
 export const selectAccountState = (state) => state.account;
 

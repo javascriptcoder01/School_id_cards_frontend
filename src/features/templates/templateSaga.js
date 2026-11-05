@@ -5,6 +5,9 @@ import {
   fetchThemesRequested,
   fetchThemesSucceeded,
   fetchThemesFailed,
+  saveSchoolThemeRequested,
+  renameSchoolThemeRequested,
+  deleteSchoolThemeRequested,
   previewRenderRequested,
   previewRenderSucceeded,
   previewRenderFailed,
@@ -37,11 +40,15 @@ import {
   updateTemplate,
   updateTemplateStatus,
   getThemes,
+  createSchoolTheme,
+  renameSchoolTheme,
+  deleteSchoolTheme,
   previewRender,
   getSavedTemplatePreview,
   getDesignerContext,
 } from './templateApi.js';
 import { selectCardThemes, selectSavedTemplatePreview } from './templateSelectors.js';
+import { showNotification } from '../notifications/notificationSlice.js';
 
 // apiClient body lautata hai: { success, message, data }
 const dataOf = (response) => response?.data ?? response;
@@ -55,16 +62,50 @@ const PREVIEW_DEBOUNCE_MS = 400;
 // Ek baar load (cache). payload { force: true } se dobara.
 export function* fetchThemesWorker(action) {
   const cached = yield select(selectCardThemes);
-  if (cached && !action.payload?.force) {
+  const orientation = action.payload?.orientation;
+  // Thumbnails orientation ke hisaab se: alag orientation maangi to dobara
+  if (cached && !action.payload?.force && (!orientation || cached.orientation === orientation)) {
     yield put(fetchThemesSucceeded(cached));
     return;
   }
   try {
-    const response = yield call(getThemes);
-    yield put(fetchThemesSucceeded(dataOf(response)));
+    const response = yield call(getThemes, orientation);
+    yield put(fetchThemesSucceeded({ ...dataOf(response), orientation: orientation || cached?.orientation }));
   } catch (error) {
     yield put(fetchThemesFailed(error?.message || 'Failed to load card themes'));
   }
+}
+
+// School theme badli: gallery taaza (usi orientation mein)
+function* refreshThemes() {
+  const cached = yield select(selectCardThemes);
+  yield put(fetchThemesRequested({ orientation: cached?.orientation, force: true }));
+}
+
+function* schoolThemeAction(apiCall, apiArgs, successTitle, { onSuccess, onError }) {
+  try {
+    const response = yield call(apiCall, ...apiArgs);
+    yield call(refreshThemes);
+    yield put(showNotification({ type: 'SUCCESS', title: 'School themes', message: successTitle }));
+    if (typeof onSuccess === 'function') onSuccess(dataOf(response)?.theme || null);
+  } catch (error) {
+    if (typeof onError === 'function') onError(error?.message || 'Something went wrong. Please try again.');
+  }
+}
+
+export function* saveSchoolThemeWorker(action) {
+  const { name, theme, ...callbacks } = action.payload || {};
+  yield call(schoolThemeAction, createSchoolTheme, [{ name, theme }], 'School theme saved', callbacks);
+}
+
+export function* renameSchoolThemeWorker(action) {
+  const { themeId, name, ...callbacks } = action.payload || {};
+  yield call(schoolThemeAction, renameSchoolTheme, [themeId, name], 'School theme renamed', callbacks);
+}
+
+export function* deleteSchoolThemeWorker(action) {
+  const { themeId, ...callbacks } = action.payload || {};
+  yield call(schoolThemeAction, deleteSchoolTheme, [themeId], 'School theme deleted', callbacks);
 }
 
 function* debouncePreviewRender(action) {
@@ -208,6 +249,9 @@ export function* watchTemplates() {
   yield takeLatest(previewRenderDebounced.type, previewRenderWorker);
   yield takeEvery(fetchSavedPreviewRequested.type, fetchSavedPreviewWorker);
   yield takeLatest(fetchDesignerContextRequested.type, fetchDesignerContextWorker);
+  yield takeEvery(saveSchoolThemeRequested.type, saveSchoolThemeWorker);
+  yield takeEvery(renameSchoolThemeRequested.type, renameSchoolThemeWorker);
+  yield takeEvery(deleteSchoolThemeRequested.type, deleteSchoolThemeWorker);
 }
 
 export default watchTemplates;

@@ -80,12 +80,8 @@ export const EditUserPage = () => {
           <Users className="w-7 h-7 text-indigo-600" />
           Edit User Profile
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Update account details and access permissions for {user?.name || 'this user'}
-        </p>
       </div>
 
-      {/* User Edit Form */}
       <UserForm
         initialValues={user}
         isEdit={true}

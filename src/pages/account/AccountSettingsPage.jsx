@@ -15,8 +15,9 @@ import { ROUTES } from '../../constants/routes.js';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import PageLoader from '../../components/common/PageLoader.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
+import AccountProfileCard from '../../components/account/AccountProfileCard.jsx'
+import AccountHeroCard from '../../components/account/AccountHeroCard.jsx';
 import ConfirmDialog from '../../components/common/ConfirmDialog.jsx';
-import AccountProfileCard from '../../components/account/AccountProfileCard.jsx';
 import AccountSecurityCard from '../../components/account/AccountSecurityCard.jsx';
 
 export const AccountSettingsPage = () => {
@@ -38,23 +39,20 @@ export const AccountSettingsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6">
       <PageHeader
-        title="My Account Settings"
-        description="View your user identity, institutional role, and active session security status"
+        title="My Account"
         breadcrumbs={[
           { label: 'Dashboard', path: ROUTES.DASHBOARD },
-          { label: 'Account Settings', path: null },
+          { label: 'My Account', path: null },
         ]}
       />
 
-      {isLoading && !isInitialized && (
-        <PageLoader message="Loading your account profile..." />
-      )}
+      {isLoading && !isInitialized && <PageLoader message="Loading your account..." />}
 
       {error && !isInitialized && (
         <ErrorState
-          title="Account Profile Error"
+          title="Couldn't load your account"
           message={error}
           onRetry={() => {
             dispatch(clearAccountError());
@@ -64,17 +62,25 @@ export const AccountSettingsPage = () => {
       )}
 
       {(!isLoading || isInitialized) && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <AccountProfileCard profile={profile} />
-          <AccountSecurityCard onLogoutClick={() => setShowLogoutConfirm(true)} />
-        </div>
+        <>
+          <AccountHeroCard profile={profile} />
+
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <AccountProfileCard profile={profile} />
+            </div>
+            <div className="min-w-0">
+              <AccountSecurityCard onLogoutClick={() => setShowLogoutConfirm(true)} />
+            </div>
+          </div>
+        </>
       )}
 
       {/* Logout Confirmation Dialog */}
       <ConfirmDialog
         open={showLogoutConfirm}
-        title="Sign Out of Session"
-        message="Are you sure you want to end your current session? You will need your credentials to log back in."
+        title="Sign out?"
+        message="You will need to log in again to continue."
         confirmLabel="Sign Out"
         cancelLabel="Stay Logged In"
         variant="danger"
@@ -86,4 +92,3 @@ export const AccountSettingsPage = () => {
 };
 
 export default AccountSettingsPage;
-

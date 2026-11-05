@@ -276,6 +276,10 @@ export const CardDesigner = ({
               validity={formData.validity}
               onApplyPreset={handlers.onApplyPreset}
               onThemeChange={handlers.onThemeChange}
+              onSaveSchoolTheme={handlers.onSaveSchoolTheme}
+              onRenameSchoolTheme={handlers.onRenameSchoolTheme}
+              onDeleteSchoolTheme={handlers.onDeleteSchoolTheme}
+              logoUrl={profileUrls?.LOGO || null}
               onSideBackgroundChange={(patch) => handlers.onSideBackgroundChange(activeSide, patch)}
               onValidityChange={handlers.onValidityChange}
             />
@@ -382,6 +386,9 @@ export const CardDesigner = ({
               handlers.onRemoveLayer(activeSide, key);
               setSelected(null);
             }}
+            renderLayers={renderData?.sides?.[activeSide === TEMPLATE_SIDES.BACK ? 'back' : 'front']?.imageLayers || []}
+            previewLoading={previewLoading}
+            onApplyImageProcessingToAll={handlers.onApplyImageProcessingToAll}
           />
         </div>
       </div>

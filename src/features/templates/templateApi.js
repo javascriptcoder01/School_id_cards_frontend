@@ -44,8 +44,24 @@ export const updateTemplateStatus = async (templateId, isActive) => {
 };
 
 // Card themes: presets, decorations, QR types, field groups, default labels (sab roles)
-export const getThemes = async () => {
-  const response = await apiClient.get('/templates/themes');
+export const getThemes = async (orientation) => {
+  const response = await apiClient.get('/templates/themes', orientation ? { params: { orientation } } : undefined);
+  return response;
+};
+
+// School ki apni themes (COLLEGE_ADMIN)
+export const createSchoolTheme = async (body) => {
+  const response = await apiClient.post('/templates/school-themes', body);
+  return response;
+};
+
+export const renameSchoolTheme = async (themeId, name) => {
+  const response = await apiClient.patch(`/templates/school-themes/${themeId}`, { name });
+  return response;
+};
+
+export const deleteSchoolTheme = async (themeId) => {
+  const response = await apiClient.delete(`/templates/school-themes/${themeId}`);
   return response;
 };
 
@@ -77,6 +93,9 @@ export default {
   updateTemplate,
   updateTemplateStatus,
   getThemes,
+  createSchoolTheme,
+  renameSchoolTheme,
+  deleteSchoolTheme,
   previewRender,
   getSavedTemplatePreview,
 };

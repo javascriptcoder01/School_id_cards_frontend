@@ -121,18 +121,12 @@ export const UserListPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
             <Users className="w-7 h-7 text-indigo-600" />
-            Users Directory
+            Class Teachers
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {isSuperAdmin
-              ? 'Manage administrator and operator accounts across the platform'
-              : 'Manage operator staff accounts for your institution'}
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5">

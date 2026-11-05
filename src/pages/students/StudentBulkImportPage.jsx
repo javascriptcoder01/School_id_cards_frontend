@@ -81,11 +81,6 @@ export const StudentBulkImportPage = () => {
           <FileSpreadsheet className="w-7 h-7 text-indigo-600" />
           Student Bulk Import
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {isOperator
-            ? 'Bulk import students into your assigned class roster using a CSV or spreadsheet'
-            : 'Import multiple student records into your college repository using a CSV or Excel spreadsheet'}
-        </p>
       </div>
 
       {/* Operator Assignment Scope Banner */}

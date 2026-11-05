@@ -52,9 +52,6 @@ export const CreateCollegePage = () => {
           <School className="w-7 h-7 text-indigo-600" />
           Add New College
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Register a new educational institution to generate student identity cards
-        </p>
       </div>
 
       {/* College Creation Form */}

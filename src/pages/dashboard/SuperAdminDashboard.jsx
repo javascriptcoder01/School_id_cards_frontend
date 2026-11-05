@@ -5,7 +5,6 @@ import {
   School,
   Users,
   CreditCard,
-  ShieldCheck,
   Printer,
   ArrowRight,
   GraduationCap,
@@ -13,10 +12,22 @@ import {
   CalendarClock,
   BadgeIndianRupee,
   CheckCircle2,
+  Inbox,
+  PackageCheck,
+  AlertTriangle,
+  Zap,
+  Activity,
 } from 'lucide-react';
-import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx';
-import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
+import {
+  usePersistedToggle,
+  DashboardHero,
+  HeroStat,
+  MoneyCard,
+  MiniStat,
+  Panel,
+  Collapsible,
+} from './CollegeDashboard.jsx';
 import RecentActivity from '../../components/dashboard/RecentActivity.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import DateRangeFilter from '../../components/commission/DateRangeFilter.jsx';
@@ -37,7 +48,8 @@ import {
 import { cardsLabel, toDateRangeParams } from '../../utils/commissionForm.js';
 import { formatInr } from '../../utils/money.js';
 
-const AMOUNT_VALUE_CLASS = 'text-lg sm:text-2xl wrap-anywhere';
+const REVENUE_TABLE_STORAGE_KEY = 'superAdminDashboard.showSchoolRevenue';
+const ACTIVITY_STORAGE_KEY = 'superAdminDashboard.showRecentActivity';
 
 export const SuperAdminDashboard = ({
   user,
@@ -57,6 +69,8 @@ export const SuperAdminDashboard = ({
 
   const [dateFilter, setDateFilter] = useState({ preset: 'ALL_TIME', customFrom: '', customTo: '' });
   const dateParams = useMemo(() => toDateRangeParams(dateFilter), [dateFilter]);
+  const [showRevenueTable, toggleRevenueTable] = usePersistedToggle(REVENUE_TABLE_STORAGE_KEY);
+  const [showActivity, toggleActivity] = usePersistedToggle(ACTIVITY_STORAGE_KEY);
 
   // Print Center summary (sabhi schools)
   useEffect(() => {
@@ -68,222 +82,135 @@ export const SuperAdminDashboard = ({
     dispatch(fetchSuperAdminOverviewRequested({ params: dateParams }));
   }, [dispatch, dateParams]);
 
-  const totalColleges = summary?.totalColleges ?? 0;
+  const totals = overview?.totals;
+  const colleges = overview?.colleges || [];
+  const isKpiLoading = isOverviewLoading && !overview;
+
+  const schoolsCount = totals?.schools ?? summary?.totalColleges ?? 0;
   const totalUsers = summary?.totalUsers ?? 0;
   const totalTemplates = summary?.totalTemplates ?? 0;
 
-  const totals = overview?.totals;
-  const isKpiLoading = isOverviewLoading && !overview;
-  const upcomingSubtitle = totals?.upcoming?.rateMissing
-    ? `${cardsLabel(totals.upcoming.cards)} · some schools have no rate`
-    : cardsLabel(totals?.upcoming?.cards);
-
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="bg-linear-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-3">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Super Administrator Control Plane
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Welcome back, {user?.name || 'Super Admin'}
-            </h1>
-            <p className="text-indigo-200 text-sm mt-1">
-              System-wide multi-tenant governance, college provisioning, and central ID card print management
-            </p>
+    <div className="space-y-5">
+      {/* Hero */}
+      <DashboardHero
+        eyebrow="Super Admin"
+        title={`Welcome back, ${user?.name || 'Super Admin'}`}
+        aside={
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:w-auto">
+            <HeroStat icon={School} label="Schools" value={schoolsCount} loading={isKpiLoading && isLoading} />
+            <HeroStat icon={UserCheck} label="Operators" value={totals?.operators ?? 0} loading={isKpiLoading} />
+            <HeroStat icon={GraduationCap} label="Students" value={totals?.students ?? 0} loading={isKpiLoading} />
+            <HeroStat icon={Users} label="Users" value={totalUsers} loading={isLoading} />
+            <HeroStat icon={CreditCard} label="Templates" value={totalTemplates} loading={isLoading} />
           </div>
+        }
+      />
 
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/10 text-right">
-            <span className="text-[11px] text-indigo-200 uppercase font-semibold tracking-wider block">Scope</span>
-            <span className="text-base font-extrabold text-white tracking-wide">
-              Global Platform
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Commission + revenue (sab schools) */}
-      <DashboardSection
-        title="Revenue Overview"
-        subtitle="The date range applies to Paid, Printed and In Print. Upcoming and Pending Payment always show the current position."
+      {/* Revenue */}
+      <Panel
+        title="Revenue"
+        icon={BadgeIndianRupee}
         action={<DateRangeFilter value={dateFilter} onChange={setDateFilter} />}
       >
-        {overviewError && <ErrorMessage message={overviewError} title="Couldn't load the revenue overview" />}
+        {overviewError && (
+          <div className="mb-4">
+            <ErrorMessage message={overviewError} title="Couldn't load revenue" />
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <DashboardStatCard
-            title="Schools"
-            value={totals?.schools ?? 0}
-            icon={School}
-            colorScheme="indigo"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="Operators"
-            value={totals?.operators ?? 0}
-            icon={UserCheck}
-            colorScheme="purple"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="Students"
-            value={totals?.students ?? 0}
-            icon={GraduationCap}
-            colorScheme="blue"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <MoneyCard
+            icon={CalendarClock}
             title="Upcoming (Est.)"
             value={formatInr(totals?.upcoming?.estimatedAmount)}
-            subtitle={upcomingSubtitle}
-            icon={CalendarClock}
-            colorScheme="blue"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            subtitle={cardsLabel(totals?.upcoming?.cards)}
+            tone="blue"
+            loading={isKpiLoading}
+            badge={
+              totals?.upcoming?.rateMissing ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
+                  <AlertTriangle className="h-3 w-3" /> Rate missing
+                </span>
+              ) : null
+            }
           />
-          <DashboardStatCard
+          <MoneyCard
+            icon={BadgeIndianRupee}
             title="Pending Payment"
             value={formatInr(totals?.pendingPayment?.amount ?? 0)}
             subtitle={cardsLabel(totals?.pendingPayment?.cards)}
-            icon={BadgeIndianRupee}
-            colorScheme="amber"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            tone="amber"
+            loading={isKpiLoading}
           />
-          <DashboardStatCard
+          <MoneyCard
+            icon={CheckCircle2}
             title="Total Paid"
             value={formatInr(totals?.paid?.amount ?? 0)}
             subtitle={cardsLabel(totals?.paid?.cards)}
-            icon={CheckCircle2}
-            colorScheme="emerald"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="Printed"
-            value={totals?.printed?.cards ?? 0}
-            subtitle="cards completed"
-            icon={Printer}
-            colorScheme="emerald"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="In Print"
-            value={totals?.inPrint?.cards ?? 0}
-            subtitle="cards in printing"
-            icon={Printer}
-            colorScheme="purple"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            tone="emerald"
+            loading={isKpiLoading}
           />
         </div>
 
-        <h3 className="text-sm font-bold text-slate-800 pt-2">School-wise revenue</h3>
-        <SchoolRevenueTable
-          colleges={overview?.colleges || []}
-          loading={isOverviewLoading}
-          onRowClick={(college) => navigate(getCommissionCollegeRoute(college.collegeId))}
-        />
-      </DashboardSection>
+        {/* School-wise revenue: show / hide */}
+        <div className="mt-4">
+          <Collapsible
+            id="school-revenue-list"
+            icon={School}
+            title="School-wise revenue"
+            count={colleges.length}
+            open={showRevenueTable}
+            onToggle={toggleRevenueTable}
+          >
+            <SchoolRevenueTable
+              colleges={colleges}
+              loading={isOverviewLoading}
+              onRowClick={(college) => navigate(getCommissionCollegeRoute(college.collegeId))}
+            />
+          </Collapsible>
+        </div>
+      </Panel>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <DashboardStatCard
-          title="Affiliated Colleges"
-          value={totalColleges}
-          icon={School}
-          subtitle="Active educational institutions"
-          colorScheme="indigo"
-          isLoading={isLoading}
-        />
-        <DashboardStatCard
-          title="Provisioned Users"
-          value={totalUsers}
-          icon={Users}
-          subtitle="Administrators & operators"
-          colorScheme="purple"
-          isLoading={isLoading}
-        />
-        <DashboardStatCard
-          title="ID Card Templates"
-          value={totalTemplates}
-          icon={CreditCard}
-          subtitle="System template layouts"
-          colorScheme="emerald"
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Central ID Card Print Management Banner */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
-              <Printer className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Central ID Card Print Management</h2>
-              <p className="text-xs text-slate-500">
-                Accept approved print requests from schools, download print files, and mark them done.
-              </p>
-            </div>
-          </div>
-
+      {/* Print Center */}
+      <Panel
+        title="Print Center"
+        icon={Printer}
+        action={
           <button
             type="button"
             onClick={() => navigate(ROUTES.PRINT_CENTER)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+            className="group inline-flex items-center gap-1.5 rounded-xl bg-linear-to-r from-indigo-600 to-violet-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/25 transition-all hover:shadow-lg focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
           >
-            <span>Open Print Center</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Open
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
           </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-          <div className="p-4 bg-slate-50/75 rounded-2xl border border-slate-100">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">New Requests</span>
-            <span className="text-xl font-extrabold text-slate-900 mt-1 block">
-              {isPrintLoading ? '...' : printCounts.APPROVED || 0}
-            </span>
-          </div>
-          <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Cards in Printing</span>
-            <span className="text-xl font-extrabold text-emerald-700 mt-1 block">
-              {isPrintLoading ? '...' : printCardCounts.PRINTING || 0}
-            </span>
-          </div>
-          <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100">
-            <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">Completed Requests</span>
-            <span className="text-xl font-extrabold text-purple-700 mt-1 block">
-              {isPrintLoading ? '...' : printCounts.COMPLETED || 0}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <DashboardSection
-        title="Administrative Quick Actions"
-        subtitle="Frequently used institution and account management tasks"
+        }
       >
-        <QuickActions role="SUPER_ADMIN" />
-      </DashboardSection>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <MiniStat icon={Inbox} label="New requests" value={printCounts.APPROVED || 0} tone="indigo" loading={isPrintLoading} />
+          <MiniStat icon={Printer} label="Cards in print" value={printCardCounts.PRINTING || 0} tone="violet" loading={isPrintLoading} />
+          <MiniStat icon={PackageCheck} label="Cards printed" value={totals?.printed?.cards ?? 0} tone="emerald" loading={isKpiLoading} />
+          <MiniStat icon={CheckCircle2} label="Completed requests" value={printCounts.COMPLETED || 0} tone="sky" loading={isPrintLoading} />
+        </div>
+      </Panel>
 
-      {/* Recent Activity */}
-      <DashboardSection
-        title="Platform Audit & Recent Activity"
-        subtitle="Latest college onboardings and administrator registrations"
+      {/* Quick actions */}
+      <Panel title="Quick Actions" icon={Zap}>
+        <QuickActions role="SUPER_ADMIN" />
+      </Panel>
+
+      {/* Recent activity: full width, show / hide */}
+      <Collapsible
+        id="recent-activity-list"
+        icon={Activity}
+        title="Recent Activity"
+        count={Array.isArray(activity) ? activity.length : undefined}
+        open={showActivity}
+        onToggle={toggleActivity}
       >
         <RecentActivity activity={activity} />
-      </DashboardSection>
+      </Collapsible>
     </div>
   );
 };

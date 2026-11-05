@@ -62,9 +62,6 @@ export const CreateStudentPage = () => {
           <GraduationCap className="w-7 h-7 text-indigo-600" />
           Register New Student
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Add a student record with academic, contact, guardian, and residential details
-        </p>
       </div>
 
       {/* Form Component */}

@@ -66,7 +66,6 @@ export const Sidebar = () => {
     return () => media.removeEventListener?.('change', onChange);
   }, [dispatch]);
 
-  // Khula: page scroll band, focus X par, Esc / Tab trap; band: focus wapas hamburger par
   useEffect(() => {
     if (!mobileOpen) return undefined;
     const { body } = document;
@@ -117,14 +116,14 @@ export const Sidebar = () => {
       roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
     },
     {
-      label: 'Users',
+      label: 'Teachers',
       path: ROUTES.USERS,
       icon: Users,
       roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
     },
     // College Admin Specific
     {
-      label: 'Operator Assignments',
+      label: 'Assign Classes',
       path: ROUTES.OPERATOR_ASSIGNMENTS,
       icon: UserCheck,
       roles: ['COLLEGE_ADMIN'],
@@ -156,7 +155,7 @@ export const Sidebar = () => {
     },
     // Badge: Operator → Rejected, School Admin → Pending Approval
     {
-      label: 'Print Requests',
+      label: 'Print Center',
       path: ROUTES.PRINT_REQUESTS,
       icon: Printer,
       roles: ['COLLEGE_ADMIN', 'OPERATOR'],
@@ -278,29 +277,28 @@ export const Sidebar = () => {
           onTransitionEnd={(e) => {
             if (!mobileOpen && e.target === e.currentTarget) setDrawerContent(false);
           }}
-          className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-dvh overflow-y-auto bg-slate-900 text-slate-200 shadow-2xl transition-[transform,visibility] duration-200 ease-out motion-reduce:transition-none ${
-            mobileOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'
-          }`}
+          className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-dvh overflow-y-auto bg-slate-900 text-slate-200 shadow-2xl transition-[transform,visibility] duration-200 ease-out motion-reduce:transition-none ${mobileOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'
+            }`}
         >
           {drawerContent && (
-          <div className="p-4 flex flex-col min-h-full justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2 px-3 py-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Main Navigation</span>
-                <button
-                  ref={closeRef}
-                  type="button"
-                  onClick={() => dispatch(closeMobileNav())}
-                  className="-mr-2 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                  aria-label="Close menu"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+            <div className="p-4 flex flex-col min-h-full justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Main Navigation</span>
+                  <button
+                    ref={closeRef}
+                    type="button"
+                    onClick={() => dispatch(closeMobileNav())}
+                    className="-mr-2 p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Close menu"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                {renderNav(true)}
               </div>
-              {renderNav(true)}
+              {footer}
             </div>
-            {footer}
-          </div>
           )}
         </aside>
       </div>

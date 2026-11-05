@@ -1,4 +1,4 @@
-// AdminPrintRequestsPage.jsx — School Admin: class teachers ki print requests approve / reject, aur printing track karo
+// AdminPrintRequestsPage.jsx 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -39,7 +39,6 @@ import PageHeader from '../../components/common/PageHeader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import StudentPagination from '../../components/students/StudentPagination.jsx';
-import RequestTabs from '../../components/printRequests/RequestTabs.jsx';
 import RequestSummaryCards from '../../components/printRequests/RequestSummaryCards.jsx';
 import RequestStatusBadge from '../../components/printRequests/RequestStatusBadge.jsx';
 import ConfirmActionModal from '../../components/printRequests/ConfirmActionModal.jsx';
@@ -49,16 +48,17 @@ import RequestAmount from '../../components/commission/RequestAmount.jsx';
 import { PAYMENT_STATUS_OPTIONS } from '../../constants/commission.js';
 import { approveAmountMessage } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
+import GradientRequestTabs from './GradientRequestTabs.jsx';
 
-// Tab → statuses (default: Pending Approval)
+// tone = GradientRequestTabs ka rang (summary cards ke rang se match)
 const TABS = [
-  { key: 'PENDING', label: 'Pending Approval', statuses: ['PENDING_APPROVAL'] },
-  { key: 'APPROVED', label: 'Pending for Printing', statuses: ['APPROVED'] },
-  { key: 'PRINTING', label: 'Printing in Progress', statuses: ['PRINTING'] },
-  { key: 'COMPLETED', label: 'Completed', statuses: ['COMPLETED'] },
-  { key: 'REJECTED', label: 'Rejected', statuses: ['REJECTED_BY_ADMIN'] },
-  { key: 'DECLINED', label: 'Declined', statuses: ['DECLINED'] },
-  { key: 'ALL', label: 'All', statuses: [] },
+  { key: 'PENDING', label: 'Pending Approval', statuses: ['PENDING_APPROVAL'], tone: 'amber' },
+  { key: 'APPROVED', label: 'Pending for Printing', statuses: ['APPROVED'], tone: 'blue' },
+  { key: 'PRINTING', label: 'Printing in Progress', statuses: ['PRINTING'], tone: 'violet' },
+  { key: 'COMPLETED', label: 'Completed', statuses: ['COMPLETED'], tone: 'emerald' },
+  { key: 'REJECTED', label: 'Rejected', statuses: ['REJECTED_BY_ADMIN'], tone: 'rose' },
+  { key: 'DECLINED', label: 'Declined', statuses: ['DECLINED'], tone: 'red' },
+  { key: 'ALL', label: 'All', statuses: [], tone: 'indigo' },
 ];
 
 const PAGE_SIZE = 10;
@@ -152,7 +152,6 @@ export const AdminPrintRequestsPage = () => {
     <div className="space-y-6">
       <PageHeader
         title="ID Card Print Requests"
-        description="Review requests from class teachers. Approved requests are sent to the Print Center."
         actions={
           <button
             type="button"
@@ -184,7 +183,7 @@ export const AdminPrintRequestsPage = () => {
 
       <RequestSummaryCards cards={cards} activeKey={activeTab} onSelect={selectTab} loading={summaryLoading && Object.keys(counts).length === 0} />
 
-      <RequestTabs tabs={tabsWithCounts} active={activeTab} onChange={selectTab} />
+      <GradientRequestTabs tabs={tabsWithCounts} active={activeTab} onChange={selectTab} ariaLabel="Print request status" />
 
       {/* Filters */}
       <form onSubmit={applyFilters} className="grid grid-cols-2 md:grid-cols-6 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">

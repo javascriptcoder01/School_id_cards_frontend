@@ -4,10 +4,6 @@ import { ROUTES } from '../../constants/routes.js';
 import { ROLES } from '../../constants/roles.js';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 
-/**
- * Reusable UserForm Component
- * Used for both User Creation and Editing with role-specific tenant handling
- */
 export const UserForm = ({
   initialValues = null,
   isEdit = false,
@@ -177,13 +173,8 @@ export const UserForm = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              {isEdit ? 'Edit User Profile' : 'Account Details'}
+              {isEdit ? `Edit User Profile - ${initialValues?.name || 'this user'}` : 'Account Details'}
             </h2>
-            <p className="text-xs text-slate-500">
-              {isEdit
-                ? 'Update information for this account'
-                : 'Enter user information and system permissions'}
-            </p>
           </div>
         </div>
 
@@ -369,9 +360,6 @@ export const UserForm = ({
                   Operator Assignment Details
                 </h3>
               </div>
-              <p className="text-xs text-slate-500">
-                Configure classroom and subject responsibilities for this Operator (Optional).
-              </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Subject Name */}

@@ -8,6 +8,20 @@ const initialState = {
   initialized: false,
 };
 
+const pickCollege = (data) => {
+  const college = data.college && typeof data.college === 'object' ? data.college : null;
+  const populatedId = data.collegeId && typeof data.collegeId === 'object' ? data.collegeId : null;
+
+  return {
+    collegeId:
+      (populatedId ? populatedId._id || populatedId.id : data.collegeId) ||
+      (college ? college._id || college.id : null) ||
+      null,
+    collegeName: college?.name || populatedId?.name || data.collegeName || null,
+    collegeCode: college?.code || populatedId?.code || data.collegeCode || null,
+  };
+};
+
 export const accountSlice = createSlice({
   name: 'account',
   initialState,
@@ -27,7 +41,7 @@ export const accountSlice = createSlice({
         name: data.name || 'User',
         email: data.email || 'N/A',
         role: data.role || 'USER',
-        collegeId: data.collegeId || null,
+        ...pickCollege(data),
         isActive: data.isActive !== false,
       };
     },
@@ -54,4 +68,3 @@ export const {
 } = accountSlice.actions;
 
 export default accountSlice.reducer;
-

@@ -112,9 +112,6 @@ export const GenerationListPage = () => {
             <Sparkles className="w-7 h-7 text-indigo-600" />
             ID Card Generation Jobs
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Monitor, submit, and process ID card generation jobs for college students
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5">

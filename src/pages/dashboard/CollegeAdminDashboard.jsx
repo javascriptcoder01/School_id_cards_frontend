@@ -1,18 +1,39 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { BadgeIndianRupee, CalendarClock, CheckCircle2, IndianRupee, Info, Printer, RefreshCw } from 'lucide-react';
-import DashboardSection from '../../components/dashboard/DashboardSection.jsx';
+import {
+  BadgeIndianRupee,
+  CalendarClock,
+  CheckCircle2,
+  IndianRupee,
+  History,
+  Printer,
+  RefreshCw,
+  AlertTriangle,
+  Layers,
+  Receipt,
+  TrendingUp,
+  Users,
+  Zap,
+  Sparkles,
+} from 'lucide-react';
 import QuickActions from '../../components/dashboard/QuickActions.jsx';
 import GenerationStatusSummary from '../../components/dashboard/GenerationStatusSummary.jsx';
 import CollegeProgressOverview from '../../components/dashboard/CollegeProgressOverview.jsx';
 import OperatorProgressTable from '../../components/dashboard/OperatorProgressTable.jsx';
+import {
+  usePersistedToggle,
+  DashboardHero,
+  HeroStat,
+  MoneyCard,
+  Panel,
+  Collapsible,
+} from './CollegeDashboard.jsx';
 import { loadCollegeProgressRequested } from '../../features/collegeProgress/collegeProgressSlice.js';
 import {
   selectCollegeProgressSummary,
   selectCollegeProgressOperators,
   selectCollegeProgressLoading,
 } from '../../features/collegeProgress/collegeProgressSelectors.js';
-import DashboardStatCard from '../../components/dashboard/DashboardStatCard.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import UpcomingByClassTable from '../../components/commission/UpcomingByClassTable.jsx';
 import RecentPaymentsList from '../../components/commission/RecentPaymentsList.jsx';
@@ -26,7 +47,13 @@ import { cardsLabel } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 import { formatInr, formatInrShort } from '../../utils/money.js';
 
-const AMOUNT_VALUE_CLASS = 'text-lg sm:text-2xl wrap-anywhere';
+const STORAGE_KEYS = {
+  upcomingByClass: 'collegeAdminDashboard.showUpcomingByClass',
+  recentPayments: 'collegeAdminDashboard.showRecentPayments',
+  progress: 'collegeAdminDashboard.showProgress',
+  operators: 'collegeAdminDashboard.showOperators',
+  generation: 'collegeAdminDashboard.showGeneration',
+};
 
 export const CollegeAdminDashboard = ({
   user,
@@ -43,6 +70,12 @@ export const CollegeAdminDashboard = ({
   const isOverviewLoading = useSelector(selectCollegeAdminOverviewLoading);
   const overviewError = useSelector(selectCollegeAdminOverviewError);
 
+  const [showUpcoming, toggleUpcoming] = usePersistedToggle(STORAGE_KEYS.upcomingByClass);
+  const [showPayments, togglePayments] = usePersistedToggle(STORAGE_KEYS.recentPayments);
+  const [showProgress, toggleProgress] = usePersistedToggle(STORAGE_KEYS.progress);
+  const [showOperators, toggleOperators] = usePersistedToggle(STORAGE_KEYS.operators);
+  const [showGeneration, toggleGeneration] = usePersistedToggle(STORAGE_KEYS.generation, false);
+
   useEffect(() => {
     dispatch(loadCollegeProgressRequested());
     dispatch(fetchCollegeAdminOverviewRequested());
@@ -55,163 +88,175 @@ export const CollegeAdminDashboard = ({
     }
   };
 
-  const activeSummary = Object.keys(progressSummary).length > 0 ? progressSummary : fallbackSummary;
+  const activeSummary = Object.keys(progressSummary || {}).length > 0 ? progressSummary : fallbackSummary;
 
   const isKpiLoading = isOverviewLoading && !overview;
   const currentRate = overview?.rate?.current || null;
   const lastRate = overview?.rate?.last || null;
-  const rateScopeLabel = overview?.rate?.scope === 'COLLEGE' ? 'School rate' : 'Default';
+  const rateScopeLabel = overview?.rate?.scope === 'COLLEGE' ? 'School rate' : 'Default rate';
+
+  const upcomingRows = overview?.upcomingByClass || [];
+  const recentPayments = overview?.recentPayments || [];
+  const operatorList = Array.isArray(operators) ? operators : [];
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="bg-linear-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-3">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              College Administrator Workspace
+    <div className="space-y-5">
+      {/* Hero */}
+      <DashboardHero
+        eyebrow="School Admin"
+        title={`Welcome back, ${user?.name || 'School Admin'}`}
+        aside={
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="grid grid-cols-3 gap-2">
+              <HeroStat
+                icon={IndianRupee}
+                label={currentRate ? rateScopeLabel : 'Rate'}
+                value={currentRate ? `${formatInrShort(currentRate.rate)}/card` : 'Not set'}
+                loading={isKpiLoading}
+              />
+              <HeroStat
+                icon={History}
+                label="Last rate"
+                value={lastRate ? formatInrShort(lastRate.rate) : '—'}
+                loading={isKpiLoading}
+              />
+              <HeroStat icon={Printer} label="Printed" value={overview?.printed?.cards ?? 0} loading={isKpiLoading} />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Welcome back, {user?.name || 'College Admin'}
-            </h1>
-            <p className="text-indigo-200 text-sm mt-1">
-              Real-time progress tracking, class operator assignments, and batch ID generation
-            </p>
-          </div>
 
-          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleRefreshProgress}
               disabled={isProgressLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-bold backdrop-blur-md transition-all cursor-pointer shadow-xs"
+              aria-label="Refresh"
+              className="inline-flex items-center justify-center gap-2 self-start rounded-2xl bg-white/10 px-4 py-2.5 text-xs font-bold text-white ring-1 ring-white/20 backdrop-blur-sm transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white disabled:cursor-wait disabled:opacity-70 sm:self-center"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isProgressLoading ? 'animate-spin text-indigo-300' : ''}`} />
-              <span>{isProgressLoading ? 'Updating...' : 'Refresh Progress'}</span>
+              <RefreshCw className={`h-4 w-4 ${isProgressLoading ? 'animate-spin motion-reduce:animate-none' : ''}`} />
+              <span>{isProgressLoading ? 'Updating…' : 'Refresh'}</span>
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Rate, amount, payment (sirf apna school) */}
-      <DashboardSection
-        title="ID Card Payments"
-        subtitle="Amounts lock when you approve a request. Requests waiting for approval are estimated at today's rate."
-      >
-        {overviewError && <ErrorMessage message={overviewError} title="Couldn't load the payment overview" />}
-
-        {overview && !currentRate && (
-          <div className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900" role="status">
-            <Info className="h-5 w-5 shrink-0 text-blue-600" />
-            <p>Rate not set by Super Admin yet. Requests cannot be approved until it is set.</p>
+      {/* Payments */}
+      <Panel title="ID Card Payments" icon={BadgeIndianRupee}>
+        {overviewError && (
+          <div className="mb-4">
+            <ErrorMessage message={overviewError} title="Couldn't load payments" />
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-          <DashboardStatCard
+        {overview && !currentRate && (
+          <div
+            className="mb-4 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 px-4 py-3 text-sm font-medium text-amber-900"
+            role="status"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            Rate not set by Super Admin yet — requests can't be approved.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <MoneyCard
+            icon={CalendarClock}
             title="Upcoming (Est.)"
             value={formatInr(overview?.upcoming?.estimatedAmount)}
             subtitle={cardsLabel(overview?.upcoming?.cards)}
-            icon={CalendarClock}
-            colorScheme="blue"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            tone="blue"
+            loading={isKpiLoading}
           />
-          <DashboardStatCard
+          <MoneyCard
+            icon={BadgeIndianRupee}
             title="Pending Payment"
             value={formatInr(overview?.pendingPayment?.amount ?? 0)}
             subtitle={cardsLabel(overview?.pendingPayment?.cards)}
-            icon={BadgeIndianRupee}
-            colorScheme="amber"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            tone="amber"
+            loading={isKpiLoading}
           />
-          <DashboardStatCard
+          <MoneyCard
+            icon={CheckCircle2}
             title="Total Paid"
             value={formatInr(overview?.paid?.amount ?? 0)}
-            subtitle={overview?.lastPayment
-              ? `${cardsLabel(overview.paid.cards)} · last ${formatDateTime(overview.lastPayment.paidAt)}`
-              : cardsLabel(overview?.paid?.cards)}
-            icon={CheckCircle2}
-            colorScheme="emerald"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="Printed"
-            value={overview?.printed?.cards ?? 0}
-            subtitle="cards completed"
-            icon={Printer}
-            colorScheme="purple"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
-          />
-          <DashboardStatCard
-            title="Current rate"
-            value={currentRate ? `${formatInrShort(currentRate.rate)} / card` : 'Not set'}
-            subtitle={currentRate
-              ? `${rateScopeLabel}${lastRate ? ` · Last: ${formatInrShort(lastRate.rate)}` : ''}`
-              : 'Ask the Super Admin'}
-            icon={IndianRupee}
-            colorScheme="indigo"
-            valueClassName={AMOUNT_VALUE_CLASS}
-            isLoading={isKpiLoading}
+            subtitle={cardsLabel(overview?.paid?.cards)}
+            tone="emerald"
+            loading={isKpiLoading}
+            badge={
+              overview?.lastPayment ? (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
+                  Last {formatDateTime(overview.lastPayment.paidAt)}
+                </span>
+              ) : null
+            }
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-          <div className="lg:col-span-2 min-w-0 space-y-2">
-            <h3 className="text-sm font-bold text-slate-800">Upcoming by class</h3>
+        <div className="mt-4 space-y-3">
+          <Collapsible
+            id="upcoming-by-class"
+            icon={Layers}
+            title="Upcoming by class"
+            count={upcomingRows.length}
+            open={showUpcoming}
+            onToggle={toggleUpcoming}
+          >
             <UpcomingByClassTable
-              rows={overview?.upcomingByClass || []}
+              rows={upcomingRows}
               total={overview?.upcoming || null}
               rate={currentRate?.rate ?? null}
               loading={isKpiLoading}
             />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <h3 className="text-sm font-bold text-slate-800">Recent payments</h3>
-            <RecentPaymentsList payments={overview?.recentPayments || []} />
-          </div>
+          </Collapsible>
+
+          <Collapsible
+            id="recent-payments"
+            icon={Receipt}
+            title="Recent payments"
+            count={recentPayments.length}
+            open={showPayments}
+            onToggle={togglePayments}
+          >
+            <RecentPaymentsList payments={recentPayments} />
+          </Collapsible>
         </div>
-      </DashboardSection>
+      </Panel>
 
-      {/* College Progress Overview Grid */}
-      <DashboardSection
-        title="College Progress & Operational Insights"
-        subtitle="Real-time aggregation of student data completion and ID card generation across your institution"
+      {/* Progress */}
+      <Collapsible
+        id="school-progress"
+        icon={TrendingUp}
+        title="School progress"
+        open={showProgress}
+        onToggle={toggleProgress}
       >
-        <CollegeProgressOverview
-          summary={activeSummary}
-          isLoading={isProgressLoading || isDashboardLoading}
-        />
-      </DashboardSection>
+        <CollegeProgressOverview summary={activeSummary} isLoading={isProgressLoading || isDashboardLoading} />
+      </Collapsible>
 
-      {/* Operator and Class Breakdown Table */}
-      <DashboardSection
-        title="Class Roster & Operator Progress"
-        subtitle="Detailed status breakdown per assigned class teacher and section"
+      {/* Class teachers */}
+      <Collapsible
+        id="class-teachers"
+        icon={Users}
+        title="Classes & class teachers"
+        count={operatorList.length}
+        open={showOperators}
+        onToggle={toggleOperators}
       >
         <OperatorProgressTable operators={operators} isLoading={isProgressLoading} />
-      </DashboardSection>
+      </Collapsible>
 
-      {/* Quick Actions */}
-      <DashboardSection
-        title="College Quick Actions"
-        subtitle="Common tasks for enrollment and ID card issuing"
-      >
+      {/* Quick actions */}
+      <Panel title="Quick Actions" icon={Zap}>
         <QuickActions role="COLLEGE_ADMIN" />
-      </DashboardSection>
+      </Panel>
 
-      {/* Generation Status Pipeline Summary */}
-      <DashboardSection
-        title="ID Card Generation Lifecycle"
-        subtitle="Current status breakdown across all student card jobs"
+      {/* Card generation */}
+      <Collapsible
+        id="card-generation"
+        icon={Sparkles}
+        title="Card generation status"
+        open={showGeneration}
+        onToggle={toggleGeneration}
       >
         <GenerationStatusSummary generationStats={generationStats} />
-      </DashboardSection>
+      </Collapsible>
     </div>
   );
 };

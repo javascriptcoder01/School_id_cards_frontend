@@ -3,7 +3,9 @@
 // decoration chips + intensity, validity (session / valid till).
 // Yahan sirf choices hain — shapes / colors ka asli hisaab backend preview karta hai.
 import React from 'react';
-import { Check, Palette, Image as ImageIcon, Sparkles, CalendarDays, Loader2 } from 'lucide-react';
+import { Palette, Image as ImageIcon, Sparkles, CalendarDays, Loader2 } from 'lucide-react';
+import ThemeGallery from './ThemeGallery.jsx';
+import ThemeOptionsSection from './ThemeOptionsSection.jsx';
 import {
   TEMPLATE_BACKGROUND_TYPES,
   TEMPLATE_BACKGROUND_TYPE_LABELS,
@@ -21,24 +23,6 @@ const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
 
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
-
-// Preset ka chhota swatch (sirf rang dikhane ke liye — asli design preview canvas par)
-const PresetSwatch = ({ preset }) => {
-  const c = preset.colors;
-  const body = preset.background?.gradient
-    ? `linear-gradient(${preset.background.gradient.angle}deg, ${preset.background.gradient.from}, ${preset.background.gradient.to})`
-    : c.background;
-  return (
-    <div className="aspect-[86/54] w-full overflow-hidden rounded-lg ring-1 ring-slate-200" style={{ background: body }}>
-      <div className="h-1/4" style={{ background: `linear-gradient(90deg, ${c.primary}, ${c.secondary})` }} />
-      <div className="h-0.5" style={{ background: c.accent }} />
-      <div className="space-y-1 p-1.5">
-        <div className="h-1 w-3/5 rounded" style={{ background: c.text }} />
-        <div className="h-1 w-2/5 rounded opacity-60" style={{ background: c.mutedText }} />
-      </div>
-    </div>
-  );
-};
 
 /**
  * @param {object} props
@@ -66,10 +50,15 @@ export const ThemeDesignPanel = ({
   onThemeChange,
   onSideBackgroundChange,
   onValidityChange,
+  onSaveSchoolTheme,
+  onRenameSchoolTheme,
+  onDeleteSchoolTheme,
+  logoUrl = null,
 }) => {
   const presets = themes?.presets || [];
   const presetKey = theme.presetKey || DEFAULT_CARD_THEME_KEY;
-  const preset = presets.find((p) => p.key === presetKey) || null;
+  // School theme bhi preset jaisi hi chunti hai
+  const preset = [...presets, ...(themes?.schoolThemes || [])].find((p) => p.key === presetKey) || null;
   const decorationKey = side === 'BACK' ? 'backDecoration' : 'frontDecoration';
   const presetDecoration = side === 'BACK' ? preset?.back?.decoration : preset?.front?.decoration;
   const presetIntensity = side === 'BACK' ? preset?.back?.intensity : preset?.front?.intensity;
@@ -92,33 +81,24 @@ export const ThemeDesignPanel = ({
 
   return (
     <div className="space-y-4">
-      {/* Presets */}
-      <section className={sectionClass}>
-        <h3 className={titleClass}><Sparkles className="h-3.5 w-3.5 text-indigo-600" /> Start from a preset</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {presets.map((p) => {
-            const active = p.key === presetKey;
-            return (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => onApplyPreset(p)}
-                aria-pressed={active}
-                title={p.description}
-                className={`relative rounded-xl border-2 p-1.5 text-left transition-colors ${active ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent hover:border-slate-300'}`}
-              >
-                <PresetSwatch preset={p} />
-                <span className="mt-1 block truncate text-[11px] font-semibold text-slate-700">{p.name}</span>
-                {active && (
-                  <span className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full bg-indigo-600 text-white">
-                    <Check className="h-2.5 w-2.5" />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      <ThemeGallery
+        themes={themes}
+        presetKey={presetKey}
+        onApply={onApplyPreset}
+        onSave={onSaveSchoolTheme}
+        onRename={onRenameSchoolTheme}
+        onDelete={onDeleteSchoolTheme}
+      />
+
+      <ThemeOptionsSection
+        theme={theme}
+        preset={preset}
+        decoration={theme[decorationKey] || presetDecoration || null}
+        headerSizeStyles={themes?.headerSizeStyles}
+        patternStyles={themes?.patternStyles}
+        logoUrl={logoUrl}
+        onThemeChange={onThemeChange}
+      />
 
       {/* Colors */}
       <section className={sectionClass}>

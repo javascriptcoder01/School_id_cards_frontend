@@ -29,6 +29,14 @@ import {
 } from '../../../constants/template.js';
 import { clamp, round2, toNumber, getLayerKey, isSafeImageUrl } from '../../../utils/templateLayout.js';
 import { lockedSizePatch, maxRotationFor } from '../../../utils/templateDesigner.js';
+import { CollapsibleSection } from './designerControls.jsx';
+import {
+  ImageLayerFlipControls,
+  ImageLayerFrameSection,
+  ImageLayerSizeControls,
+  ResetImageStyleButton,
+} from './ImageLayerStyleSections.jsx';
+import BackgroundRemovalSection from './BackgroundRemovalSection.jsx';
 
 const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
@@ -219,6 +227,9 @@ export const PropertiesPanel = ({
   onUpdateQrCode,
   onUpdateLayer,
   onRemoveLayer,
+  renderLayers = [],
+  previewLoading = false,
+  onApplyImageProcessingToAll,
 }) => {
   if (!selectedElement) {
     return (
@@ -444,6 +455,7 @@ export const PropertiesPanel = ({
         </div>
         )}
 
+        <CollapsibleSection title="Size">
         <BoxFields box={layer} cardWidth={cardWidth} cardHeight={cardHeight} unitLabel={u} onChange={setBox} />
         <button
           type="button"
@@ -454,9 +466,23 @@ export const PropertiesPanel = ({
           }`}
         >
           {locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-          {locked ? 'Proportions locked' : 'Proportions free'}
+          {locked ? 'Ratio locked' : 'Ratio free'}
         </button>
+        <ImageLayerSizeControls layer={layer} cardWidth={cardWidth} cardHeight={cardHeight} onChange={set} />
+        </CollapsibleSection>
 
+        <ImageLayerFrameSection layer={layer} unit={formData.unit} onChange={set} />
+
+        <BackgroundRemovalSection
+          layer={layer}
+          renderLayer={renderLayers.find((item) => String(item.id) === String(key))}
+          previewLoading={previewLoading}
+          onChange={set}
+          onApplyToAll={onApplyImageProcessingToAll}
+        />
+
+        <CollapsibleSection title="Transform">
+        <ImageLayerFlipControls layer={layer} onChange={set} />
         <SegmentRow
           label="Align on card"
           activeKey={layer.align || null}
@@ -518,6 +544,9 @@ export const PropertiesPanel = ({
           )}
         </div>
         <p className="text-[11px] text-slate-400">Higher layer order sits on top, for example a stamp over the signature.</p>
+        </CollapsibleSection>
+
+        <ResetImageStyleButton onChange={set} />
       </Panel>
     );
   }
