@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { CreditCard, Save, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import { CreditCard, Save, AlertTriangle, RefreshCw, X, Sparkles } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import {
   TEMPLATE_ORIENTATIONS,
@@ -154,6 +154,102 @@ const makeQrCode = (unit, cardWidth, side) => {
   };
 };
 
+/* ---------- Front layout (photo + text fields) ---------- */
+// Sab naap card ke % mein, isliye mm / px aur har card size par sahi.
+// Landscape ke % purane default (86 × 54 mm) se hi nikle hain, isliye landscape pehle jaisa dikhta hai.
+const CARD_LAYOUTS = {
+  PORTRAIT: {
+    // Photo upar beech mein (passport ratio), text uske neeche, center aligned
+    photoWidth: 0.46,
+    photoRatio: 1.2,
+    photoTop: 0.15,
+    gapAfterPhoto: 0.07,
+    textX: 0.06,
+    textWidth: 0.88,
+    lineGap: 0.065,
+    maxBottom: 0.92,
+    align: TEMPLATE_TEXT_ALIGNS.CENTER,
+  },
+  LANDSCAPE: {
+    // Photo baayein, text daayein (left aligned)
+    photoX: 5 / 86,
+    photoTop: 14 / 54,
+    photoWidth: 25 / 86,
+    photoHeight: 30 / 54,
+    textX: 34 / 86,
+    textTop: 15 / 54,
+    textWidth: 48 / 86,
+    lineGap: 5 / 54,
+    gapAfterName: 7 / 54,
+    maxBottom: 0.92,
+    align: TEMPLATE_TEXT_ALIGNS.LEFT,
+  },
+};
+
+/**
+ * Ek side ke photo + dikhne wale fields ki jagah (portrait ya landscape, card ke size se).
+ * Sirf position / width / alignment badalte hain, naam bold; label, rang, font size waise hi.
+ * @returns {{ photo?: object, fields: object[] }} applySidePatch ke liye patch
+ */
+const buildSideLayout = (sideData, width, height) => {
+  const W = toNumber(width);
+  const H = toNumber(height);
+  if (!(W > 0 && H > 0)) return {};
+
+  const portrait = H > W;
+  const L = portrait ? CARD_LAYOUTS.PORTRAIT : CARD_LAYOUTS.LANDSCAPE;
+  const patch = {};
+  let textTop = H * (L.textTop ?? L.photoTop);
+
+  if (sideData.photo) {
+    const photoWidth = round2(W * L.photoWidth);
+    const photoHeight = round2(portrait ? photoWidth * L.photoRatio : H * L.photoHeight);
+    const photoY = round2(H * L.photoTop);
+    patch.photo = {
+      ...sideData.photo,
+      x: round2(portrait ? (W - photoWidth) / 2 : W * L.photoX),
+      y: photoY,
+      width: photoWidth,
+      height: photoHeight,
+    };
+    if (portrait) textTop = photoY + photoHeight + H * L.gapAfterPhoto;
+  } else if (portrait) {
+    textTop = H * L.photoTop;
+  }
+
+  // Dikhne wale fields stack mein; naam sabse upar, baaki apne order mein
+  const stack = sideData.fields
+    .map((field, index) => ({ field, index }))
+    .filter(({ field }) => field.visible !== false)
+    .sort((a, b) => Number(b.field.field === TEMPLATE_FIELDS.NAME) - Number(a.field.field === TEMPLATE_FIELDS.NAME));
+
+  // Line ke beech ki doori (naam ke baad thodi zyada); jagah kam ho to sab barabar ghatao
+  const lastAllowed = H * L.maxBottom;
+  const gaps = stack.map((_, i) => (i === 0 ? 0 : H * (i === 1 ? L.gapAfterName ?? L.lineGap : L.lineGap)));
+  const needed = gaps.reduce((sum, g) => sum + g, 0);
+  const scale = needed > 0 && textTop + needed > lastAllowed ? Math.max(0, lastAllowed - textTop) / needed : 1;
+
+  const fields = [...sideData.fields];
+  let y = textTop;
+  stack.forEach(({ field, index }, i) => {
+    y += gaps[i] * scale;
+    fields[index] = {
+      ...field,
+      x: round2(W * L.textX),
+      y: round2(Math.min(y, lastAllowed)),
+      width: round2(W * L.textWidth),
+      textAlign: L.align,
+      ...(field.field === TEMPLATE_FIELDS.NAME ? { fontWeight: TEMPLATE_FONT_WEIGHTS.BOLD } : {}),
+    };
+  });
+  patch.fields = fields;
+  return patch;
+};
+
+// Card ke size ke hisaab se front ka layout (naye template ke liye)
+const layoutFront = (data) =>
+  applySidePatch(data, TEMPLATE_SIDES.FRONT, buildSideLayout(sideOf(data, TEMPLATE_SIDES.FRONT), data.width, data.height));
+
 const idOf = (value) => (value && typeof value === 'object' ? value._id || value.id : value) || null;
 
 const normalizeField = (f) =>
@@ -221,7 +317,8 @@ const normalizeBack = (back, unit) =>
 const buildInitialState = (iv) => {
   if (!iv) {
     const { unit, width, height } = TEMPLATE_DEFAULT_CARD;
-    return {
+    // Naya template: card portrait ho to photo upar beech mein, text neeche
+    return layoutFront({
       name: '',
       orientation: TEMPLATE_DEFAULT_CARD.orientation,
       unit,
@@ -243,7 +340,7 @@ const buildInitialState = (iv) => {
       back: null,
       validity: { session: '', validTill: null },
       version: null,
-    };
+    });
   }
 
   const unit = iv.unit || TEMPLATE_UNITS.PX;
@@ -287,23 +384,28 @@ const labelsFromErrors = (messages) =>
 /* Small UI pieces                                                     */
 /* ------------------------------------------------------------------ */
 
-const sectionClass = 'bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-6';
-const labelClass = 'block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2';
+// Halka gradient card, upar rangeen header patti (SectionHeader)
+const sectionClass =
+  'relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-linear-to-br from-white via-indigo-50/40 to-violet-50/60 shadow-sm shadow-indigo-500/5';
+const labelClass = 'block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5';
 const inputClass =
-  'w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all';
+  'w-full h-10 px-3.5 bg-white/90 border rounded-xl text-sm text-slate-800 placeholder-slate-400 shadow-xs transition-all hover:border-indigo-300 focus:outline-hidden focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 focus:bg-white disabled:opacity-60';
 
-const SectionHeader = ({ icon: Icon, tone, title, subtitle, action }) => (
-  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
-    <div className="flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${tone}`}>
-        <Icon className="w-5 h-5" />
+// Dark gradient header: icon tile, title, subtitle, daayein action
+const SectionHeader = ({ icon: Icon, title, subtitle, action }) => (
+  <div className="relative flex items-center justify-between gap-3 overflow-hidden bg-linear-to-r from-slate-900 via-indigo-900 to-violet-800 px-4 py-3 text-white sm:px-5">
+    <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-fuchsia-500/30 blur-2xl" />
+    <div className="pointer-events-none absolute -bottom-16 left-1/3 h-32 w-32 rounded-full bg-sky-500/20 blur-2xl" />
+    <div className="relative flex min-w-0 items-center gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-400 via-violet-500 to-fuchsia-500 shadow-lg shadow-fuchsia-500/30 ring-1 ring-white/30">
+        <Icon className="h-4.5 w-4.5" />
       </div>
-      <div>
-        <h2 className="text-base font-bold text-slate-800">{title}</h2>
-        <p className="text-xs text-slate-500">{subtitle}</p>
+      <div className="min-w-0">
+        <h2 className="truncate text-sm font-extrabold tracking-tight sm:text-base">{title}</h2>
+        {subtitle && <p className="truncate text-[11px] font-medium text-indigo-200">{subtitle}</p>}
       </div>
     </div>
-    {action}
+    {action && <div className="relative shrink-0">{action}</div>}
   </div>
 );
 
@@ -393,6 +495,10 @@ export const TemplateForm = ({
 
   /* ---------- Card setup ---------- */
 
+  // Naya template banate waqt orientation / size badle to front ka layout bhi naye card ke hisaab se.
+  // Edit mein apne aap kuch nahi hilta (designer ka "Center layout" button hai).
+  const relayoutIfNew = (data) => (isEdit ? data : layoutFront(data));
+
   const handleOrientationChange = (orientation) => {
     setFormData((prev) => {
       const w = toNumber(prev.width);
@@ -400,7 +506,7 @@ export const TemplateForm = ({
       const wantsPortrait = orientation === TEMPLATE_ORIENTATIONS.PORTRAIT;
       // Orientation badle to width/height swap, taaki card sach mein ghoome
       const shouldSwap = (wantsPortrait && w > h) || (!wantsPortrait && h > w);
-      return shouldSwap ? { ...prev, orientation, width: h, height: w } : { ...prev, orientation };
+      return shouldSwap ? relayoutIfNew({ ...prev, orientation, width: h, height: w }) : { ...prev, orientation };
     });
   };
 
@@ -412,12 +518,14 @@ export const TemplateForm = ({
   const handleSizePreset = (key) => {
     const preset = TEMPLATE_SIZE_PRESETS.find((p) => p.key === key);
     if (!preset) return;
-    setFormData((prev) => ({
-      ...convertTemplateUnits(prev, prev.unit, preset.unit),
-      width: preset.width,
-      height: preset.height,
-      orientation: preset.orientation,
-    }));
+    setFormData((prev) =>
+      relayoutIfNew({
+        ...convertTemplateUnits(prev, prev.unit, preset.unit),
+        width: preset.width,
+        height: preset.height,
+        orientation: preset.orientation,
+      })
+    );
   };
 
   /* ---------- Fields ---------- */
@@ -446,6 +554,12 @@ export const TemplateForm = ({
 
   const handleRemoveField = (side, index) => {
     updateSide(side, (s) => ({ fields: s.fields.filter((_, i) => i !== index) }));
+  };
+
+  // Designer ka "Center layout": photo upar beech mein, text neeche (ek hi update)
+  const handleApplyCenterLayout = (side) => {
+    updateSide(side, (s, prev) => buildSideLayout(s, prev.width, prev.height));
+    if (errors.layout) setErrors((prev) => ({ ...prev, layout: null }));
   };
 
   /* ---------- Photo & QR ---------- */
@@ -631,6 +745,7 @@ export const TemplateForm = ({
     onAddField: handleAddField,
     onUpdateField: handleUpdateField,
     onRemoveField: handleRemoveField,
+    onApplyCenterLayout: handleApplyCenterLayout,
     onAddPhoto: handleAddPhoto,
     onUpdatePhoto: handleUpdatePhoto,
     onAddQrCode: handleAddQrCode,
@@ -721,15 +836,18 @@ export const TemplateForm = ({
     )?.key || '';
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       {errorMessage && <ErrorMessage message={errorMessage} title="Couldn't save the template" />}
 
       {errorList.length > 0 && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">
-          <p className="font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Fix these before saving
+        <div className="rounded-2xl border border-rose-200 bg-linear-to-r from-rose-50 via-red-50 to-pink-50 px-4 py-3 text-sm text-rose-800 shadow-sm shadow-rose-500/10" role="alert">
+          <p className="font-bold flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-linear-to-br from-rose-500 to-red-600 text-white shadow-sm">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </span>
+            Fix these before saving
           </p>
-          <ul className="mt-2 ml-6 list-disc space-y-1">
+          <ul className="mt-1.5 ml-9 list-disc space-y-0.5 text-xs font-medium">
             {errorList.map((msg) => (
               <li key={msg}>{msg}</li>
             ))}
@@ -741,20 +859,19 @@ export const TemplateForm = ({
       <div className={sectionClass}>
         <SectionHeader
           icon={CreditCard}
-          tone="bg-indigo-50 border-indigo-100 text-indigo-600"
           title="Template Details"
           subtitle="Name, card size and orientation"
           action={
             isEdit && formData.version ? (
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
-                Version {formData.version}
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold ring-1 ring-white/25 backdrop-blur-sm">
+                <Sparkles className="h-3 w-3" /> v{formData.version}
               </span>
             ) : null
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-5">
-          <div className="sm:col-span-2 lg:col-span-3">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-3.5 p-4 sm:p-5 lg:grid-cols-6">
+          <div className="col-span-2 lg:col-span-3">
             <label htmlFor="template-name" className={labelClass}>
               Template Name <span className="text-rose-500">*</span>
             </label>
@@ -768,10 +885,10 @@ export const TemplateForm = ({
               placeholder="e.g. Student ID 2026"
               className={`${inputClass} ${errors.name ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'}`}
             />
-            {errors.name && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.name}</p>}
+            {errors.name && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{errors.name}</p>}
           </div>
 
-          <div className="sm:col-span-2 lg:col-span-3">
+          <div className="col-span-2 lg:col-span-3">
             <label htmlFor="template-size-preset" className={labelClass}>Card size</label>
             <select
               id="template-size-preset"
@@ -787,7 +904,7 @@ export const TemplateForm = ({
             </select>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="col-span-1 lg:col-span-2">
             <label htmlFor="template-orientation" className={labelClass}>Orientation</label>
             <select
               id="template-orientation"
@@ -802,7 +919,7 @@ export const TemplateForm = ({
             </select>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="col-span-1 lg:col-span-2">
             <label htmlFor="template-unit" className={labelClass}>Measurement Unit</label>
             <select
               id="template-unit"
@@ -833,7 +950,7 @@ export const TemplateForm = ({
               onChange={(e) => update({ width: e.target.value })}
               className={`${inputClass} font-mono ${errors.width ? 'border-rose-400' : 'border-slate-200'}`}
             />
-            {errors.width && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.width}</p>}
+            {errors.width && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{errors.width}</p>}
           </div>
 
           <div>
@@ -850,19 +967,21 @@ export const TemplateForm = ({
               onChange={(e) => update({ height: e.target.value })}
               className={`${inputClass} font-mono ${errors.height ? 'border-rose-400' : 'border-slate-200'}`}
             />
-            {errors.height && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.height}</p>}
+            {errors.height && <p className="text-[11px] text-rose-600 mt-1 font-semibold">{errors.height}</p>}
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 -mt-2">
+        {/* <p className="text-[11px] text-slate-400 -mt-2">
           Standard ID card (CR80): 86 × 54 mm. Changing the unit converts every position and size on both sides.
-        </p>
+        </p> */}
       </div>
 
       {/* Live layout warning */}
       {outOfBounds.length > 0 && !errors.layout && (
-        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
+        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 via-orange-50 to-yellow-50 px-3.5 py-2.5 text-xs text-amber-900 shadow-sm shadow-amber-500/10">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-amber-400 to-orange-500 text-white">
+            <AlertTriangle className="w-3 h-3" />
+          </span>
+          <span className="pt-0.5">
             Outside the card, move or resize before saving: <strong>{outOfBounds.join(', ')}</strong>
           </span>
         </div>
@@ -870,7 +989,7 @@ export const TemplateForm = ({
 
       {/* Asset loading problems */}
       {assetsError && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 via-orange-50 to-yellow-50 px-3.5 py-2.5 text-xs text-amber-900">
           <span className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             School images (letterhead, logo, signature, stamp) couldn&apos;t be loaded: {assetsError}
@@ -890,7 +1009,7 @@ export const TemplateForm = ({
 
       {/* Old templates: background URL without an asset / old logo link */}
       {!formData.backgroundAssetId && formData.background && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-linear-to-r from-white to-indigo-50/60 px-3.5 py-2.5 text-xs text-slate-600">
           <span>This template uses an older background image link. Pick a letterhead in Design → Background to replace it.</span>
           <button type="button" onClick={() => update({ background: null, frontBackgroundType: TEMPLATE_BACKGROUND_TYPES.SOLID })} className="inline-flex items-center gap-1 font-semibold text-rose-600 hover:text-rose-700 shrink-0">
             <X className="w-3.5 h-3.5" /> Remove
@@ -898,7 +1017,7 @@ export const TemplateForm = ({
         </div>
       )}
       {formData.logo && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-linear-to-r from-white to-indigo-50/60 px-3.5 py-2.5 text-xs text-slate-600">
           <span>
             This template has an older logo link. Add a <strong>Logo</strong> image in Elements instead, then remove the old one.
           </span>
@@ -929,19 +1048,20 @@ export const TemplateForm = ({
       </Suspense>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-3 pt-2">
+      {/* Neeche chipka hua action bar: lamba designer scroll karte hue bhi Save haath mein */}
+      <div className="sticky bottom-3 z-20 flex items-center justify-end gap-2 rounded-2xl border border-white/60 bg-white/80 p-2 shadow-lg shadow-indigo-500/10 ring-1 ring-slate-200/70 backdrop-blur-md">
         <button
           type="button"
           disabled={isLoading}
           onClick={handleCancel}
-          className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-100 disabled:opacity-50 transition-colors"
+          className="h-10 rounded-xl px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isLoading}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           {isLoading ? (
             <>

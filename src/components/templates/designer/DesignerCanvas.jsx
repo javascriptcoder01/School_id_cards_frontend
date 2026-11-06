@@ -22,8 +22,12 @@ import {
   normalizeRotation,
 } from '../../../utils/templateDesigner.js';
 
-const BASE_CANVAS_WIDTH = 520;
+const BASE_CANVAS_WIDTH = 900; // bada card (A4) ke liye; chhoti jagah mein apne aap fit
 const MIN_CANVAS_WIDTH = 160;
+// Portrait card poora screen mein dikhe: canvas ki height bhi screen ke hisaab se
+const MIN_FIT_HEIGHT = 240; // isse chhota fit nahi karte (bahut chhoti screen par scroll theek hai)
+const MAX_TOP_OFFSET = 112; // sticky header ka andaaza (neeche stacked layout mein isse zyada nahi ghatate)
+const BOTTOM_GAP = 12;
 const CORNER_HANDLES = ['nw', 'ne', 'sw', 'se'];
 const SIDE_HANDLES = ['w', 'e'];
 const LAYER_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -146,9 +150,8 @@ export const DesignerCanvas = ({
   const stageRef = useRef(null);
   const [guides, setGuides] = useState(NO_GUIDES);
   const [dropActive, setDropActive] = useState(false);
-  const [availableWidth, setAvailableWidth] = useState(null);
+  const [available, setAvailable] = useState(null); // { width, height }
 
-  // Container ki asli khaali width (padding ke baad) — resize / sidebar / mobile rotate par update
   useEffect(() => {
     const scrollEl = scrollRef.current;
     const stageEl = stageRef.current;
@@ -157,22 +160,37 @@ export const DesignerCanvas = ({
     const measure = () => {
       const style = window.getComputedStyle(stageEl);
       const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-      const next = Math.max(0, Math.floor(scrollEl.clientWidth - padX));
-      setAvailableWidth((prev) => (prev === next ? prev : next));
+      const padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+      const width = Math.max(0, Math.floor(scrollEl.clientWidth - padX));
+
+      // Canvas page par kahan se shuru hota hai (scroll se farak na pade)
+      const docTop = scrollEl.getBoundingClientRect().top + window.scrollY;
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const height = Math.max(
+        MIN_FIT_HEIGHT,
+        Math.floor(viewportHeight - Math.min(docTop, MAX_TOP_OFFSET) - padY - BOTTOM_GAP)
+      );
+
+      setAvailable((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
     };
 
     measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () => window.removeEventListener('resize', measure);
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(scrollEl);
-    return () => observer.disconnect();
+    window.addEventListener('resize', measure);
+    window.visualViewport?.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(scrollEl);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.visualViewport?.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
   }, []);
 
-  // 100% = fit (max BASE_CANVAS_WIDTH); zoom isi ke hisaab se
-  const fitWidth = availableWidth ? Math.min(BASE_CANVAS_WIDTH, availableWidth) : BASE_CANVAS_WIDTH;
+  // 100% = fit: chaudai mein bhi aur screen ki unchai mein bhi (max BASE_CANVAS_WIDTH); zoom isi ke hisaab se
+  const ratio = toNumber(W) > 0 && toNumber(H) > 0 ? toNumber(W) / toNumber(H) : 1;
+  const fitWidth = available
+    ? Math.min(BASE_CANVAS_WIDTH, available.width, Math.floor(available.height * ratio))
+    : BASE_CANVAS_WIDTH;
   const canvasWidth = Math.max(MIN_CANVAS_WIDTH, Math.round(fitWidth * zoom));
 
   const prefix = side === 'BACK' ? 'Back: ' : '';
@@ -197,7 +215,6 @@ export const DesignerCanvas = ({
       startY: event.clientY,
       box: { ...box },
       scale: W / rect.width,
-      // Rotation: element ka centre (screen px)
       centerX: rect.left + ((toNumber(box.x) + toNumber(box.width) / 2) / W) * rect.width,
       centerY: rect.top + ((toNumber(box.y) + toNumber(box.height) / 2) / H) * rect.height,
     };
@@ -222,7 +239,6 @@ export const DesignerCanvas = ({
     }
 
     if (!drag.handle) {
-      // Move
       let x = toNumber(start.x) + dx;
       let y = toNumber(start.y) + dy;
       if (useSnap) {
@@ -232,7 +248,6 @@ export const DesignerCanvas = ({
       const w = toNumber(start.width);
       const h = toNumber(start.height);
       const near = (a, b) => useSnap && Math.abs(a - b) < grid / 2;
-      // Card ki centre line / edges ke paas → wahin chipko
       const nearV = !start.autoWidth && near(x + w / 2, W / 2);
       const nearH = near(y + h / 2, H / 2);
       const nearL = near(x, 0);
@@ -251,14 +266,10 @@ export const DesignerCanvas = ({
       onChangeElement(drag.item.sel, { x: clamped.x, y: clamped.y });
       return;
     }
-
-    // Image layer: ratio lock (Shift = free)
     if (drag.item.kind === 'LAYER' && drag.item.lockAspect && !event.shiftKey) {
       onChangeElement(drag.item.sel, resizeLockedBox(start, drag.handle, dx, dy, W, H, minSize));
       return;
     }
-
-    // Resize
     let { x, y, width, height } = { x: toNumber(start.x), y: toNumber(start.y), width: toNumber(start.width), height: toNumber(start.height) };
     if (drag.handle.includes('e')) width += dx;
     if (drag.handle.includes('w')) {
@@ -352,118 +363,139 @@ export const DesignerCanvas = ({
   const pct = (value, total) => `${(toNumber(value) / total) * 100}%`;
 
   return (
-    // Scroll box: sirf yahi scroll hota hai (page nahi). min-w-0 = grid/flex column mein sikud sake.
-    <div ref={scrollRef} className="w-full min-w-0 max-w-full overflow-auto overscroll-x-contain rounded-2xl bg-slate-100">
-      {/* Stage: w-max + min-w-full → card chhota ho to beech mein, bada ho to left se shuru (left kabhi nahi katta) */}
-      <div ref={stageRef} className="flex w-max min-w-full justify-center p-6 max-sm:px-3 max-sm:pt-8 max-sm:pb-5">
-        <div
-          ref={canvasRef}
-          className={`relative shrink-0 shadow-lg rounded-xl outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 ${dropActive ? 'outline-2 outline-dashed outline-offset-4 outline-indigo-500' : ''
-            }`}
-          style={{ width: canvasWidth }}
-          tabIndex={0}
-          onKeyDown={onKeyDown}
-          onDragOver={onDragOver}
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget)) setDropActive(false);
-          }}
-          onDrop={onDrop}
-          aria-label="Card canvas. Select an element, drag to move, arrow keys to nudge, Delete to remove."
-        >
-          {renderData ? (
-            <div className="rounded-xl overflow-hidden">
-              <IdCardSide renderData={renderData} side={side} />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 bg-white text-sm text-slate-500 rounded-xl" style={{ aspectRatio: `${W} / ${H}` }}>
-              <Loader2 className="h-4 w-4 animate-spin" /> Rendering preview…
-            </div>
-          )}
+    <div className="relative w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-indigo-200/60 bg-linear-to-br from-indigo-100 via-violet-50 to-fuchsia-100 shadow-inner shadow-indigo-500/5">
+      {/* Rangeen chamak + halka dot grid — design table jaisa feel */}
+      {/* Blur filter ki jagah radial gradients: kone saaf rehte hain aur scroll/drag par GPU par bojh kam */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(129,140,248,0.35),transparent_45%),radial-gradient(circle_at_100%_100%,rgba(232,121,249,0.3),transparent_45%),radial-gradient(circle_at_50%_35%,rgba(125,211,252,0.18),transparent_40%)]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(#a5b4fc_1px,transparent_1px)] bg-size-[14px_14px] opacity-50"
+        aria-hidden="true"
+      />
 
-          {/* Interaction overlay */}
+      {/* Kaun si side + size: chhota chip */}
+      <span className="pointer-events-none absolute left-1/2 top-1.5 -translate-x-1/2 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm shadow-indigo-500/10 ring-1 ring-indigo-200/70 backdrop-blur-sm">
+        <span className={`h-1.5 w-1.5 rounded-full bg-linear-to-br ${side === 'BACK' ? 'from-violet-500 to-fuchsia-500' : 'from-indigo-500 to-sky-500'}`} />
+        {side === 'BACK' ? 'Back' : 'Front'}
+        <span className="font-mono font-medium text-slate-400">
+          {toNumber(W)} × {toNumber(H)} {String(unit || '').toLowerCase()}
+        </span>
+      </span>
+
+      {loading && (
+        <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-indigo-600 shadow-xs ring-1 ring-indigo-100 backdrop-blur-sm">
+          <Loader2 className="h-3 w-3 animate-spin" /> Updating
+        </span>
+      )}
+
+      <div ref={scrollRef} className="relative w-full min-w-0 max-w-full overflow-auto overscroll-contain">
+        {/* pt: selected label / rotate handle card ke upar kat na jaaye */}
+        <div ref={stageRef} className="flex w-max min-w-full justify-center px-2 pb-2 pt-7 sm:px-3 sm:pb-3">
           <div
-            ref={overlayRef}
-            className="absolute inset-0 select-none touch-none"
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onPointerDown={(e) => {
-              if (e.target === overlayRef.current) onSelect(null);
+            ref={canvasRef}
+            className={`relative shrink-0 rounded-xl shadow-2xl shadow-indigo-900/25 ring-1 ring-white/60 outline-hidden transition-[width] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-indigo-500 motion-reduce:transition-none ${dropActive ? 'outline-2 outline-dashed outline-offset-4 outline-indigo-500' : ''
+              }`}
+            style={{ width: canvasWidth }}
+            tabIndex={0}
+            onKeyDown={onKeyDown}
+            onDragOver={onDragOver}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setDropActive(false);
             }}
+            onDrop={onDrop}
+            aria-label="Card canvas. Select an element, drag to move, arrow keys to nudge, Delete to remove."
           >
-            {guides.v && <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-px bg-pink-500" />}
-            {guides.h && <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px bg-pink-500" />}
-            {guides.l && <div className="pointer-events-none absolute top-0 bottom-0 left-0 w-px bg-pink-500" />}
-            {guides.r && <div className="pointer-events-none absolute top-0 bottom-0 right-0 w-px bg-pink-500" />}
-            {guides.t && <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-pink-500" />}
-            {guides.b && <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-px bg-pink-500" />}
+            {renderData ? (
+              <div className="rounded-xl overflow-hidden">
+                <IdCardSide renderData={renderData} side={side} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 bg-white text-sm text-slate-500 rounded-xl" style={{ aspectRatio: `${W} / ${H}` }}>
+                <Loader2 className="h-4 w-4 animate-spin" /> Rendering preview…
+              </div>
+            )}
 
-            {items.map((item) => {
-              const isSel = sameSelection(item.sel, selected);
-              const isInvalid = invalid.has(item.outsideLabel);
-              const isLayer = item.kind === 'LAYER';
-              const box = item.box;
-              const handles = item.kind === 'FIELD' ? SIDE_HANDLES : isLayer ? LAYER_HANDLES : CORNER_HANDLES;
-              return (
-                <div
-                  key={`${item.sel.type}-${item.sel.index ?? item.sel.id}`}
-                  role="button"
-                  tabIndex={-1}
-                  aria-label={`${item.label}${isSel ? ' (selected)' : ''}`}
-                  onPointerDown={(e) => startDrag(e, item)}
-                  className={`absolute cursor-move ${isSel
-                    ? 'ring-2 ring-indigo-500'
-                    : isInvalid
-                      ? 'ring-2 ring-rose-500'
-                      : 'hover:outline-1 hover:outline-dashed hover:outline-indigo-400'
-                    } ${item.hidden ? 'opacity-40 outline-1 outline-dashed outline-slate-400' : ''}`}
-                  style={{
-                    left: pct(box.x, W),
-                    top: pct(box.y, H),
-                    width: pct(box.width, W),
-                    height: pct(box.height, H),
-                    // Card par image centre se ghoomti hai — box bhi waise hi
-                    transform: isLayer && item.rotation ? `rotate(${item.rotation}deg)` : undefined,
-                  }}
-                >
-                  {isSel && (
-                    <>
-                      <span
-                        className={`pointer-events-none absolute left-0 whitespace-nowrap rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white ${isLayer ? '-bottom-5' : '-top-5'
-                          }`}
-                      >
-                        {item.label}
-                        {isLayer && item.rotation ? ` · ${Math.round(item.rotation)}°` : ''}
-                      </span>
-                      {handles.map((handle) => (
+            <div
+              ref={overlayRef}
+              className="absolute inset-0 select-none touch-none"
+              onPointerMove={onPointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onPointerDown={(e) => {
+                if (e.target === overlayRef.current) onSelect(null);
+              }}
+            >
+              {guides.v && <div className="pointer-events-none absolute top-0 bottom-0 left-1/2 w-px bg-pink-500" />}
+              {guides.h && <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-px bg-pink-500" />}
+              {guides.l && <div className="pointer-events-none absolute top-0 bottom-0 left-0 w-px bg-pink-500" />}
+              {guides.r && <div className="pointer-events-none absolute top-0 bottom-0 right-0 w-px bg-pink-500" />}
+              {guides.t && <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-pink-500" />}
+              {guides.b && <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-px bg-pink-500" />}
+
+              {items.map((item) => {
+                const isSel = sameSelection(item.sel, selected);
+                const isInvalid = invalid.has(item.outsideLabel);
+                const isLayer = item.kind === 'LAYER';
+                const box = item.box;
+                const handles = item.kind === 'FIELD' ? SIDE_HANDLES : isLayer ? LAYER_HANDLES : CORNER_HANDLES;
+                return (
+                  <div
+                    key={`${item.sel.type}-${item.sel.index ?? item.sel.id}`}
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={`${item.label}${isSel ? ' (selected)' : ''}`}
+                    onPointerDown={(e) => startDrag(e, item)}
+                    className={`absolute cursor-move rounded-[2px] ${isSel
+                      ? 'ring-2 ring-indigo-500 ring-offset-1 ring-offset-white/0'
+                      : isInvalid
+                        ? 'ring-2 ring-rose-500'
+                        : 'hover:outline-1 hover:outline-dashed hover:outline-indigo-400'
+                      } ${item.hidden ? 'opacity-40 outline-1 outline-dashed outline-slate-400' : ''}`}
+                    style={{
+                      left: pct(box.x, W),
+                      top: pct(box.y, H),
+                      width: pct(box.width, W),
+                      height: pct(box.height, H),
+                      // Card par image centre se ghoomti hai — box bhi waise hi
+                      transform: isLayer && item.rotation ? `rotate(${item.rotation}deg)` : undefined,
+                    }}
+                  >
+                    {isSel && (
+                      <>
                         <span
-                          key={handle}
-                          onPointerDown={(e) => startDrag(e, item, handle)}
-                          className={`absolute h-2.5 w-2.5 rounded-sm border border-indigo-600 bg-white ${HANDLE_POSITION[handle]} ${TOUCH_HIT}`}
-                        />
-                      ))}
-                      {isLayer && (
-                        <>
-                          <span className="pointer-events-none absolute left-1/2 -top-4 h-4 w-px -translate-x-1/2 bg-indigo-600" />
+                          className={`pointer-events-none absolute left-0 z-10 whitespace-nowrap rounded-md bg-linear-to-r from-indigo-600 to-violet-600 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-indigo-500/30 ${isLayer ? '-bottom-5' : '-top-5'
+                            }`}
+                        >
+                          {item.label}
+                          {isLayer && item.rotation ? ` · ${Math.round(item.rotation)}°` : ''}
+                        </span>
+                        {handles.map((handle) => (
                           <span
-                            onPointerDown={(e) => startDrag(e, item, ROTATE_HANDLE)}
-                            title="Drag to rotate (Shift = 15° steps)"
-                            className={`absolute left-1/2 -top-6 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border border-indigo-600 bg-white active:cursor-grabbing ${TOUCH_HIT}`}
+                            key={handle}
+                            onPointerDown={(e) => startDrag(e, item, handle)}
+                            className={`absolute h-2.5 w-2.5 rounded-full border-2 border-indigo-600 bg-white shadow-sm ${HANDLE_POSITION[handle]} ${TOUCH_HIT}`}
                           />
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                        ))}
+                        {isLayer && (
+                          <>
+                            <span className="pointer-events-none absolute left-1/2 -top-4 h-4 w-px -translate-x-1/2 bg-indigo-600" />
+                            <span
+                              onPointerDown={(e) => startDrag(e, item, ROTATE_HANDLE)}
+                              title="Drag to rotate (Shift = 15° steps)"
+                              className={`absolute left-1/2 -top-6 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border-2 border-violet-600 bg-white shadow-sm active:cursor-grabbing ${TOUCH_HIT}`}
+                            />
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
 
-          {loading && (
-            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-600 shadow-xs">
-              <Loader2 className="h-3 w-3 animate-spin" /> Updating
-            </span>
-          )}
+          </div>
         </div>
       </div>
     </div>

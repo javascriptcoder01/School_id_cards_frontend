@@ -3,7 +3,7 @@
 // left (Design / Elements tabs), centre canvas (backend preview + drag / resize), right (properties).
 // Saara data TemplateForm ke paas; ye selection, tabs, zoom sambhalta hai.
 import React, { useState } from 'react';
-import { Minus, Plus, Magnet, Loader2, AlertTriangle, Palette, Layers, Sliders } from 'lucide-react';
+import { Minus, Plus, Magnet, Loader2, AlertTriangle, Palette, Layers, Sliders, AlignCenter } from 'lucide-react';
 import DesignerCanvas from './DesignerCanvas.jsx';
 import ThemeDesignPanel from './ThemeDesignPanel.jsx';
 import ElementsPanel from './ElementsPanel.jsx';
@@ -23,7 +23,8 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 
-const panelClass = 'bg-white p-4 rounded-3xl border border-slate-200 shadow-xs';
+const panelClass =
+  'p-3 rounded-2xl border border-indigo-100/80 bg-linear-to-b from-white via-white to-indigo-50/60 shadow-sm shadow-indigo-500/5';
 
 // lg se chhoti screen: canvas ke neeche ek hi tab bar (Design | Elements | Properties)
 const MOBILE_TABS = [
@@ -155,6 +156,15 @@ export const CardDesigner = ({
     if (next !== current) handlers.onUpdateLayer(activeSide, key, { zIndex: next });
   };
 
+  // Portrait card: photo upar beech mein, text uske neeche
+  const isPortrait = H > W;
+  const canCenterLayout = Boolean(sideData.photo) || (sideData.fields || []).length > 0;
+  // Layout TemplateForm banata hai (naye portrait template ka default bhi wahi)
+  const applyCenterLayout = () => {
+    handlers.onApplyCenterLayout(activeSide);
+    setSelectedState(null);
+  };
+
   const backHasElements =
     (formData.back?.fields?.length || 0) + (formData.back?.imageLayers?.length || 0) > 0 || Boolean(formData.back?.qrCode || formData.back?.photo);
 
@@ -165,11 +175,11 @@ export const CardDesigner = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 rounded-3xl bg-linear-to-br from-indigo-50 via-violet-50/70 to-fuchsia-50 p-2 ring-1 ring-indigo-100/70 sm:p-3">
       {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/70 bg-linear-to-r from-white/90 via-white/80 to-indigo-50/80 px-3 py-2 shadow-sm shadow-indigo-500/10 backdrop-blur-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Card side">
+          <div className="inline-flex rounded-xl bg-linear-to-r from-indigo-100/80 via-violet-100/70 to-fuchsia-100/70 p-1 ring-1 ring-indigo-200/50" role="tablist" aria-label="Card side">
             {[TEMPLATE_SIDES.FRONT, TEMPLATE_SIDES.BACK].map((s) => (
               <button
                 key={s}
@@ -178,9 +188,8 @@ export const CardDesigner = ({
                 aria-selected={activeSide === s}
                 disabled={s === TEMPLATE_SIDES.BACK && !formData.hasBack}
                 onClick={() => switchSide(s)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  activeSide === s ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${activeSide === s ? 'bg-linear-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30' : 'text-slate-600 hover:bg-white/70 hover:text-indigo-700'
+                  }`}
               >
                 {s === TEMPLATE_SIDES.FRONT ? 'Front' : 'Back'}
               </button>
@@ -195,7 +204,7 @@ export const CardDesigner = ({
                 handlers.onToggleBack(e.target.checked);
                 switchSide(e.target.checked ? TEMPLATE_SIDES.BACK : TEMPLATE_SIDES.FRONT);
               }}
-              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded border-indigo-300 text-violet-600 focus:ring-violet-500"
             />
             Back side
           </label>
@@ -207,18 +216,30 @@ export const CardDesigner = ({
               <Loader2 className="h-3 w-3 animate-spin" /> Updating preview
             </span>
           )}
+          {isPortrait && (
+            <button
+              type="button"
+              onClick={applyCenterLayout}
+              disabled={!canCenterLayout}
+              aria-label="Center layout: photo on top, text below"
+              title="Photo on top centre, text fields below it"
+              className="inline-flex items-center gap-1 rounded-lg bg-linear-to-r from-indigo-600 to-violet-600 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-indigo-500/30 transition-shadow hover:shadow-md focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <AlignCenter className="h-3.5 w-3.5" />
+              <span className="max-sm:hidden">Center layout</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setSnap((v) => !v)}
             aria-pressed={snap}
             title="Snap to grid and centre lines (hold Alt while dragging to turn off)"
-            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${
-              snap ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
-            }`}
+            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${snap ? 'border-violet-200 bg-linear-to-r from-indigo-50 to-violet-100 text-violet-700' : 'border-slate-200 bg-white text-slate-600'
+              }`}
           >
             <Magnet className="h-3.5 w-3.5" /> Snap
           </button>
-          <div className="inline-flex items-center rounded-lg border border-slate-200">
+          <div className="inline-flex items-center rounded-lg border border-indigo-100 bg-white shadow-xs">
             <button type="button" onClick={() => setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - ZOOM_STEP) * 10) / 10))} disabled={zoom <= MIN_ZOOM} className="p-1.5 disabled:opacity-40" aria-label="Zoom out">
               <Minus className="h-3.5 w-3.5" />
             </button>
@@ -231,21 +252,21 @@ export const CardDesigner = ({
       </div>
 
       {previewError && (
-        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900" role="status">
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 via-orange-50 to-yellow-50 px-3 py-2 text-xs text-amber-900" role="status">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Preview couldn&apos;t update: {previewError}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+      {/* Left / right panels patle (fixed width), beech ka canvas baaki saari jagah le */}
+      <div className="grid grid-cols-1 gap-3 items-start xl:grid-cols-[15rem_minmax(0,1fr)_15rem] 2xl:grid-cols-[16.5rem_minmax(0,1fr)_16.5rem]">
         {/* Left: Design / Elements */}
         <div
-          className={`${panelClass} xl:col-span-3 order-2 xl:order-1 max-h-[78vh] overflow-y-auto ${
-            mobileTab === 'PROPERTIES' ? 'max-lg:hidden' : ''
-          }`}
+          className={`${panelClass} min-w-0 order-2 xl:order-1 max-h-[85vh] overflow-y-auto overscroll-contain [scrollbar-width:thin] xl:h-[calc(100dvh-7rem)] xl:min-h-[32rem] xl:max-h-none ${mobileTab === 'PROPERTIES' ? 'max-lg:hidden' : ''
+            }`}
         >
           {/* lg se chhoti screen par ye tabs canvas ke neeche wale tab bar mein hain */}
-          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 max-lg:hidden" role="tablist">
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-linear-to-r from-indigo-100/80 via-violet-100/70 to-fuchsia-100/70 p-1 ring-1 ring-indigo-200/50 max-lg:hidden" role="tablist">
             {[
               { key: 'DESIGN', label: 'Design', icon: Palette },
               { key: 'ELEMENTS', label: 'Elements', icon: Layers },
@@ -256,9 +277,8 @@ export const CardDesigner = ({
                 role="tab"
                 aria-selected={leftTab === key}
                 onClick={() => setLeftTab(key)}
-                className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold ${
-                  leftTab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'
-                }`}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition-all ${leftTab === key ? 'bg-linear-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30' : 'text-slate-600 hover:bg-white/70 hover:text-indigo-700'
+                  }`}
               >
                 <Icon className="h-3.5 w-3.5" /> {label}
               </button>
@@ -313,7 +333,7 @@ export const CardDesigner = ({
         </div>
 
         {/* Centre: canvas */}
-        <div className="xl:col-span-6 order-1 xl:order-2 space-y-2">
+        <div className="min-w-0 order-1 xl:order-2 space-y-2">
           <DesignerCanvas
             renderData={renderData}
             sideData={sideData}
@@ -332,17 +352,16 @@ export const CardDesigner = ({
             invalidLabels={invalidLabels}
             loading={previewLoading}
           />
-          <p className="text-center text-[11px] text-slate-400 max-lg:hidden">
-            Drag to move · handles to resize (Shift = free resize for images) · top handle rotates (Shift = 15° steps) ·
-            arrow keys nudge (Shift = bigger) · [ ] layer order · Delete removes
+          <p className="text-center text-[11px] font-medium text-indigo-400 max-lg:hidden">
+            Drag to move
           </p>
-          <p className="text-center text-[11px] text-slate-400 lg:hidden">
+          <p className="text-center text-[11px] font-medium text-indigo-400 lg:hidden">
             Tap to select · drag to move · drag handles to resize · top handle rotates
           </p>
         </div>
 
         {/* Mobile tab bar (lg se chhota): canvas ke theek neeche */}
-        <div className="order-1 lg:hidden grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="tablist" aria-label="Designer panels">
+        <div className="order-1 lg:hidden grid grid-cols-3 gap-1 rounded-xl bg-linear-to-r from-indigo-100/80 via-violet-100/70 to-fuchsia-100/70 p-1 ring-1 ring-indigo-200/50" role="tablist" aria-label="Designer panels">
           {MOBILE_TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -350,9 +369,8 @@ export const CardDesigner = ({
               role="tab"
               aria-selected={mobileTab === key}
               onClick={() => pickMobileTab(key)}
-              className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
-                mobileTab === key ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'
-              }`}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${mobileTab === key ? 'bg-linear-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30' : 'text-slate-600 hover:bg-white/70 hover:text-indigo-700'
+                }`}
             >
               <Icon className="h-3.5 w-3.5" /> {label}
             </button>
@@ -360,7 +378,7 @@ export const CardDesigner = ({
         </div>
 
         {/* Right: properties */}
-        <div className={`xl:col-span-3 order-3 ${mobileTab === 'PROPERTIES' ? '' : 'max-lg:hidden'}`}>
+        <div className={`min-w-0 order-3 ${mobileTab === 'PROPERTIES' ? '' : 'max-lg:hidden'}`}>
           <PropertiesPanel
             selectedElement={selected}
             formData={sideView}

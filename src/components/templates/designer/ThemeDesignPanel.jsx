@@ -136,7 +136,7 @@ export const ThemeDesignPanel = ({
             );
           })}
         </div>
-        <p className="text-[11px] text-slate-400">Empty = preset color. Text color stays readable on dark backgrounds.</p>
+        {/* <p className="text-[11px] text-slate-400">Empty = preset color. Text color stays readable on dark backgrounds.</p> */}
       </section>
 
       {/* Background (active side) */}
@@ -309,7 +309,7 @@ export const ThemeDesignPanel = ({
             />
           </div>
         </div>
-        <p className="text-[11px] text-slate-400">Add the Session / Valid Till fields to show these on the card.</p>
+        {/* <p className="text-[11px] text-slate-400">Add the Session / Valid Till fields to show these on the card.</p> */}
       </section>
     </div>
   );

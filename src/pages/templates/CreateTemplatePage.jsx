@@ -37,7 +37,6 @@ export const CreateTemplatePage = () => {
       createTemplateRequested({
         data: formData,
         onSuccess: (created) => {
-          // Response mein `template` wrapper ya seedha object, aur `_id` ya `id` ho sakta hai
           const template = created?.template || created;
           const id = template?._id || template?.id;
           navigate(id ? getTemplateDetailRoute(id) : ROUTES.TEMPLATES);
@@ -61,9 +60,6 @@ export const CreateTemplatePage = () => {
           <CreditCard className="w-7 h-7 text-indigo-600" />
           Create ID Card Template
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Choose a letterhead, place the student photo, fields, QR code, logo, signature and stamp, then preview the card
-        </p>
       </div>
 
       {canCreate ? (
