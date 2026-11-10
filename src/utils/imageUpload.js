@@ -11,6 +11,10 @@ export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'im
 // Backend limit ke barabar (constants/upload.js: UPLOAD_MAX_FILE_SIZE_BYTES)
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
+// Field icon upload: sirf PNG / WebP (SVG nahi), max 512 KB — backend uploadService jaisa
+export const ICON_UPLOAD_TYPES = ['image/png', 'image/webp'];
+export const ICON_MAX_UPLOAD_BYTES = 512 * 1024;
+
 // Backend ke CLOUDINARY_FOLDERS se match — Cloudinary path: Schools/<schoolId>/<Folder>
 export const UPLOAD_FOLDERS = {
     STUDENTS: 'Students', // student passport photo
@@ -19,6 +23,7 @@ export const UPLOAD_FOLDERS = {
     STAMPS: 'Stamps',
     LETTERHEADS: 'Letterheads',
     GENERAL: 'General',
+    ICONS: 'Icons', // card field ke custom icons
     // Purane keys (backend inhe General mein map karta hai)
     COLLEGES: 'colleges',
     COLLEGE_ASSETS: 'college-assets',

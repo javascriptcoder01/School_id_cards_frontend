@@ -31,8 +31,30 @@ import {
   SIGN_WITH_SEAL_COMBO,
   SCHOOL_IMAGE_DRAG_TYPE,
   isProfileImageLayer,
+  TEMPLATE_FIELD_SUGGESTED_ICONS,
+  TEMPLATE_FIELD_DISPLAY_MODES,
+  TEMPLATE_ICON_SOURCES,
+  TEMPLATE_ICON_POSITIONS,
 } from '../../../constants/template.js';
 import { getLayerKey, isSafeImageUrl } from '../../../utils/templateLayout.js';
+import { IconGlyph } from './IconPicker.jsx';
+
+// "Add with icon": suggested icon + display mode ICON (baaki sab normal add jaisa)
+const withIconExtras = (name) => ({
+  displayMode: TEMPLATE_FIELD_DISPLAY_MODES.ICON,
+  icon: {
+    source: TEMPLATE_ICON_SOURCES.LIBRARY,
+    key: TEMPLATE_FIELD_SUGGESTED_ICONS[name],
+    url: null,
+    publicId: null,
+    color: null,
+    size: null,
+    position: TEMPLATE_ICON_POSITIONS.LEFT,
+    gap: null,
+    background: null,
+  },
+  showLabel: false,
+});
 
 const GROUP_LABELS = { STUDENT: 'Student', SCHOOL: 'School', CARD: 'Card', CUSTOM: 'Custom' };
 const LAYER_ICONS = { LOGO: ImageIcon, SIGNATURE: PenTool, STAMP: Stamp, CUSTOM: Shapes };
@@ -112,7 +134,7 @@ const SchoolImageTile = ({ dragKey, label, preview, available, added, note, disa
  * @param {(profileKey: string) => void} [props.onAddSchoolImage] - profileKey ya SIGN_WITH_SEAL
  * @param {object|null} props.selected
  * @param {(sel: object) => void} props.onSelect
- * @param {(fieldName: string) => void} props.onAddField
+ * @param {(fieldName: string, extras?: object) => void} props.onAddField - extras = "Add with icon" ka displayMode + icon
  * @param {() => void} props.onAddPhoto
  * @param {() => void} props.onAddQrCode
  * @param {(type: string) => void} props.onAddLayer
@@ -358,20 +380,38 @@ export const ElementsPanel = ({
               {names.map((name) => {
                 const repeatable = TEMPLATE_REPEATABLE_FIELDS.includes(name);
                 const already = placed.has(name) && !repeatable;
-                return (
+                const fieldLabel = TEMPLATE_FIELD_LABELS[name] || name;
+                const suggestedIcon = TEMPLATE_FIELD_SUGGESTED_ICONS[name];
+                const addButton = (
                   <button
                     key={name}
                     type="button"
                     disabled={already || fieldLimit}
                     onClick={() => onAddField(name)}
-                    title={already ? 'Already on this side' : `Add ${TEMPLATE_FIELD_LABELS[name] || name}`}
+                    title={already ? 'Already on this side' : `Add ${fieldLabel}`}
                     className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
                       already ? 'border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                    } disabled:cursor-not-allowed`}
+                    } disabled:cursor-not-allowed ${suggestedIcon && !already ? 'rounded-r-none border-r-0' : ''}`}
                   >
                     {already ? <CheckCircle className="h-3 w-3" /> : <PlusCircle className="h-3 w-3 text-indigo-500" />}
-                    {TEMPLATE_FIELD_LABELS[name] || name}
+                    {fieldLabel}
                   </button>
+                );
+                if (!suggestedIcon || already) return addButton;
+                return (
+                  <span key={name} className="inline-flex">
+                    {addButton}
+                    <button
+                      type="button"
+                      disabled={fieldLimit}
+                      onClick={() => onAddField(name, withIconExtras(name))}
+                      title={`Add ${fieldLabel} with icon`}
+                      aria-label={`Add ${fieldLabel} with icon`}
+                      className="inline-flex items-center rounded-r-lg border border-slate-200 bg-linear-to-r from-indigo-50 to-violet-100 px-1.5 text-violet-700 hover:from-indigo-100 hover:to-violet-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <IconGlyph iconKey={suggestedIcon} size={12} />
+                    </button>
+                  </span>
                 );
               })}
             </div>

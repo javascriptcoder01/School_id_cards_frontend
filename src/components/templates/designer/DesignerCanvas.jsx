@@ -21,6 +21,7 @@ import {
   resizeLockedBox,
   normalizeRotation,
 } from '../../../utils/templateDesigner.js';
+import { withFieldIconBox } from '../../../utils/fieldIcons.js';
 
 const BASE_CANVAS_WIDTH = 900; // bada card (A4) ke liye; chhoti jagah mein apne aap fit
 const MIN_CANVAS_WIDTH = 160;
@@ -61,7 +62,8 @@ const buildItems = (side, unit, W, prefix) => {
   (side.fields || []).forEach((field, index) => {
     items.push({
       sel: { type: DESIGNER_ELEMENT_TYPES.FIELD, id: field.field, index },
-      box: fieldBox(field, unit, W),
+      // TOP icon field ke upar hai: selection box usse bhi gher le
+      box: withFieldIconBox(fieldBox(field, unit, W), field, unit),
       kind: 'FIELD',
       label: field.field === 'customText' ? field.customText || 'Custom text' : TEMPLATE_FIELD_LABELS[field.field] || field.field,
       outsideLabel: `${prefix}Field "${field.field}"`,

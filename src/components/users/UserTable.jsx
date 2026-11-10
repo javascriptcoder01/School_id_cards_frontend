@@ -6,10 +6,6 @@ import { ROLES } from '../../constants/roles.js';
 import EmptyState from '../common/EmptyState.jsx';
 import Loader from '../common/Loader.jsx';
 
-/**
- * UserTable Component
- * Renders the list of users with responsive table design, role badges, status toggling, and action links
- */
 export const UserTable = ({
   users = [],
   isLoading = false,
@@ -79,7 +75,6 @@ export const UserTable = ({
                   key={user.id}
                   className="hover:bg-slate-50/80 transition-colors group"
                 >
-                  {/* User Profile */}
                   <td className="py-4 px-4 sm:px-6">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
@@ -100,7 +95,6 @@ export const UserTable = ({
                     </div>
                   </td>
 
-                  {/* Role Badge */}
                   <td className="py-4 px-4">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${getRoleBadgeStyle(
@@ -114,9 +108,12 @@ export const UserTable = ({
                   {/* College Reference */}
                   <td className="py-4 px-4 text-xs text-slate-600">
                     {user.collegeId ? (
-                      <div className="flex items-center gap-1.5 font-mono">
+                      <div className={`flex items-center gap-1.5 ${user.collegeName ? 'font-medium text-slate-700' : 'font-mono'}`}>
                         <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate max-w-[150px]">{user.collegeId}</span>
+                        {/* College ka naam; naam na mile (college delete) to purana ID */}
+                        <span className="truncate max-w-[180px]" title={user.collegeName || user.collegeId}>
+                          {user.collegeName || user.collegeId}
+                        </span>
                       </div>
                     ) : (
                       <span className="text-slate-400 italic">System-wide</span>
@@ -127,8 +124,8 @@ export const UserTable = ({
                   <td className="py-4 px-4 text-center">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${user.isActive
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}
                     >
                       {user.isActive ? (
@@ -177,8 +174,8 @@ export const UserTable = ({
                           disabled={isToggling}
                           onClick={() => onStatusToggle(user.id, !user.isActive)}
                           className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-50 ${user.isActive
-                              ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
-                              : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
+                            ? 'text-rose-600 border-rose-200 hover:bg-rose-50'
+                            : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'
                             }`}
                           title={user.isActive ? 'Deactivate user' : 'Activate user'}
                         >

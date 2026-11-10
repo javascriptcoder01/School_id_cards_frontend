@@ -57,6 +57,8 @@ import {
   buildSignWithSealLayout,
   fitLayerPadding,
   themePayload,
+  normalizeFieldIcon,
+  isCustomValueMissing,
 } from '../../utils/templateDesigner.js';
 import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
 import {
@@ -111,6 +113,11 @@ const makeField = (field, overrides = {}) => ({
   lineHeight: 1.2,
   showLabel: true,
   labelColor: null,
+  // Naye optional props: null = purana behaviour (label showLabel se, value school profile se, icon nahi)
+  displayMode: null,
+  icon: null,
+  valueSource: null,
+  customValue: null,
   ...overrides,
 });
 
@@ -272,6 +279,10 @@ const normalizeField = (f) =>
     lineHeight: toNumber(f.lineHeight, 1.2),
     showLabel: f.showLabel !== false,
     labelColor: f.labelColor || null,
+    displayMode: f.displayMode || null,
+    icon: normalizeFieldIcon(f.icon),
+    valueSource: f.valueSource || null,
+    customValue: f.customValue ?? null,
   });
 
 const normalizeLayers = (layers) =>
@@ -792,6 +803,12 @@ export const TemplateForm = ({
       );
     });
     if (emptyText) newErrors.customText = 'Every custom text field (and custom-text QR) needs some text';
+    // School field "Custom" par ho to value likhni zaroori (isi error list mein)
+    const emptyCustomValue = sides.some((side) => sideOf(formData, side).fields.some(isCustomValueMissing));
+    if (emptyCustomValue) {
+      const message = 'Every school field set to "Custom" needs its custom value';
+      newErrors.customText = newErrors.customText ? `${newErrors.customText}. ${message}` : message;
+    }
 
     const allLayers = sides.flatMap((side) => sideOf(formData, side).imageLayers);
     // School profile images asset nahi — unka check neeche alag

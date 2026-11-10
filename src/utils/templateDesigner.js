@@ -20,6 +20,14 @@ import {
   IMAGE_LAYER_MAX_ROTATION,
   MM_PER_PT,
   isProfileImageLayer,
+  TEMPLATE_FIELD_DISPLAY_MODES,
+  TEMPLATE_FIELD_DISPLAY_MODE_VALUES,
+  TEMPLATE_ICON_SOURCES,
+  TEMPLATE_ICON_POSITIONS,
+  TEMPLATE_ICON_POSITION_VALUES,
+  TEMPLATE_VALUE_SOURCES,
+  TEMPLATE_SCHOOL_VALUE_FIELDS,
+  TEMPLATE_FIELD_LABELS,
 } from '../constants/template.js';
 import { toNumber, round2, clamp, createClientId, lengthForUnit, fontForUnit } from './templateLayout.js';
 
@@ -117,6 +125,49 @@ export const newBackSide = emptyBack;
 const num = (v, fallback = 0) => round2(toNumber(v, fallback));
 const hexOrNull = (v) => (typeof v === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v.trim()) ? v.trim() : null);
 
+/* ------------------------------------------------------------------ */
+/* Field icon + custom value (naye optional props; purane fields par sab null)  */
+/* ------------------------------------------------------------------ */
+
+const numOrNull = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : round2(Number(v)));
+
+/**
+ * Field ka icon (API / draft se) → saaf object ya null. LIBRARY par key, UPLOAD par url + publicId.
+ */
+export const normalizeFieldIcon = (icon) => {
+  if (!icon || typeof icon !== 'object') return null;
+  const isUpload = icon.source === TEMPLATE_ICON_SOURCES.UPLOAD;
+  return {
+    source: isUpload ? TEMPLATE_ICON_SOURCES.UPLOAD : TEMPLATE_ICON_SOURCES.LIBRARY,
+    key: isUpload ? null : icon.key || null,
+    url: isUpload ? icon.url || null : null,
+    publicId: isUpload ? icon.publicId || null : null,
+    color: hexOrNull(icon.color),
+    size: numOrNull(icon.size),
+    position: TEMPLATE_ICON_POSITION_VALUES.includes(icon.position) ? icon.position : TEMPLATE_ICON_POSITIONS.LEFT,
+    gap: numOrNull(icon.gap),
+    background: hexOrNull(icon.background),
+  };
+};
+
+// Backend sirf apne source wali keys leta hai (baaki strip / reject)
+const fieldIconPayload = (icon) => {
+  const n = normalizeFieldIcon(icon);
+  if (!n) return null;
+  const { key, url, publicId, ...rest } = n;
+  if (n.source === TEMPLATE_ICON_SOURCES.UPLOAD) return n.url ? { ...rest, url, publicId } : null;
+  return key ? { ...rest, key } : null;
+};
+
+export const isSchoolValueField = (field) => TEMPLATE_SCHOOL_VALUE_FIELDS.includes(field);
+
+/** School field "Custom" par hai par value khaali */
+export const isCustomValueMissing = (f) =>
+  isSchoolValueField(f.field) && f.valueSource === TEMPLATE_VALUE_SOURCES.CUSTOM && !String(f.customValue ?? '').trim();
+
+// Custom value: aage-peeche ke space hatao, beech ki line breaks rakho
+const cleanCustomValue = (value) => (typeof value === 'string' ? value.trim() : '') || null;
+
 const fieldPayload = (f) => ({
   field: f.field,
   label: f.label?.trim() || null,
@@ -137,6 +188,10 @@ const fieldPayload = (f) => ({
   lineHeight: num(f.lineHeight, 1.2),
   showLabel: f.showLabel !== false,
   labelColor: f.labelColor || null,
+  displayMode: TEMPLATE_FIELD_DISPLAY_MODE_VALUES.includes(f.displayMode) ? f.displayMode : null,
+  icon: fieldIconPayload(f.icon),
+  valueSource: isSchoolValueField(f.field) && f.valueSource ? f.valueSource : null,
+  customValue: isSchoolValueField(f.field) && f.valueSource === TEMPLATE_VALUE_SOURCES.CUSTOM ? cleanCustomValue(f.customValue) : null,
 });
 
 const photoPayload = (p) =>
@@ -317,6 +372,35 @@ export const clampBox = (box, cardWidth, cardHeight, minSize = 1) => {
 /* Optimistic canvas: aakhri preview ka content + draft ki position/style */
 /* ------------------------------------------------------------------ */
 
+// Backend (idCardRenderData) ke resolveDisplayMode / labelForMode / iconForMode jaise
+const draftDisplayMode = (f) =>
+  f.displayMode || (f.showLabel === false ? TEMPLATE_FIELD_DISPLAY_MODES.VALUE_ONLY : TEMPLATE_FIELD_DISPLAY_MODES.LABEL);
+
+const draftLabel = (f, rendered) => {
+  // displayMode null → bilkul purana rule
+  if (!f.displayMode) return f.showLabel === false ? null : f.label?.trim() || rendered?.label || null;
+  const mode = f.displayMode;
+  if (mode !== TEMPLATE_FIELD_DISPLAY_MODES.LABEL && mode !== TEMPLATE_FIELD_DISPLAY_MODES.ICON_AND_LABEL) return null;
+  return f.label?.trim() || rendered?.label || TEMPLATE_FIELD_LABELS[f.field] || null;
+};
+
+const draftIcon = (f, textColor) => {
+  const mode = draftDisplayMode(f);
+  if (mode !== TEMPLATE_FIELD_DISPLAY_MODES.ICON && mode !== TEMPLATE_FIELD_DISPLAY_MODES.ICON_AND_LABEL) return null;
+  const icon = normalizeFieldIcon(f.icon);
+  if (!icon || !(icon.source === TEMPLATE_ICON_SOURCES.UPLOAD ? icon.url : icon.key)) return null;
+  return {
+    source: icon.source,
+    key: icon.key,
+    url: icon.url,
+    color: icon.color || f.labelColor || textColor,
+    size: icon.size,
+    position: icon.position,
+    gap: icon.gap,
+    background: icon.background,
+  };
+};
+
 const placeholderValue = (f) => (f.field === 'customText' ? f.customText || 'Custom text' : `[${f.field}]`);
 
 /**
@@ -346,14 +430,20 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
   const fields = (draft.fields || []).map((f, i) => {
     const rendered = base.fields?.[i]?.field === f.field ? base.fields[i] : null;
     const upper = f.textTransform === TEMPLATE_TEXT_TRANSFORMS.UPPERCASE;
-    let value = f.field === 'customText' ? f.customText || '' : rendered?.displayValue ?? placeholderValue(f);
+    const custom = isSchoolValueField(f.field) && f.valueSource === TEMPLATE_VALUE_SOURCES.CUSTOM;
+    let value = f.field === 'customText'
+      ? f.customText || ''
+      : custom
+        ? cleanCustomValue(f.customValue) || ''
+        : rendered?.displayValue ?? placeholderValue(f);
     if (upper && typeof value === 'string') value = value.toUpperCase();
     const draftColor = f.color || '#000000';
     return {
       ...(rendered || { kind: 'TEXT' }),
       field: f.field,
-      label: f.showLabel === false ? null : f.label?.trim() || rendered?.label || null,
+      label: draftLabel(f, rendered),
       displayValue: value,
+      displayMode: draftDisplayMode(f),
       x: f.x,
       y: f.y,
       width: f.width ?? null,
@@ -369,6 +459,7 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
       letterSpacing: f.letterSpacing,
       lineHeight: f.lineHeight,
       labelColor: f.labelColor || null,
+      icon: draftIcon(f, rendered && draftColor.toUpperCase() === '#000000' ? rendered.color : draftColor),
     };
   });
 

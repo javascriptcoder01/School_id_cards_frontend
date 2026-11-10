@@ -13,6 +13,7 @@ import {
   DESIGNER_ELEMENT_TYPES,
   TEMPLATE_SIDES,
   TEMPLATE_REPEATABLE_FIELDS,
+  TEMPLATE_MAX_FIELDS,
   LETTERHEAD_ASSET_TYPE,
   SIGN_WITH_SEAL_COMBO,
 } from '../../../constants/template.js';
@@ -120,11 +121,14 @@ export const CardDesigner = ({
     setSelected(null);
   };
 
-  const addField = (fieldName) => {
+  // extras (optional): "Add with icon" ka displayMode + icon — field banne ke baad usi par lagta hai
+  const addField = (fieldName, extras = null) => {
     const already = sideData.fields.some((f) => f.field === fieldName) && !TEMPLATE_REPEATABLE_FIELDS.includes(fieldName);
     if (already) return;
     const index = sideData.fields.length;
     handlers.onAddField(activeSide, fieldName);
+    // Limit par field banti hi nahi — tab extras bhi nahi
+    if (extras && index < TEMPLATE_MAX_FIELDS) handlers.onUpdateField(activeSide, index, extras);
     setSelected({ type: DESIGNER_ELEMENT_TYPES.FIELD, id: fieldName, index });
   };
 
@@ -405,6 +409,7 @@ export const CardDesigner = ({
               setSelected(null);
             }}
             renderLayers={renderData?.sides?.[activeSide === TEMPLATE_SIDES.BACK ? 'back' : 'front']?.imageLayers || []}
+            renderFields={previewData?.sides?.[activeSide === TEMPLATE_SIDES.BACK ? 'back' : 'front']?.fields || []}
             previewLoading={previewLoading}
             onApplyImageProcessingToAll={handlers.onApplyImageProcessingToAll}
           />

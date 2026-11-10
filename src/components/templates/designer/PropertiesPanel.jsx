@@ -26,10 +26,20 @@ import {
   TEMPLATE_IMAGE_ALIGNS,
   TEMPLATE_COLLEGE_PROFILE_IMAGE_LABELS,
   isProfileImageLayer,
+  TEMPLATE_FIELDS,
+  TEMPLATE_FIELD_DISPLAY_MODES,
+  TEMPLATE_FIELD_DISPLAY_MODE_VALUES,
+  TEMPLATE_FIELD_DISPLAY_MODE_LABELS,
+  TEMPLATE_ICON_POSITIONS,
+  TEMPLATE_ICON_SOURCES,
+  TEMPLATE_ICON_SIZE_MAX,
+  TEMPLATE_VALUE_SOURCES,
+  TEMPLATE_FIELD_CUSTOM_VALUE_MAX,
 } from '../../../constants/template.js';
 import { clamp, round2, toNumber, getLayerKey, isSafeImageUrl } from '../../../utils/templateLayout.js';
-import { lockedSizePatch, maxRotationFor } from '../../../utils/templateDesigner.js';
-import { CollapsibleSection } from './designerControls.jsx';
+import { lockedSizePatch, maxRotationFor, isSchoolValueField } from '../../../utils/templateDesigner.js';
+import { CollapsibleSection, HexColorField, SwitchField } from './designerControls.jsx';
+import IconPicker from './IconPicker.jsx';
 import {
   ImageLayerFlipControls,
   ImageLayerFrameSection,
@@ -214,6 +224,230 @@ const ToggleChip = ({ active, onClick, children }) => (
   </button>
 );
 
+/* ---------- Field: Label & Icon + school Value (naye sections) ---------- */
+
+const { LABEL, ICON, ICON_AND_LABEL, VALUE_ONLY } = TEMPLATE_FIELD_DISPLAY_MODES;
+
+// displayMode null = purana tareeka (showLabel se)
+const displayModeOf = (field) => field.displayMode || (field.showLabel === false ? VALUE_ONLY : LABEL);
+const modeUsesIcon = (mode) => mode === ICON || mode === ICON_AND_LABEL;
+const modeShowsLabel = (mode) => mode === LABEL || mode === ICON_AND_LABEL;
+
+// "Show label" checkbox ka asar naye display mode par (icon bana rahe)
+const modeForShowLabel = (mode, show) => {
+  if (show) return mode === ICON ? ICON_AND_LABEL : mode === VALUE_ONLY ? LABEL : mode;
+  return mode === ICON_AND_LABEL ? ICON : mode === LABEL ? VALUE_ONLY : mode;
+};
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Active state: indigo → violet (designer jaisa)
+const GradientSegment = ({ label, options, value, onChange }) => (
+  <div>
+    <label className={labelClass}>{label}</label>
+    <div className="grid gap-1 rounded-xl bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} role="group" aria-label={label}>
+      {options.map(({ key, text }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          aria-pressed={value === key}
+          className={`min-w-0 truncate rounded-lg px-1 py-1.5 text-[11px] font-semibold ${
+            value === key
+              ? 'bg-linear-to-r from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-500/30'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const LabelIconSection = ({ field, unitLabel, onSet }) => {
+  const mode = displayModeOf(field);
+  const icon = field.icon || null;
+  const textColor = field.labelColor || field.color || '#000000';
+
+  const setMode = (next) => onSet({ displayMode: next, showLabel: modeShowsLabel(next) });
+  const setIcon = (patch) => onSet({ icon: { ...icon, ...patch } });
+
+  // Naya icon chuna: rang / size / position wahi rahe
+  const pickIcon = (next) => {
+    if (!next) {
+      onSet({ icon: null });
+      return;
+    }
+    const keep = {
+      color: icon?.color ?? null,
+      size: icon?.size ?? null,
+      position: icon?.position || TEMPLATE_ICON_POSITIONS.LEFT,
+      gap: icon?.gap ?? null,
+      background: icon?.background ?? null,
+    };
+    onSet({
+      icon: next.source === TEMPLATE_ICON_SOURCES.UPLOAD
+        ? { ...keep, source: TEMPLATE_ICON_SOURCES.UPLOAD, key: null, url: next.url, publicId: next.publicId || null }
+        : { ...keep, source: TEMPLATE_ICON_SOURCES.LIBRARY, key: next.key, url: null, publicId: null },
+    });
+  };
+
+  return (
+    <CollapsibleSection title="Label & Icon">
+      <GradientSegment
+        label="Display"
+        value={mode}
+        onChange={setMode}
+        options={TEMPLATE_FIELD_DISPLAY_MODE_VALUES.map((key) => ({ key, text: TEMPLATE_FIELD_DISPLAY_MODE_LABELS[key] }))}
+      />
+
+      {modeUsesIcon(mode) && (
+        <>
+          <div>
+            <label className={labelClass}>Icon</label>
+            <IconPicker icon={icon} color={icon?.color || textColor} onChange={pickIcon} />
+            {!icon && <p className="mt-1 text-[11px] text-amber-700">Pick an icon — until then only the value is printed.</p>}
+          </div>
+
+          {icon && (
+            <>
+              <SwitchField
+                label="Icon colour same as text"
+                checked={!icon.color}
+                onChange={(same) => setIcon({ color: same ? null : textColor })}
+              />
+              {icon.color && icon.source !== TEMPLATE_ICON_SOURCES.UPLOAD && (
+                <HexColorField label="Icon colour" value={icon.color} fallback={textColor} onChange={(v) => setIcon({ color: v })} />
+              )}
+              {icon.source === TEMPLATE_ICON_SOURCES.UPLOAD && (
+                <p className="-mt-1 text-[11px] text-slate-400">Uploaded icons print in their own colours.</p>
+              )}
+
+              <SegmentRow
+                label="Icon position"
+                activeKey={icon.position || TEMPLATE_ICON_POSITIONS.LEFT}
+                onPick={(position) => setIcon({ position })}
+                options={[
+                  { key: TEMPLATE_ICON_POSITIONS.LEFT, text: 'Left' },
+                  { key: TEMPLATE_ICON_POSITIONS.RIGHT, text: 'Right' },
+                  { key: TEMPLATE_ICON_POSITIONS.TOP, text: 'Top' },
+                ]}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField
+                  label={`Icon size (${unitLabel})`}
+                  value={icon.size ?? ''}
+                  min={0.1}
+                  max={TEMPLATE_ICON_SIZE_MAX}
+                  step={0.5}
+                  allowEmpty
+                  placeholder="Auto"
+                  onCommit={(v) => setIcon({ size: v })}
+                />
+                <NumberField
+                  label={`Gap (${unitLabel})`}
+                  value={icon.gap ?? ''}
+                  min={0}
+                  max={TEMPLATE_ICON_SIZE_MAX}
+                  step={0.5}
+                  allowEmpty
+                  placeholder="Auto"
+                  onCommit={(v) => setIcon({ gap: v })}
+                />
+              </div>
+
+              <SwitchField
+                label="Circle behind icon"
+                checked={Boolean(icon.background)}
+                onChange={(on) => setIcon({ background: on ? '#E0E7FF' : null })}
+              />
+              {icon.background && (
+                <HexColorField label="Circle colour" value={icon.background} fallback="#E0E7FF" onChange={(v) => setIcon({ background: v })} />
+              )}
+            </>
+          )}
+        </>
+      )}
+    </CollapsibleSection>
+  );
+};
+
+const SchoolValueSection = ({ field, schoolValue, previewLoading, onSet }) => {
+  const custom = field.valueSource === TEMPLATE_VALUE_SOURCES.CUSTOM;
+  const isAddress = field.field === TEMPLATE_FIELDS.COLLEGE_ADDRESS;
+  const isEmail = field.field === TEMPLATE_FIELDS.COLLEGE_EMAIL;
+  const text = field.customValue ?? '';
+  const lines = text.split('\n').filter((line) => line.trim()).length;
+  const maxLines = Math.max(1, Math.round(toNumber(field.maxLines, 1)));
+
+  const setSource = (source) =>
+    onSet(
+      source === TEMPLATE_VALUE_SOURCES.CUSTOM
+        // Pehli baar Custom: school ki value se shuru, edit karna aasaan
+        ? { valueSource: source, customValue: field.customValue ?? schoolValue ?? '' }
+        : { valueSource: source }
+    );
+
+  return (
+    <CollapsibleSection title="Value">
+      <GradientSegment
+        label="Value comes from"
+        value={custom ? TEMPLATE_VALUE_SOURCES.CUSTOM : TEMPLATE_VALUE_SOURCES.SCHOOL}
+        onChange={setSource}
+        options={[
+          { key: TEMPLATE_VALUE_SOURCES.SCHOOL, text: 'From school profile' },
+          { key: TEMPLATE_VALUE_SOURCES.CUSTOM, text: 'Custom' },
+        ]}
+      />
+
+      {!custom ? (
+        <div>
+          <div className="min-h-9 whitespace-pre-line wrap-anywhere rounded-xl border border-slate-200 bg-slate-100/70 px-3 py-2 text-xs text-slate-600" aria-live="polite">
+            {previewLoading && !schoolValue ? 'Loading school value…' : schoolValue || 'Not set in the school profile'}
+          </div>
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
+            <School className="h-3 w-3" /> Edit in school profile — every card updates automatically.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label className={labelClass} htmlFor={`custom-value-${field.field}`}>Custom value</label>
+          {isAddress ? (
+            <textarea
+              id={`custom-value-${field.field}`}
+              rows={3}
+              maxLength={TEMPLATE_FIELD_CUSTOM_VALUE_MAX}
+              value={text}
+              onChange={(e) => onSet({ customValue: e.target.value })}
+              placeholder={'Street, area\nCity, State PIN'}
+              className={inputClass}
+            />
+          ) : (
+            <input
+              id={`custom-value-${field.field}`}
+              type={isEmail ? 'email' : 'text'}
+              maxLength={TEMPLATE_FIELD_CUSTOM_VALUE_MAX}
+              value={text}
+              onChange={(e) => onSet({ customValue: e.target.value })}
+              placeholder={isEmail ? 'office@school.edu' : 'Type the value to print'}
+              className={inputClass}
+            />
+          )}
+          {!text.trim() ? (
+            <p className="mt-1 text-[11px] text-rose-500">Type the value, or switch back to From school profile.</p>
+          ) : isEmail && !EMAIL_PATTERN.test(text.trim()) ? (
+            <p className="mt-1 text-[11px] text-amber-700">This doesn&apos;t look like an email address.</p>
+          ) : isAddress && lines > maxLines ? (
+            <p className="mt-1 text-[11px] text-amber-700">Only {maxLines} line{maxLines === 1 ? '' : 's'} will print — raise Max lines below.</p>
+          ) : null}
+          {isAddress && <p className="mt-1 text-[11px] text-slate-400">Press Enter for a new line. Max lines and Line height are below.</p>}
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+};
+
 export const PropertiesPanel = ({
   selectedElement,
   formData,
@@ -228,6 +462,7 @@ export const PropertiesPanel = ({
   onUpdateLayer,
   onRemoveLayer,
   renderLayers = [],
+  renderFields = [],
   previewLoading = false,
   onApplyImageProcessingToAll,
 }) => {
@@ -562,6 +797,14 @@ export const PropertiesPanel = ({
   const set = (patch) => onUpdateField(fieldIndex, patch);
   const fx = toNumber(field.x);
   const fw = toNumber(field.width);
+  // School profile ki value: aakhri backend preview se (sirf jab field school value hi dikha rahi ho)
+  const renderedField = renderFields[fieldIndex];
+  const schoolValue =
+    field.valueSource !== TEMPLATE_VALUE_SOURCES.CUSTOM
+    && renderedField?.field === field.field
+    && typeof renderedField.displayValue === 'string'
+      ? renderedField.displayValue.trim() || null
+      : null;
   const families = TEMPLATE_FONT_FAMILIES.includes(field.fontFamily || 'Arial')
     ? TEMPLATE_FONT_FAMILIES
     : [field.fontFamily, ...TEMPLATE_FONT_FAMILIES];
@@ -599,12 +842,29 @@ export const PropertiesPanel = ({
           <input
             type="checkbox"
             checked={field.showLabel !== false}
-            onChange={(e) => set({ showLabel: e.target.checked })}
+            onChange={(e) =>
+              set(
+                field.displayMode
+                  ? { showLabel: e.target.checked, displayMode: modeForShowLabel(field.displayMode, e.target.checked) }
+                  : { showLabel: e.target.checked }
+              )
+            }
             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
           Show label on the card
         </label>
       </div>
+
+      <LabelIconSection field={field} unitLabel={u} onSet={set} />
+
+      {isSchoolValueField(field.field) && (
+        <SchoolValueSection
+          field={field}
+          schoolValue={schoolValue}
+          previewLoading={previewLoading}
+          onSet={set}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <NumberField label={`X (${u})`} value={field.x} min={0} max={cardWidth - fw} onCommit={(v) => set({ x: v })} />

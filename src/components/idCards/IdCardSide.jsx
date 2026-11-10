@@ -3,9 +3,10 @@
 // viewBox = template units (backend ke numbers seedhe), theme / decoration ka koi hisaab frontend mein nahi.
 // Draw order PDF jaisa: background → decorations → photo → fields → QR → image layers.
 // Pure presentational: Redux nahi.
-import React, { useId } from 'react';
+import React, { Suspense, useId } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TEMPLATE_BUNDLED_FONTS as BUNDLED_FONTS } from '../../constants/template.js';
+import { getIconComponent, fieldIconLayout, ICON_CHIP_INNER } from '../../utils/fieldIcons.js';
 
 // Purane templates (unit save nahi hua, default PX) ka size mm mein tha → MM (backend jaisa rule)
 const LEGACY_MM_MAX_SIZE = 150;
@@ -173,6 +174,42 @@ const Photo = ({ photo, uid }) => {
 
 /* ---------------- Text fields ---------------- */
 
+// Field icon (sirf naye renderData mein). Numbers backend PDF (drawFieldIcon) jaise; coordinates × S
+// kyunki fields wala group scale(1/S) mein hai. Library icon lazy load hota hai, tab tak kuch nahi.
+const FieldIcon = ({ icon, layout, S }) => {
+  const size = layout.size * S;
+  const x = layout.iconX * S;
+  const y = layout.iconY * S;
+  const inner = icon.background ? size * ICON_CHIP_INNER : size;
+  const offset = (size - inner) / 2;
+  const isUpload = icon.source === 'UPLOAD';
+  // getIconComponent har key ka EK hi lazy component cache se deta hai (har render par naya nahi)
+  const Icon = isUpload ? null : getIconComponent(icon.key);
+
+  return (
+    <g data-field-icon={isUpload ? 'upload' : icon.key}>
+      {icon.background && <circle cx={x + size / 2} cy={y + size / 2} r={size / 2} fill={icon.background} />}
+      {isUpload ? (
+        isImageUrl(icon.url) && (
+          <image href={icon.url} x={x + offset} y={y + offset} width={inner} height={inner} preserveAspectRatio={ASPECT.CONTAIN} />
+        )
+      ) : (
+        Icon && (
+          <Suspense fallback={null}>
+            {React.createElement(Icon, {
+              x: x + offset,
+              y: y + offset,
+              size: inner,
+              color: colorOr(icon.color, '#000000'),
+              'aria-hidden': 'true',
+            })}
+          </Suspense>
+        )
+      )}
+    </g>
+  );
+};
+
 const Field = ({ field, unit, W, S }) => {
   if (!field || field.visible === false) return null;
   const x = toNumber(field.x);
@@ -191,14 +228,20 @@ const Field = ({ field, unit, W, S }) => {
   if (!value) return null;
 
   const maxLines = Math.max(1, Math.round(toNumber(field.maxLines, 1)));
-  const width = field.width ? toNumber(field.width) : Math.max(W - x, 1);
+  const boxWidth = field.width ? toNumber(field.width) : Math.max(W - x, 1);
+  const align = ['CENTER', 'RIGHT'].includes(field.textAlign) ? field.textAlign.toLowerCase() : 'left';
+  // Icon ho to text uski jagah chhod kar (LEFT / RIGHT: chaudai kam, TOP: neeche)
+  const iconLayout = field.icon ? fieldIconLayout(field.icon, { x, y, width: boxWidth, fontUnits, align }) : null;
+  const textX = iconLayout ? iconLayout.textX : x;
+  const textY = iconLayout ? iconLayout.textY : y;
+  const width = iconLayout ? iconLayout.textWidth : boxWidth;
   const lineHeight = PDF_LINE_HEIGHT + (toNumber(field.lineHeight, DEFAULT_LINE_HEIGHT) - DEFAULT_LINE_HEIGHT);
   const letterSpacing = unit === 'MM' ? toNumber(field.letterSpacing) * MM_PER_PT : toNumber(field.letterSpacing);
   const height = fontUnits * lineHeight * maxLines + fontUnits * 0.2;
   const color = colorOr(field.color, '#000000');
 
-  return (
-    <foreignObject x={x * S} y={y * S} width={width * S} height={height * S}>
+  const text = (
+    <foreignObject x={textX * S} y={textY * S} width={width * S} height={height * S}>
       <div
         xmlns="http://www.w3.org/1999/xhtml"
         style={{
@@ -212,7 +255,9 @@ const Field = ({ field, unit, W, S }) => {
           letterSpacing: letterSpacing * S,
           lineHeight,
           color,
-          textAlign: ['CENTER', 'RIGHT'].includes(field.textAlign) ? field.textAlign.toLowerCase() : 'left',
+          textAlign: align,
+          // Value ki line breaks PDF jaisi dikhein (custom address); bina line break wali value par koi fark nahi
+          whiteSpace: 'pre-line',
           display: '-webkit-box',
           WebkitLineClamp: maxLines,
           WebkitBoxOrient: 'vertical',
@@ -225,6 +270,14 @@ const Field = ({ field, unit, W, S }) => {
         {value}
       </div>
     </foreignObject>
+  );
+
+  if (!iconLayout) return text;
+  return (
+    <g>
+      <FieldIcon icon={field.icon} layout={iconLayout} S={S} />
+      {text}
+    </g>
   );
 };
 
