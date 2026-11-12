@@ -2,10 +2,13 @@
 // Designer ka "Design" tab: preset gallery, custom colors, active side ka background (Solid / Gradient / Letterhead),
 // decoration chips + intensity, validity (session / valid till).
 // Yahan sirf choices hain — shapes / colors ka asli hisaab backend preview karta hai.
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Palette, Image as ImageIcon, Sparkles, CalendarDays, Loader2 } from 'lucide-react';
 import ThemeGallery from './ThemeGallery.jsx';
 import ThemeOptionsSection from './ThemeOptionsSection.jsx';
+
+// Theme Builder (brand colours, style, layers) — Design tab khulne par hi load
+const ThemeBuilderSection = lazy(() => import('./themeBuilder/ThemeBuilderSection.jsx'));
 import {
   TEMPLATE_BACKGROUND_TYPES,
   TEMPLATE_BACKGROUND_TYPE_LABELS,
@@ -37,6 +40,7 @@ const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
  * @param {(patch: object) => void} props.onThemeChange
  * @param {(patch: object) => void} props.onSideBackgroundChange
  * @param {(patch: object) => void} props.onValidityChange
+ * @param {object} [props.themeBuilder] - Theme Builder handlers (roles + layers); UI Module 5 mein
  */
 export const ThemeDesignPanel = ({
   themes,
@@ -54,6 +58,9 @@ export const ThemeDesignPanel = ({
   onRenameSchoolTheme,
   onDeleteSchoolTheme,
   logoUrl = null,
+  themeBuilder = null,
+  onEditLayerOnCard = null,
+  card = null,
 }) => {
   const presets = themes?.presets || [];
   const presetKey = theme.presetKey || DEFAULT_CARD_THEME_KEY;
@@ -70,6 +77,29 @@ export const ThemeDesignPanel = ({
   const setColor = (key, value) => onThemeChange({ colors: { ...colors, [key]: value || null } });
   const setGradient = (patch) =>
     onThemeChange({ background: { ...(theme.background || {}), gradient: { ...gradient, ...patch } } });
+
+  // Theme Builder: artwork poore card ka design (ek artwork layer, dono sides), purani decorations band
+  const ownFrontLayers = Array.isArray(theme.background?.layers?.front) ? theme.background.layers.front : [];
+  const activeArtworkId = ownFrontLayers.find((l) => l.type === 'ARTWORK' && l.enabled !== false)?.artworkId || null;
+  const applyArtwork = (artwork) => {
+    if (!themeBuilder) return;
+    onThemeChange({ frontDecoration: 'NONE', backDecoration: 'NONE' });
+    themeBuilder.onLayersChange('FRONT', [
+      {
+        id: `artwork-${Date.now().toString(36)}`,
+        type: 'ARTWORK',
+        name: artwork.name,
+        enabled: true,
+        opacity: 1,
+        blendMode: 'NORMAL',
+        locked: false,
+        artworkId: artwork.id,
+        slotColors: {},
+        fit: 'COVER',
+      },
+    ]);
+    themeBuilder.onLayersChange('BACK', null);
+  };
 
   if (themesLoading && !themes) {
     return (
@@ -88,7 +118,31 @@ export const ThemeDesignPanel = ({
         onSave={onSaveSchoolTheme}
         onRename={onRenameSchoolTheme}
         onDelete={onDeleteSchoolTheme}
+        onApplyArtwork={themeBuilder ? applyArtwork : null}
+        activeArtworkId={activeArtworkId}
       />
+
+      {themeBuilder && (
+        <Suspense
+          fallback={(
+            <p className="flex items-center gap-2 text-xs text-slate-500">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading theme builder…
+            </p>
+          )}
+        >
+          <ThemeBuilderSection
+            theme={theme}
+            preset={preset}
+            side={side}
+            themeBuilder={themeBuilder}
+            onThemeChange={onThemeChange}
+            logoUrl={logoUrl}
+            onEditLayerOnCard={onEditLayerOnCard}
+            artworks={themes?.artworks || []}
+            card={card}
+          />
+        </Suspense>
+      )}
 
       <ThemeOptionsSection
         theme={theme}

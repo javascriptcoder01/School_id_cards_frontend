@@ -19,6 +19,7 @@ import {
 } from '../../../constants/template.js';
 import { toNumber, clamp, getLayerKey } from '../../../utils/templateLayout.js';
 import { sideOf, mergeDraftIntoRender } from '../../../utils/templateDesigner.js';
+import { getSideLayers, presetThemeBuilderData, themeLayersOf } from '../../../utils/themeLayers.js';
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 1.5;
@@ -68,6 +69,8 @@ export const CardDesigner = ({
   previewError,
   invalidLabels = [],
   handlers,
+  // Theme Builder V2 (designer-context features.themeBuilderV2) — off = builder UI chhupa
+  themeBuilderEnabled = false,
 }) => {
   const [side, setSide] = useState(TEMPLATE_SIDES.FRONT);
   const [leftTab, setLeftTab] = useState('DESIGN');
@@ -76,6 +79,8 @@ export const CardDesigner = ({
   const [selected, setSelectedState] = useState(null);
   const [mobileTab, setMobileTab] = useState('DESIGN');
   const [confirmRecommended, setConfirmRecommended] = useState(false);
+  // Theme Builder "Edit on card": { layerId, side } (curve / shape layer)
+  const [bgEdit, setBgEdit] = useState(null);
 
   // Element select hua → mobile par Properties tab (lg+ par mobileTab ka koi asar nahi)
   const setSelected = (sel) => {
@@ -90,6 +95,27 @@ export const CardDesigner = ({
 
   // Back off ho to front
   const activeSide = side === TEMPLATE_SIDES.BACK && !formData.hasBack ? TEMPLATE_SIDES.FRONT : side;
+
+  // Edit on card: layer theme ki apni layers (ya abhi tak copy nahi hui to preset ki) mein se. Side badli / layer gayi → band.
+  const editableLayers = getSideLayers(
+    themeLayersOf(formData.theme) ||
+      presetThemeBuilderData([...(themes?.presets || []), ...(themes?.schoolThemes || [])].find((p) => p.key === formData.theme?.presetKey)).layers,
+    activeSide
+  );
+  const bgEditLayer = bgEdit && bgEdit.side === activeSide
+    ? editableLayers.find((l) => l.id === bgEdit.layerId && (l.type === 'CURVE' || l.type === 'SHAPE')) || null
+    : null;
+  const backgroundEdit = bgEditLayer
+    ? {
+      layer: bgEditLayer,
+      onPatch: (patch) => handlers.onLayerUpdate(activeSide, bgEditLayer.id, patch),
+      onDone: () => setBgEdit(null),
+    }
+    : null;
+  const startBackgroundEdit = (layerId) => {
+    setSelectedState(null);
+    setBgEdit({ layerId, side: activeSide });
+  };
   const sideData = sideOf(formData, activeSide);
   const W = toNumber(formData.width, 86);
   const H = toNumber(formData.height, 54);
@@ -306,6 +332,19 @@ export const CardDesigner = ({
               logoUrl={profileUrls?.LOGO || null}
               onSideBackgroundChange={(patch) => handlers.onSideBackgroundChange(activeSide, patch)}
               onValidityChange={handlers.onValidityChange}
+              onEditLayerOnCard={startBackgroundEdit}
+              card={{ width: toNumber(formData.width), height: toNumber(formData.height), unit: formData.unit }}
+              themeBuilder={themeBuilderEnabled ? {
+                onThemeRolesChange: handlers.onThemeRolesChange,
+                onLayersChange: handlers.onLayersChange,
+                onLayerUpdate: handlers.onLayerUpdate,
+                onLayerAdd: handlers.onLayerAdd,
+                onLayerRemove: handlers.onLayerRemove,
+                onLayerMove: handlers.onLayerMove,
+                onLayerDuplicate: handlers.onLayerDuplicate,
+                onCopyLayersToOtherSide: handlers.onCopyLayersToOtherSide,
+                onResetThemeToPreset: handlers.onResetThemeToPreset,
+              } : null}
             />
           ) : (
             <ElementsPanel
@@ -339,6 +378,7 @@ export const CardDesigner = ({
         {/* Centre: canvas */}
         <div className="min-w-0 order-1 xl:order-2 space-y-2">
           <DesignerCanvas
+            backgroundEdit={backgroundEdit}
             renderData={renderData}
             sideData={sideData}
             side={activeSide}

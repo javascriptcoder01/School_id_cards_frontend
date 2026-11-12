@@ -1,9 +1,12 @@
 // IdCardSide.jsx
 // Card ka EK side (renderData.sides.front / back) inline SVG mein — backend PDF jaisa hi.
 // viewBox = template units (backend ke numbers seedhe), theme / decoration ka koi hisaab frontend mein nahi.
-// Draw order PDF jaisa: background → decorations → photo → fields → QR → image layers.
+// Draw order PDF jaisa: background → theme layers → decorations → photo → fields → QR → image layers.
+// Theme layers (Theme Builder) shared @app/theme-engine se SVG banti hain — backend PDF bhi wahi function chalata hai.
 // Pure presentational: Redux nahi.
-import React, { Suspense, useId } from 'react';
+import React, { Suspense, useId, useMemo } from 'react';
+import { ENGINE_VERSION, artworkIdsOf, renderLayersSvg, svgToDataUrl } from '@app/theme-engine';
+import { useThemeArtworkContent } from '../../hooks/useThemeArtworkContent.js';
 import { QRCodeSVG } from 'qrcode.react';
 import { TEMPLATE_BUNDLED_FONTS as BUNDLED_FONTS } from '../../constants/template.js';
 import { getIconComponent, fieldIconLayout, ICON_CHIP_INNER } from '../../utils/fieldIcons.js';
@@ -44,6 +47,33 @@ const resolveUnit = (unit, width, height) => {
 const safeId = (id) => id.replace(/[^a-zA-Z0-9_-]/g, '');
 
 /* ---------------- Background + decorations ---------------- */
+
+// Half-done deploy mein hi alag ho sakta hai: dev mein ek baar warning
+let engineVersionWarned = false;
+const warnEngineVersion = (version) => {
+  if (!import.meta.env.DEV || engineVersionWarned || !version || version === ENGINE_VERSION) return;
+  engineVersionWarned = true;
+  console.warn(`Theme engine version mismatch: server ${version}, browser ${ENGINE_VERSION}. Reload after the deploy finishes.`);
+};
+
+/**
+ * Theme Builder layers (renderData side.themeLayers). <image> data URL: andar ke ids is card se kabhi
+ * clash nahi karte, aur PDF wala hi SVG banta hai.
+ */
+export const ThemeLayers = ({ themeLayers, W, H, sideKey }) => {
+  // ARTWORK layers: sanitised SVG id se (ek baar fetch, sab cards share)
+  const artworkIds = useMemo(() => artworkIdsOf(themeLayers?.layers), [themeLayers]);
+  const artworks = useThemeArtworkContent(artworkIds, themeLayers?.artworks);
+  const href = useMemo(() => {
+    if (!themeLayers) return '';
+    warnEngineVersion(themeLayers.engineVersion);
+    return svgToDataUrl(
+      renderLayersSvg({ layers: themeLayers.layers, roles: themeLayers.roles, width: W, height: H, idPrefix: `${sideKey}-`, artworks })
+    );
+  }, [themeLayers, W, H, sideKey, artworks]);
+  if (!href) return null;
+  return <image href={href} x={0} y={0} width={W} height={H} preserveAspectRatio="none" />;
+};
 
 export const SideBackground = ({ background, W, H, uid }) => {
   const color = colorOr(background?.color, '#FFFFFF');
@@ -589,7 +619,8 @@ const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S, uid }) => {
  * @param {string} [props.className] - Width container se (SVG 100% chauda, height aspect ratio se)
  * @param {string} [props.title] - Screen reader ke liye
  */
-export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }) => {
+// dimElements: designer ka "Edit on card" (background layer edit) — photo / text / QR / images halke (sirf preview)
+export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title, dimElements = false }) => {
   const uid = safeId(useId());
   const isBack = String(side).toUpperCase() === 'BACK';
   const sideData = isBack ? renderData?.sides?.back : renderData?.sides?.front;
@@ -602,17 +633,8 @@ export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }
   // Text ke liye internal scale (foreignObject andar badi px values)
   const S = TEXT_RENDER_WIDTH / W;
 
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className={`block w-full h-auto ${className}`}
-      // Sirf preview: print hamesha square
-      style={sideData.cornerStyle === 'ROUNDED' ? { borderRadius: '4%' } : undefined}
-      role="img"
-      aria-label={title || `${isBack ? 'Back' : 'Front'} of ID card`}
-    >
-      <SideBackground background={sideData.background} W={W} H={H} uid={uid} />
-      <Decorations shapes={sideData.decorations} uid={uid} />
+  const elements = (
+    <>
       <Photo photo={sideData.photo} uid={uid} />
       <g transform={`scale(${1 / S})`}>
         {(sideData.fields || []).map((field, i) => (
@@ -629,6 +651,22 @@ export const IdCardSide = ({ renderData, side = 'FRONT', className = '', title }
         S={S}
         uid={uid}
       />
+    </>
+  );
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className={`block w-full h-auto ${className}`}
+      // Sirf preview: print hamesha square
+      style={sideData.cornerStyle === 'ROUNDED' ? { borderRadius: '4%' } : undefined}
+      role="img"
+      aria-label={title || `${isBack ? 'Back' : 'Front'} of ID card`}
+    >
+      <SideBackground background={sideData.background} W={W} H={H} uid={uid} />
+      <ThemeLayers themeLayers={sideData.themeLayers} W={W} H={H} sideKey={isBack ? 'back' : 'front'} />
+      <Decorations shapes={sideData.decorations} uid={uid} />
+      {dimElements ? <g opacity="0.25">{elements}</g> : elements}
     </svg>
   );
 };

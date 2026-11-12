@@ -33,6 +33,7 @@ import { toNumber, round2, clamp, createClientId, lengthForUnit, fontForUnit } f
 import { BG_REMOVAL_DEFAULTS, isCloudinaryUploadUrl } from '../constants/imageProcessing.js';
 import { activeTextBox, resolveTextBox } from './fieldTextBox.js';
 import { LOCAL_PROCESSING_MODE, isLocalProcessableUrl, localProcessingSettings } from './localImageProcessing.js';
+import { ENGINE_VERSION, hasVisibleLayers, layersForSide, resolveRoles } from '@app/theme-engine';
 
 /**
  * Layer ke frame + fit fields, purani layer par defaults ke saath (payload + canvas dono yahi lete hain)
@@ -253,11 +254,28 @@ const layersPayload = (layers) =>
     imageProcessing: l.imageProcessing || null,
   }));
 
-export const themePayload = (theme = {}) => ({
+// Theme Builder: roles / layers sirf tab bhejo jab theme mein hon (purane templates ka payload bilkul waisa)
+const THEME_ROLE_KEYS = ['primary', 'secondary', 'accent', 'surface', 'text', 'mutedText', 'onPrimary'];
+
+const rolesPayload = (roles) =>
+  roles && typeof roles === 'object' ? Object.fromEntries(THEME_ROLE_KEYS.map((key) => [key, hexOrNull(roles[key])])) : null;
+
+const themeLayersPayload = (layers) =>
+  layers && typeof layers === 'object' && Array.isArray(layers.front)
+    ? { front: layers.front, back: Array.isArray(layers.back) ? layers.back : null }
+    : null;
+
+export const themePayload = (theme = {}) => {
+  const roles = rolesPayload(theme.colors?.roles);
+  const layers = themeLayersPayload(theme.background?.layers);
+  return {
   presetKey: theme.presetKey,
-  colors: Object.fromEntries(
-    ['primary', 'secondary', 'accent', 'background', 'text', 'mutedText', 'onPrimary'].map((key) => [key, hexOrNull(theme.colors?.[key])])
-  ),
+  colors: {
+    ...Object.fromEntries(
+      ['primary', 'secondary', 'accent', 'background', 'text', 'mutedText', 'onPrimary'].map((key) => [key, hexOrNull(theme.colors?.[key])])
+    ),
+    ...(roles ? { roles } : {}),
+  },
   background: {
     type: theme.background?.type || null,
     gradient: {
@@ -265,6 +283,7 @@ export const themePayload = (theme = {}) => ({
       from: hexOrNull(theme.background?.gradient?.from),
       to: hexOrNull(theme.background?.gradient?.to),
     },
+    ...(layers ? { layers } : {}),
   },
   frontDecoration: theme.frontDecoration || null,
   backDecoration: theme.backDecoration || null,
@@ -280,7 +299,8 @@ export const themePayload = (theme = {}) => ({
     textColorMode: theme.options?.textColorMode || null,
     cornerStyle: theme.options?.cornerStyle || null,
   },
-});
+  };
+};
 
 /**
  * Poora template (front + back + theme + validity) — save aur preview-render dono.
@@ -412,6 +432,23 @@ const placeholderValue = (f) => (f.field === 'customText' ? f.customText || 'Cus
  * aakhri backend preview se, position / size / style draft se.
  * profileUrls: { LOGO, PRINCIPAL_SIGNATURE, STAMP } → school profile image ka url (designer-context)
  */
+/**
+ * Draft theme ki layers is side ke liye (turant preview, backend ka intezaar nahi).
+ * Form theme mein `layers` key hi na ho → backend wala (undefined); layers khaali / hidden → null.
+ * Roles: form ke roles → backend ke resolved roles → engine defaults.
+ */
+const draftThemeLayers = (theme, key, baseThemeLayers) => {
+  const background = theme?.background;
+  if (!background || !Object.prototype.hasOwnProperty.call(background, 'layers')) return undefined;
+  const layers = layersForSide(background.layers, key);
+  if (!hasVisibleLayers(layers)) return null;
+  return {
+    layers,
+    roles: resolveRoles(theme?.colors?.roles, baseThemeLayers?.roles),
+    engineVersion: ENGINE_VERSION,
+  };
+};
+
 export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = null) => {
   if (!renderData?.sides) return renderData;
   const key = isBackSide(side) ? 'back' : 'front';
@@ -506,12 +543,17 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
     };
   });
 
+  const draftLayers = draftThemeLayers(formData.theme, key, base.themeLayers);
+  const merged = { ...base, side, width: W, height: H, unit, fields, photo, qrCode, imageLayers };
+  if (draftLayers) merged.themeLayers = draftLayers;
+  else if (draftLayers === null) delete merged.themeLayers;
+
   return {
     ...renderData,
     template: { ...renderData.template, width: W, height: H, unit },
     sides: {
       ...renderData.sides,
-      [key]: { ...base, side, width: W, height: H, unit, fields, photo, qrCode, imageLayers },
+      [key]: merged,
     },
   };
 };

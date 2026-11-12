@@ -6,6 +6,8 @@ import ThemeThumbnail from './ThemeThumbnail.jsx';
 
 const ALL = 'ALL';
 const SCHOOL = 'SCHOOL';
+// Super Admin SVG artwork (catalog.artworks) — preset nahi, design layer ke roop mein lagti hai
+const ARTWORK = 'ARTWORK';
 const NAME_MAX = 60;
 
 const chipClass = (active) =>
@@ -99,8 +101,10 @@ const ThemeNameDialog = ({ title, initialName, confirmLabel, onSubmit, onClose }
  * @param {(name: string, callbacks: object) => void} [props.onSave]
  * @param {(id: string, name: string, callbacks: object) => void} [props.onRename]
  * @param {(id: string, callbacks: object) => void} [props.onDelete]
+ * @param {(artwork: object) => void} [props.onApplyArtwork] - Artwork category ka item
+ * @param {string|null} [props.activeArtworkId]
  */
-export const ThemeGallery = ({ themes, presetKey, onApply, onSave, onRename, onDelete }) => {
+export const ThemeGallery = ({ themes, presetKey, onApply, onSave, onRename, onDelete, onApplyArtwork = null, activeArtworkId = null }) => {
   const [category, setCategory] = useState(ALL);
   const [search, setSearch] = useState('');
   const [dialog, setDialog] = useState(null); // { mode: 'SAVE' } | { mode: 'RENAME', theme }
@@ -114,6 +118,10 @@ export const ThemeGallery = ({ themes, presetKey, onApply, onSave, onRename, onD
   const canSave = Array.isArray(schoolThemes) && Boolean(onSave);
   const query = search.trim().toLowerCase();
 
+  const artworks = themes?.artworks || [];
+  const shownArtworks = category === ARTWORK
+    ? artworks.filter((art) => matchesSearch({ name: art.name, tags: [art.category] }, query))
+    : [];
   const source = category === SCHOOL ? schoolThemes || [] : presets;
   const shown = source.filter((theme) => (category === ALL || category === SCHOOL || theme.category === category) && matchesSearch(theme, query));
 
@@ -183,7 +191,38 @@ export const ThemeGallery = ({ themes, presetKey, onApply, onSave, onRename, onD
 
       {deleteError && <p className="text-[11px] text-rose-700" role="alert">{deleteError}</p>}
 
-      {shown.length === 0 ? (
+      {category === ARTWORK ? (
+        shownArtworks.length === 0 ? (
+          <p className="py-4 text-center text-[11px] text-slate-500">No artwork matches your search.</p>
+        ) : (
+          <div className="grid max-h-[26rem] grid-cols-3 gap-1.5 overflow-y-auto pr-1">
+            {shownArtworks.map((art) => {
+              const active = art.id === activeArtworkId;
+              return (
+                <button
+                  key={art.id}
+                  type="button"
+                  disabled={!onApplyArtwork}
+                  onClick={() => onApplyArtwork?.(art)}
+                  aria-pressed={active}
+                  title={`${art.name} · ${art.category}`}
+                  className={`relative w-full rounded-xl border-2 p-1 text-left transition-colors disabled:opacity-50 ${active ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent hover:border-slate-300'}`}
+                >
+                  <span className="flex aspect-[5/8] w-full items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-slate-200">
+                    {art.thumbnailUrl ? <img src={art.thumbnailUrl} alt="" className="h-full w-full object-contain" /> : <Sparkles className="h-4 w-4 text-slate-300" />}
+                  </span>
+                  <span className="mt-1 block truncate text-[10px] font-semibold text-slate-700">{art.name}</span>
+                  {active && (
+                    <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-indigo-600 text-white">
+                      <Check className="h-2.5 w-2.5" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )
+      ) : shown.length === 0 ? (
         <p className="py-4 text-center text-[11px] text-slate-500">
           {category === SCHOOL && !query ? 'No school themes yet. Design a card, then save it here.' : 'No themes match your search.'}
         </p>

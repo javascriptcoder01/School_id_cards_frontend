@@ -1,6 +1,6 @@
 // ThemeThumbnail.jsx — theme ka chhota card: API ke preview (background + decorations) se, card wale hi drawing se.
 import React, { useId } from 'react';
-import { Decorations, SideBackground } from '../../idCards/IdCardSide.jsx';
+import { Decorations, SideBackground, ThemeLayers } from '../../idCards/IdCardSide.jsx';
 
 /**
  * @param {object} props
@@ -16,6 +16,8 @@ export const ThemeThumbnail = ({ theme }) => {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="block w-full rounded-md ring-1 ring-slate-200" aria-hidden="true">
       <SideBackground background={preview.background} W={W} H={H} uid={uid} />
+      {/* Layered presets / school themes: card wala hi shared renderer */}
+      <ThemeLayers themeLayers={preview.themeLayers} W={W} H={H} sideKey="front" />
       <Decorations shapes={preview.decorations} uid={uid} />
       {/* Naam + class ki jagah: rang dikhane ke liye */}
       <rect x={W * 0.25} y={H * 0.5} width={W * 0.5} height={lineH} rx={lineH / 2} fill={theme.colors?.text} />

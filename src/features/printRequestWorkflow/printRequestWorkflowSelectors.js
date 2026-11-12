@@ -23,6 +23,9 @@ export const selectPrintRequestSummaryLoading = (state) => Boolean(state.printRe
 // Detail
 export const selectPrintRequestDetail = (state) => state.printRequestWorkflow?.detail?.data?.request || null;
 export const selectPrintRequestStudents = (state) => state.printRequestWorkflow?.detail?.data?.students || [];
+const NO_WARNINGS = [];
+// Theme Builder "Print check" (Super Admin)
+export const selectPrintRequestPrintCheck = (state) => state.printRequestWorkflow?.detail?.data?.printCheck || NO_WARNINGS;
 export const selectPrintRequestDetailLoading = (state) => Boolean(state.printRequestWorkflow?.detail?.loading);
 export const selectPrintRequestDetailError = (state) => state.printRequestWorkflow?.detail?.error || null;
 

@@ -64,6 +64,9 @@ export const ROUTES = {
   COMMISSION: '/commission',
   COMMISSION_COLLEGE: '/commission/colleges/:collegeId',
 
+  // Theme Builder artwork (SUPER_ADMIN)
+  THEME_ARTWORK: '/theme-artwork',
+
   UNAUTHORIZED: '/unauthorized',
   NOT_FOUND: '*',
 };

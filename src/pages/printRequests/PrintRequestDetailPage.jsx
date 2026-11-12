@@ -18,6 +18,7 @@ import {
 import {
   selectPrintRequestDetail,
   selectPrintRequestStudents,
+  selectPrintRequestPrintCheck,
   selectPrintRequestDetailLoading,
   selectPrintRequestDetailError,
   selectPrintRequestLoadingAction,
@@ -42,6 +43,7 @@ import RequestAmount from '../../components/commission/RequestAmount.jsx';
 import { approveAmountMessage, cardsLabel } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 import { formatInrShort } from '../../utils/money.js';
+import PrintCheckChip from '../../components/idCards/PrintCheckChip.jsx';
 
 // Print files sirf in statuses mein (backend bhi yahi check karta hai — 409 warna)
 const PRINT_FILE_STATUSES = ['PRINTING', 'COMPLETED'];
@@ -76,6 +78,7 @@ export const PrintRequestDetailPage = () => {
   const role = useSelector(selectUserRole);
   const request = useSelector(selectPrintRequestDetail);
   const students = useSelector(selectPrintRequestStudents);
+  const printCheck = useSelector(selectPrintRequestPrintCheck);
   const loading = useSelector(selectPrintRequestDetailLoading);
   const error = useSelector(selectPrintRequestDetailError);
   const loadingAction = useSelector(selectPrintRequestLoadingAction);
@@ -309,6 +312,11 @@ export const PrintRequestDetailPage = () => {
                     )}
                   </SummaryRow>
                 </>
+              )}
+              {role === ROLES.SUPER_ADMIN && (
+                <SummaryRow label="Print check">
+                  <PrintCheckChip warnings={printCheck} />
+                </SummaryRow>
               )}
               {role === ROLES.SUPER_ADMIN && (
                 <SummaryRow label="Downloads">

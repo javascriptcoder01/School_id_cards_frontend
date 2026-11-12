@@ -18,6 +18,7 @@ import collegeProgressReducer from '../features/collegeProgress/collegeProgressS
 import idCardReducer from '../features/idCards/idCardSlice.js';
 import printRequestWorkflowReducer from '../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import commissionReducer from '../features/commission/commissionSlice.js';
+import themeArtworkReducer from '../features/themeArtwork/themeArtworkSlice.js';
 import dashboardOverviewReducer from '../features/dashboard/dashboardOverviewSlice.js';
 
 export const rootReducer = combineReducers({
@@ -40,6 +41,7 @@ export const rootReducer = combineReducers({
   idCards: idCardReducer,
   printRequestWorkflow: printRequestWorkflowReducer,
   commission: commissionReducer,
+  themeArtwork: themeArtworkReducer,
   dashboardOverview: dashboardOverviewReducer,
 });
 

@@ -60,6 +60,18 @@ import {
   normalizeFieldIcon,
   isCustomValueMissing,
 } from '../../utils/templateDesigner.js';
+import {
+  addLayerTo,
+  copyLayersToOtherSide,
+  createLayer,
+  duplicateLayerIn,
+  moveLayerIn,
+  presetThemeBuilderData,
+  removeLayerFrom,
+  setSideLayers,
+  themeLayersOf,
+  updateLayerIn,
+} from '../../utils/themeLayers.js';
 import { useCollegeAssets } from '../../hooks/useCollegeAssets.js';
 import {
   fetchThemesRequested,
@@ -294,13 +306,24 @@ const normalizeLayers = (layers) =>
     assetId: idOf(l.assetId),
   }));
 
+// Theme Builder layers: sirf tab key aati hai jab theme mein apni layers hon (warna preview backend wala)
+const normalizeThemeLayers = (layers) =>
+  layers && Array.isArray(layers.front)
+    ? { front: layers.front.map((l) => ({ ...l })), back: Array.isArray(layers.back) ? layers.back.map((l) => ({ ...l })) : null }
+    : null;
+
 const normalizeTheme = (theme) => ({
   presetKey: theme?.presetKey || DEFAULT_CARD_THEME_KEY,
-  colors: { ...(theme?.colors || {}) },
+  colors: {
+    ...(theme?.colors || {}),
+    roles: theme?.colors?.roles ? { ...theme.colors.roles } : null,
+  },
   background: {
     type: theme?.background?.type || null,
     gradient: { ...(theme?.background?.gradient || {}) },
+    ...(normalizeThemeLayers(theme?.background?.layers) ? { layers: normalizeThemeLayers(theme.background.layers) } : {}),
   },
+  schemaVersion: theme?.schemaVersion ?? null,
   frontDecoration: theme?.frontDecoration || null,
   backDecoration: theme?.backDecoration || null,
   decorationIntensity: theme?.decorationIntensity ?? null,
@@ -702,9 +725,15 @@ export const TemplateForm = ({
     setFormData((prev) => {
       const presetBg = preset.background?.type || TEMPLATE_BACKGROUND_TYPES.SOLID;
       const keepImage = (type, assetId) => type === TEMPLATE_BACKGROUND_TYPES.IMAGE && assetId;
+      // Layered preset / school theme: roles + layers form mein copy (school unhe edit kar sake). Purane presets: waisa hi.
+      const { layers, roles } = presetThemeBuilderData(preset);
       return {
         ...prev,
-        theme: normalizeTheme({ presetKey: preset.key }),
+        theme: normalizeTheme({
+          presetKey: preset.key,
+          ...(roles ? { colors: { roles } } : {}),
+          ...(layers ? { background: { layers } } : {}),
+        }),
         frontBackgroundType: keepImage(prev.frontBackgroundType, prev.backgroundAssetId) ? TEMPLATE_BACKGROUND_TYPES.IMAGE : presetBg,
         back: prev.back
           ? {
@@ -717,6 +746,49 @@ export const TemplateForm = ({
   };
 
   const handleThemeChange = (patch) => setFormData((prev) => ({ ...prev, theme: { ...prev.theme, ...patch } }));
+
+  /* ---------- Theme Builder (roles + background layers) ---------- */
+
+  // Catalog / school themes mein us key ka preset (layers / roles copy ke liye)
+  const findThemePreset = (key) =>
+    (themes?.presets || []).find((p) => p.key === key) || (themes?.schoolThemes || []).find((t) => t.key === key) || null;
+
+  // Theme ki apni layers; na hon to (purana save / preset abhi apply) us preset ki copy se shuru
+  const startingLayers = (theme) => themeLayersOf(theme) || presetThemeBuilderData(findThemePreset(theme?.presetKey)).layers;
+
+  const updateThemeLayers = (fn) =>
+    setFormData((prev) => ({
+      ...prev,
+      theme: { ...prev.theme, background: { ...prev.theme.background, layers: fn(startingLayers(prev.theme)) } },
+    }));
+
+  const handleThemeRolesChange = (rolesPatch) =>
+    setFormData((prev) => {
+      const current = prev.theme.colors?.roles || presetThemeBuilderData(findThemePreset(prev.theme.presetKey)).roles || {};
+      return { ...prev, theme: { ...prev.theme, colors: { ...prev.theme.colors, roles: { ...current, ...rolesPatch } } } };
+    });
+  const handleLayersChange = (side, layers) => updateThemeLayers((current) => setSideLayers(current, side, layers));
+  const handleLayerUpdate = (side, id, patch) => updateThemeLayers((current) => updateLayerIn(current, side, id, patch));
+  const handleLayerAdd = (side, type, preset = null) => updateThemeLayers((current) => addLayerTo(current, side, createLayer(type, preset)));
+  const handleLayerRemove = (side, id) => updateThemeLayers((current) => removeLayerFrom(current, side, id));
+  const handleLayerMove = (side, id, delta) => updateThemeLayers((current) => moveLayerIn(current, side, id, delta));
+  const handleLayerDuplicate = (side, id) => updateThemeLayers((current) => duplicateLayerIn(current, side, id));
+  const handleCopyLayersToOtherSide = (fromSide) => updateThemeLayers((current) => copyLayersToOtherSide(current, fromSide));
+
+  // Roles + layers wapas chune hue preset / school theme jaise (baaki theme settings waise hi)
+  const handleResetThemeToPreset = () =>
+    setFormData((prev) => {
+      const { layers, roles } = presetThemeBuilderData(findThemePreset(prev.theme.presetKey));
+      const { layers: _dropped, ...background } = prev.theme.background || {};
+      return {
+        ...prev,
+        theme: {
+          ...prev.theme,
+          colors: { ...prev.theme.colors, roles },
+          background: layers ? { ...background, layers } : background,
+        },
+      };
+    });
 
   // School themes: designer ka abhi ka theme (callbacks se modal ka saving / error)
   const handleSaveSchoolTheme = (name, callbacks) =>
@@ -771,6 +843,15 @@ export const TemplateForm = ({
     onRemoveLayer: handleRemoveLayer,
     onApplyPreset: handleApplyPreset,
     onThemeChange: handleThemeChange,
+    onThemeRolesChange: handleThemeRolesChange,
+    onLayersChange: handleLayersChange,
+    onLayerUpdate: handleLayerUpdate,
+    onLayerAdd: handleLayerAdd,
+    onLayerRemove: handleLayerRemove,
+    onLayerMove: handleLayerMove,
+    onLayerDuplicate: handleLayerDuplicate,
+    onCopyLayersToOtherSide: handleCopyLayersToOtherSide,
+    onResetThemeToPreset: handleResetThemeToPreset,
     onSaveSchoolTheme: handleSaveSchoolTheme,
     onRenameSchoolTheme: handleRenameSchoolTheme,
     onDeleteSchoolTheme: handleDeleteSchoolTheme,
@@ -1048,6 +1129,7 @@ export const TemplateForm = ({
 
       <Suspense fallback={<RouteLoader message="Loading card designer..." />}>
         <CardDesigner
+          themeBuilderEnabled={Boolean(designerContext?.features?.themeBuilderV2)}
           formData={formData}
           themes={themes}
           themesLoading={themesLoading}

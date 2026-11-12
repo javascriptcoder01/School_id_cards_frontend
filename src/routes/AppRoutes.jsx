@@ -55,6 +55,7 @@ const PrintCenterPage = lazy(() => import('../pages/printCenter/PrintCenterPage.
 const GenerateIdCardsPage = lazy(() => import('../pages/idCards/GenerateIdCardsPage.jsx'));
 const CommissionPage = lazy(() => import('../pages/commission/CommissionPage.jsx'));
 const CommissionCollegeLedgerPage = lazy(() => import('../pages/commission/CommissionCollegeLedgerPage.jsx'));
+const ThemeArtworkPage = lazy(() => import('../pages/themeArtwork/ThemeArtworkPage.jsx'));
 
 // Helper wrapper to ensure Suspense fallback on all lazy-loaded routes
 const withSuspense = (Component) => (
@@ -424,6 +425,16 @@ export const AppRoutes = () => {
         <Route path={ROUTES.SUPER_ADMIN_PRINT_CENTER} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
         <Route path={ROUTES.SUPER_ADMIN_PRINT_COLLEGE_DETAIL} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
         <Route path={ROUTES.ADMIN_PRINT_REQUESTS} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
+
+        {/* Theme Builder artwork (SUPER_ADMIN) */}
+        <Route
+          path={ROUTES.THEME_ARTWORK}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(ThemeArtworkPage)}
+            </RoleRoute>
+          }
+        />
 
         {/* Commission (SUPER_ADMIN) */}
         <Route

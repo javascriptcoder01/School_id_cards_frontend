@@ -14,6 +14,7 @@ import {
   UserCheck,
   Printer,
   IndianRupee,
+  Shapes,
 } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
@@ -168,6 +169,13 @@ export const Sidebar = () => {
       icon: Printer,
       roles: ['SUPER_ADMIN'],
       badgeStatusByRole: { SUPER_ADMIN: 'APPROVED' },
+    },
+    // Theme Builder: SVG artwork jo schools recolour karti hain
+    {
+      label: 'Theme Artwork',
+      path: ROUTES.THEME_ARTWORK,
+      icon: Shapes,
+      roles: ['SUPER_ADMIN'],
     },
     // Rate per card + payments
     {

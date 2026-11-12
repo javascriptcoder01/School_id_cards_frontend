@@ -172,7 +172,7 @@ export function* fetchRequestWorker(action) {
     const requestId = action.payload?.requestId || action.payload;
     const response = yield call(getRequestById, requestId);
     const data = dataOf(response);
-    yield put(fetchRequestSucceeded({ request: data?.request || null, students: data?.students || [] }));
+    yield put(fetchRequestSucceeded({ request: data?.request || null, students: data?.students || [], printCheck: data?.printCheck || [] }));
   } catch (error) {
     yield put(fetchRequestFailed(errorMessage(error, 'Failed to load print request')));
   }

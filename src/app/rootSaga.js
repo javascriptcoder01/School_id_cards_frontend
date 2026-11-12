@@ -16,6 +16,7 @@ import watchCollegeProgress from '../features/collegeProgress/collegeProgressSag
 import watchIdCards from '../features/idCards/idCardSaga.js';
 import watchPrintRequestWorkflow from '../features/printRequestWorkflow/printRequestWorkflowSaga.js';
 import watchCommission from '../features/commission/commissionSaga.js';
+import watchThemeArtwork from '../features/themeArtwork/themeArtworkSaga.js';
 import watchDashboardOverview from '../features/dashboard/dashboardOverviewSaga.js';
 
 export function* rootSaga() {
@@ -37,6 +38,7 @@ export function* rootSaga() {
     fork(watchIdCards),
     fork(watchPrintRequestWorkflow),
     fork(watchCommission),
+    fork(watchThemeArtwork),
     fork(watchDashboardOverview),
   ]);
 }

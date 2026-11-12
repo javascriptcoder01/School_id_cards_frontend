@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import IdCardSide from '../../idCards/IdCardSide.jsx';
+import { BackgroundEditOverlay, BackgroundEditToolbar } from './themeBuilder/BackgroundEditOverlay.jsx';
 import {
   DESIGNER_ELEMENT_TYPES,
   TEMPLATE_FIELD_LABELS,
@@ -126,6 +127,8 @@ const buildItems = (side, unit, W, prefix) => {
  * @param {(profileKey: string, at: { x: number, y: number }) => void} [props.onDropSchoolImage]
  * @param {string[]} [props.invalidLabels] - card ke bahar / galat elements (laal outline)
  * @param {boolean} [props.loading] - backend preview aa raha hai
+ * @param {{ layer: object, onPatch: (patch: object) => void, onDone: () => void }|null} [props.backgroundEdit]
+ *   Theme Builder "Edit on card": background curve / shape edit (card ke elements dim + locked)
  */
 export const DesignerCanvas = ({
   renderData,
@@ -144,7 +147,10 @@ export const DesignerCanvas = ({
   onDropSchoolImage,
   invalidLabels = [],
   loading = false,
+  backgroundEdit = null,
 }) => {
+  // Background edit: chuna hua curve point
+  const [bgPoint, setBgPoint] = useState(0);
   const overlayRef = useRef(null);
   const canvasRef = useRef(null);
   const dragRef = useRef(null);
@@ -392,6 +398,18 @@ export const DesignerCanvas = ({
         </span>
       )}
 
+      {backgroundEdit && (
+        <div className="relative z-10 px-2 pt-8 sm:px-3">
+          <BackgroundEditToolbar
+            layer={backgroundEdit.layer}
+            selectedPoint={bgPoint}
+            onSelectPoint={setBgPoint}
+            onPatch={backgroundEdit.onPatch}
+            onDone={backgroundEdit.onDone}
+          />
+        </div>
+      )}
+
       <div ref={scrollRef} className="relative w-full min-w-0 max-w-full overflow-auto overscroll-contain">
         {/* pt: selected label / rotate handle card ke upar kat na jaaye */}
         <div ref={stageRef} className="flex w-max min-w-full justify-center px-2 pb-2 pt-7 sm:px-3 sm:pb-3">
@@ -411,7 +429,7 @@ export const DesignerCanvas = ({
           >
             {renderData ? (
               <div className="rounded-xl overflow-hidden">
-                <IdCardSide renderData={renderData} side={side} />
+                <IdCardSide renderData={renderData} side={side} dimElements={Boolean(backgroundEdit)} />
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2 bg-white text-sm text-slate-500 rounded-xl" style={{ aspectRatio: `${W} / ${H}` }}>
@@ -496,6 +514,20 @@ export const DesignerCanvas = ({
                 );
               })}
             </div>
+
+            {backgroundEdit && (
+              <BackgroundEditOverlay
+                layer={backgroundEdit.layer}
+                cardWidth={W}
+                cardHeight={H}
+                snap={snap}
+                grid={grid}
+                selectedPoint={bgPoint}
+                onSelectPoint={setBgPoint}
+                onPatch={backgroundEdit.onPatch}
+                onDone={backgroundEdit.onDone}
+              />
+            )}
 
           </div>
         </div>

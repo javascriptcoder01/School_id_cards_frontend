@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -11,6 +11,10 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
+    // @app/theme-engine (file:../packages/theme-engine) project folder ke bahar hai — dev server use serve kar sake
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), '../packages/theme-engine'],
+    },
   },
   test: {
     globals: true,
@@ -19,4 +23,3 @@ export default defineConfig({
     testTimeout: 15000,
   },
 });
-
