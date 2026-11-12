@@ -277,6 +277,46 @@ export const TEMPLATE_IMAGE_BORDER_WIDTH_MAX = 40;
 export const TEMPLATE_IMAGE_PADDING_MAX = 200;
 export const TEMPLATE_IMAGE_DEFAULT_BORDER_COLOR = '#1E3A8A';
 
+// Text field ka box + effects (field.textBox) — backend constants/template.js ke saath same. Lambai card units mein.
+export const TEMPLATE_TEXT_BOX_BORDER_STYLES = { SOLID: 'SOLID', DASHED: 'DASHED', DOTTED: 'DOTTED', DOUBLE: 'DOUBLE' };
+export const TEMPLATE_TEXT_BOX_BORDER_STYLE_VALUES = Object.values(TEMPLATE_TEXT_BOX_BORDER_STYLES);
+export const TEMPLATE_TEXT_BOX_BORDER_SIDES = {
+  ALL: 'ALL',
+  TOP: 'TOP',
+  BOTTOM: 'BOTTOM',
+  TOP_BOTTOM: 'TOP_BOTTOM',
+  LEFT: 'LEFT',
+  RIGHT: 'RIGHT',
+  LEFT_RIGHT: 'LEFT_RIGHT',
+};
+export const TEMPLATE_TEXT_BOX_BORDER_SIDE_VALUES = Object.values(TEMPLATE_TEXT_BOX_BORDER_SIDES);
+export const TEMPLATE_TEXT_DECORATIONS = { NONE: 'NONE', UNDERLINE: 'UNDERLINE', LINE_THROUGH: 'LINE_THROUGH' };
+export const TEMPLATE_TEXT_DECORATION_VALUES = Object.values(TEMPLATE_TEXT_DECORATIONS);
+export const TEMPLATE_TEXT_BOX_LIMITS = {
+  BORDER_WIDTH_MAX: 20,
+  BORDER_RADIUS_MAX: 100,
+  PADDING_MAX: 50,
+  STROKE_WIDTH_MAX: 5,
+  SHADOW_OFFSET_MAX: 20,
+};
+// Naya box: sab band (kuch nahi badalta jab tak user na chune)
+export const TEMPLATE_TEXT_BOX_DEFAULTS = {
+  backgroundColor: null,
+  backgroundOpacity: 1,
+  borderWidth: 0,
+  borderColor: null,
+  borderStyle: TEMPLATE_TEXT_BOX_BORDER_STYLES.SOLID,
+  borderSides: TEMPLATE_TEXT_BOX_BORDER_SIDES.ALL,
+  borderRadius: 0,
+  padding: 0,
+  strokeWidth: 0,
+  strokeColor: null,
+  shadowColor: null,
+  shadowX: 0,
+  shadowY: 0,
+  decoration: TEMPLATE_TEXT_DECORATIONS.NONE,
+};
+
 // "Reset style" aur purani layers: poori image, bina frame ke
 export const TEMPLATE_IMAGE_STYLE_DEFAULTS = {
   fit: TEMPLATE_IMAGE_FITS.CONTAIN,

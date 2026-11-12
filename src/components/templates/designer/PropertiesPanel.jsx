@@ -47,6 +47,7 @@ import {
   ResetImageStyleButton,
 } from './ImageLayerStyleSections.jsx';
 import BackgroundRemovalSection from './BackgroundRemovalSection.jsx';
+import TextBoxSection from './TextBoxSection.jsx';
 
 const inputClass =
   'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white';
@@ -942,6 +943,7 @@ export const PropertiesPanel = ({
       {!field.width && (
         <p className="text-[11px] text-slate-400">Set a box width to wrap long values and use alignment or max lines.</p>
       )}
+      <TextBoxSection field={field} cardWidth={cardWidth} unitLabel={u} onSet={set} />
     </Panel>
   );
 };

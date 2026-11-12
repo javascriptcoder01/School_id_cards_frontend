@@ -270,6 +270,7 @@ export const UserForm = ({
               {errors.password && (
                 <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.password}</p>
               )}
+              <p className="text-xs text-slate-400 mt-1.5">Login details will be emailed to this user.</p>
             </div>
           )}
 

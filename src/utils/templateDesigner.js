@@ -30,6 +30,9 @@ import {
   TEMPLATE_FIELD_LABELS,
 } from '../constants/template.js';
 import { toNumber, round2, clamp, createClientId, lengthForUnit, fontForUnit } from './templateLayout.js';
+import { BG_REMOVAL_DEFAULTS, isCloudinaryUploadUrl } from '../constants/imageProcessing.js';
+import { activeTextBox, resolveTextBox } from './fieldTextBox.js';
+import { LOCAL_PROCESSING_MODE, isLocalProcessableUrl, localProcessingSettings } from './localImageProcessing.js';
 
 /**
  * Layer ke frame + fit fields, purani layer par defaults ke saath (payload + canvas dono yahi lete hain)
@@ -192,6 +195,7 @@ const fieldPayload = (f) => ({
   icon: fieldIconPayload(f.icon),
   valueSource: isSchoolValueField(f.field) && f.valueSource ? f.valueSource : null,
   customValue: isSchoolValueField(f.field) && f.valueSource === TEMPLATE_VALUE_SOURCES.CUSTOM ? cleanCustomValue(f.customValue) : null,
+  textBox: resolveTextBox(f.textBox),
 });
 
 const photoPayload = (p) =>
@@ -460,6 +464,8 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
       lineHeight: f.lineHeight,
       labelColor: f.labelColor || null,
       icon: draftIcon(f, rendered && draftColor.toUpperCase() === '#000000' ? rendered.color : draftColor),
+      // Box / effects turant dikhen (backend render data jaisa: kuch active na ho to null)
+      textBox: activeTextBox(f.textBox),
     };
   });
 
@@ -474,11 +480,15 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
       (r) => r.type === l.type && r.originalSource && r.originalSource === source
     );
     const processed = l.imageProcessing?.enabled === true && rendered?.processing?.applied === true;
-    const processing = l.imageProcessing?.enabled === true ? rendered?.processing || null : null;
+    // Base64 (Cloudinary nahi) image: settings seedhe draft se (LOCAL, browser process karta hai) — backend ka intezaar nahi
+    const local = l.imageProcessing?.enabled === true && !isCloudinaryUploadUrl(source) && isLocalProcessableUrl(source);
+    const processing = local
+      ? { applied: true, reason: null, mode: LOCAL_PROCESSING_MODE, settings: localProcessingSettings({ ...BG_REMOVAL_DEFAULTS, ...l.imageProcessing }) }
+      : l.imageProcessing?.enabled === true ? rendered?.processing || null : null;
     return {
       id: l._id || l.clientId,
       type: l.type,
-      source: processed ? rendered.source : source,
+      source: processed && !local ? rendered.source : source,
       originalSource: source,
       processing,
       imageSource: profile ? TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE : TEMPLATE_IMAGE_SOURCES.ASSET,

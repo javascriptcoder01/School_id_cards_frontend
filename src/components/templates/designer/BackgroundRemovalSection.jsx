@@ -11,6 +11,8 @@ import {
   presetSettings,
 } from '../../../constants/imageProcessing.js';
 import { CollapsibleSection, HexColorField, SegmentedField, SliderField, SwitchField } from './designerControls.jsx';
+import { LOCAL_PROCESSING_MODE, isLocalProcessableUrl } from '../../../utils/localImageProcessing.js';
+import { useLocalProcessedImage } from '../../../hooks/useLocalProcessedImage.js';
 
 const CUSTOM_PRESET = 'CUSTOM';
 const VIEWS = [
@@ -37,11 +39,14 @@ const smallButtonClass =
 export const BackgroundRemovalSection = ({ layer, renderLayer, previewLoading = false, onChange, onApplyToAll }) => {
   const settings = { ...BG_REMOVAL_DEFAULTS, ...(layer.imageProcessing || {}) };
   const originalUrl = renderLayer?.originalSource || renderLayer?.source || layer.url || null;
+  // Base64 (school profile) image: browser mein process (LOCAL) — Cloudinary wala tareeka neeche waisa hi
+  const isLocal = renderLayer?.processing?.mode === LOCAL_PROCESSING_MODE;
+  const local = useLocalProcessedImage(isLocal ? originalUrl : null, isLocal ? renderLayer.processing.settings : null);
   const applied = renderLayer?.processing?.applied === true;
-  const processedUrl = applied ? renderLayer.source : null;
+  const processedUrl = isLocal ? local.url : applied ? renderLayer.source : null;
   // Render data ka reason; usse pehle bhi pata ho sakta hai (URL se)
   const reason = renderLayer?.processing?.reason
-    || (originalUrl && !isCloudinaryUploadUrl(originalUrl) ? BG_REMOVAL_NOT_APPLICABLE_MESSAGE : null);
+    || (originalUrl && !isCloudinaryUploadUrl(originalUrl) && !isLocalProcessableUrl(originalUrl) ? BG_REMOVAL_NOT_APPLICABLE_MESSAGE : null);
 
   const [view, setView] = useState('AFTER');
   const [loadError, setLoadError] = useState(false);
@@ -96,7 +101,7 @@ export const BackgroundRemovalSection = ({ layer, renderLayer, previewLoading = 
   ];
   const activePreset = settings.preset || CUSTOM_PRESET;
   const hasInk = Boolean(settings.inkColor);
-  const busy = imageLoading || (previewLoading && settings.enabled);
+  const busy = imageLoading || (previewLoading && settings.enabled) || (isLocal && local.loading);
 
   return (
     <CollapsibleSection title="Background removal" defaultOpen={layer.type === 'SIGNATURE' || layer.type === 'STAMP'}>
@@ -167,7 +172,7 @@ export const BackgroundRemovalSection = ({ layer, renderLayer, previewLoading = 
                 <button
                   key={color}
                   type="button"
-                  onClick={() => setControl({ inkColor: color, inkStrength: settings.inkStrength || 60 })}
+                  onClick={() => setControl({ inkColor: color, inkStrength: settings.inkStrength || 100 })}
                   aria-label={`Ink colour ${color}`}
                   aria-pressed={settings.inkColor === color}
                   className={`h-6 w-6 rounded-full ring-offset-1 ${settings.inkColor === color ? 'ring-2 ring-indigo-500' : 'ring-1 ring-slate-200'}`}
@@ -176,11 +181,15 @@ export const BackgroundRemovalSection = ({ layer, renderLayer, previewLoading = 
               ))}
             </div>
           </div>
+          {/* Koi bhi rang: sign / seal us rang mein (100% = poora wahi rang) */}
+          <HexColorField
+            label="Custom ink colour"
+            value={settings.inkColor || ''}
+            fallback="#1A237E"
+            onChange={(inkColor) => setControl({ inkColor, inkStrength: settings.inkStrength || 100 })}
+          />
           {hasInk && (
-            <>
-              <HexColorField label="Ink hex" value={settings.inkColor} fallback="#1A237E" onChange={(inkColor) => setControl({ inkColor })} />
-              <SliderField label="Ink strength" value={settings.inkStrength} min={0} max={100} onChange={(inkStrength) => setControl({ inkStrength })} />
-            </>
+            <SliderField label="Ink strength" value={settings.inkStrength} min={0} max={100} suffix="%" onChange={(inkStrength) => setControl({ inkStrength })} />
           )}
           <SliderField label="Contrast" value={settings.contrast} min={-100} max={100} onChange={(contrast) => setControl({ contrast })} />
           <SliderField label="Sharpen" value={settings.sharpen} min={0} max={400} step={10} onChange={(sharpen) => setControl({ sharpen })} />

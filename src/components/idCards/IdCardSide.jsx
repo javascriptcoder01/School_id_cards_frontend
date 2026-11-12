@@ -7,6 +7,8 @@ import React, { Suspense, useId } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { TEMPLATE_BUNDLED_FONTS as BUNDLED_FONTS } from '../../constants/template.js';
 import { getIconComponent, fieldIconLayout, ICON_CHIP_INNER } from '../../utils/fieldIcons.js';
+import { useLocalProcessedImage } from '../../hooks/useLocalProcessedImage.js';
+import { textBoxBorderPaths, textBoxDash, textBoxRect } from '../../utils/fieldTextBox.js';
 
 // Purane templates (unit save nahi hua, default PX) ka size mm mein tha → MM (backend jaisa rule)
 const LEGACY_MM_MAX_SIZE = 150;
@@ -210,6 +212,60 @@ const FieldIcon = ({ icon, layout, S }) => {
   );
 };
 
+// Field ka box (sirf jab render data mein textBox ho). Numbers backend PDF (drawFieldTextBox) jaise; × S.
+const FieldTextBox = ({ box, field, x, y, textY, width, fontUnits, S }) => {
+  const rect = textBoxRect({ x, y, textY, width, fontSize: fontUnits, lineHeight: field.lineHeight, maxLines: field.maxLines, padding: toNumber(box.padding) });
+  const radius = Math.min(toNumber(box.borderRadius), rect.width / 2, rect.height / 2);
+  const borderWidth = toNumber(box.borderWidth);
+  const paths = borderWidth > 0 && box.borderColor
+    ? textBoxBorderPaths(rect, { borderStyle: box.borderStyle, borderSides: box.borderSides, borderWidth, borderRadius: radius })
+    : [];
+  const backgroundOpacity = Math.min(Math.max(toNumber(box.backgroundOpacity, 1), 0), 1);
+
+  return (
+    <g data-field-box="true">
+      {box.backgroundColor && backgroundOpacity > 0 && (
+        <rect
+          x={rect.x * S}
+          y={rect.y * S}
+          width={rect.width * S}
+          height={rect.height * S}
+          rx={radius > 0 ? radius * S : undefined}
+          fill={box.backgroundColor}
+          fillOpacity={backgroundOpacity}
+        />
+      )}
+      {paths.map((path, i) => {
+        const dash = textBoxDash(box.borderStyle, path.lineWidth);
+        const stroke = {
+          fill: 'none',
+          stroke: colorOr(box.borderColor, '#000000'),
+          strokeWidth: path.lineWidth * S,
+          strokeDasharray: dash ? `${dash[0] * S} ${dash[1] * S}` : undefined,
+        };
+        return path.type === 'RECT' ? (
+          <rect key={i} x={path.x * S} y={path.y * S} width={path.width * S} height={path.height * S} rx={path.radius > 0 ? path.radius * S : undefined} {...stroke} />
+        ) : (
+          <line key={i} x1={path.x1 * S} y1={path.y1 * S} x2={path.x2 * S} y2={path.y2 * S} {...stroke} />
+        );
+      })}
+    </g>
+  );
+};
+
+// Text effects (outline / shadow / underline) — PDF drawEffectText jaise
+const textEffectStyle = (box, S) => {
+  if (!box) return {};
+  const strokeWidth = toNumber(box.strokeWidth);
+  const shadowX = toNumber(box.shadowX);
+  const shadowY = toNumber(box.shadowY);
+  return {
+    WebkitTextStroke: strokeWidth > 0 && box.strokeColor ? `${strokeWidth * S}px ${box.strokeColor}` : undefined,
+    textShadow: box.shadowColor && (shadowX || shadowY) ? `${shadowX * S}px ${shadowY * S}px 0 ${box.shadowColor}` : undefined,
+    textDecoration: box.decoration === 'UNDERLINE' ? 'underline' : box.decoration === 'LINE_THROUGH' ? 'line-through' : undefined,
+  };
+};
+
 const Field = ({ field, unit, W, S }) => {
   if (!field || field.visible === false) return null;
   const x = toNumber(field.x);
@@ -264,6 +320,7 @@ const Field = ({ field, unit, W, S }) => {
           overflow: 'hidden',
           overflowWrap: 'anywhere',
           margin: 0,
+          ...textEffectStyle(field.textBox, S),
         }}
       >
         {field.label && <span style={{ color: colorOr(field.labelColor, color) }}>{field.label}: </span>}
@@ -272,10 +329,13 @@ const Field = ({ field, unit, W, S }) => {
     </foreignObject>
   );
 
-  if (!iconLayout) return text;
+  if (!iconLayout && !field.textBox) return text;
   return (
     <g>
-      <FieldIcon icon={field.icon} layout={iconLayout} S={S} />
+      {field.textBox && (
+        <FieldTextBox box={field.textBox} field={field} x={x} y={y} textY={textY} width={boxWidth} fontUnits={fontUnits} S={S} />
+      )}
+      {iconLayout && <FieldIcon icon={field.icon} layout={iconLayout} S={S} />}
       {text}
     </g>
   );
@@ -445,6 +505,22 @@ const StyledImageLayer = ({ layer, x, y, w, h, rotation, opacity, clipId }) => {
   );
 };
 
+// LOCAL processing wali layer: processed image (tab tak original) ko usi ImageLayers se draw karo — frame / fit / rotation sab same
+const LocalProcessedLayer = ({ layer, W, H, S, uid }) => {
+  const { url } = useLocalProcessedImage(layer.source, layer.processing.settings);
+  return (
+    <ImageLayers
+      layers={[{ ...layer, source: url || layer.source, processing: null }]}
+      template={null}
+      includeLegacyLogo={false}
+      W={W}
+      H={H}
+      S={S}
+      uid={uid}
+    />
+  );
+};
+
 const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S, uid }) => {
   const sorted = [...(layers || [])].sort((a, b) => toNumber(a.zIndex, 10) - toNumber(b.zIndex, 10));
   const hasLogoLayer = sorted.some((layer) => layer.type === 'LOGO');
@@ -467,6 +543,10 @@ const ImageLayers = ({ layers, template, includeLegacyLogo, W, H, S, uid }) => {
         const rotation = toNumber(layer.rotation);
         if (missing) {
           return <MissingImage key={layer.id || i} layer={layer} x={x} y={y} w={w} h={h} rotation={rotation} S={S} />;
+        }
+        // Base64 image ka background removal (LOCAL): browser mein process karke wahi drawing (neeche wala code)
+        if (layer.processing?.mode === 'LOCAL' && layer.processing.settings) {
+          return <LocalProcessedLayer key={layer.id || i} layer={layer} W={W} H={H} S={S} uid={`${uid}-local${i}`} />;
         }
         const opacity = Math.min(Math.max(toNumber(layer.opacity, 1), 0), 1);
         if (!isPlainLayer(layer)) {

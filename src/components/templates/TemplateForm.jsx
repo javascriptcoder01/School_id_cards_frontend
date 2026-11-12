@@ -118,6 +118,7 @@ const makeField = (field, overrides = {}) => ({
   icon: null,
   valueSource: null,
   customValue: null,
+  textBox: null,
   ...overrides,
 });
 
@@ -283,6 +284,7 @@ const normalizeField = (f) =>
     icon: normalizeFieldIcon(f.icon),
     valueSource: f.valueSource || null,
     customValue: f.customValue ?? null,
+    textBox: f.textBox ?? null,
   });
 
 const normalizeLayers = (layers) =>

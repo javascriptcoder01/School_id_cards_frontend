@@ -1,4 +1,5 @@
 import { takeLatest, call, put } from 'redux-saga/effects';
+import { showNotification } from '../notifications/notificationSlice.js';
 import {
   fetchUsersRequested,
   fetchUsersSucceeded,
@@ -63,6 +64,18 @@ export function* createUserWorker(action) {
     const user = data?.user || data;
 
     yield put(createUserSucceeded(user));
+
+    // Login details email ka status (sirf jab backend bheje; purane response par kuch nahi)
+    const credentialsEmail = data?.credentialsEmail;
+    if (credentialsEmail && typeof credentialsEmail === 'object') {
+      yield put(
+        showNotification(
+          credentialsEmail.queued
+            ? { type: 'SUCCESS', title: 'User created', message: `Login details emailed to ${user?.email || 'the user'}` }
+            : { type: 'WARNING', title: 'User created', message: 'Email not sent — share the login details manually' }
+        )
+      );
+    }
 
     if (typeof payload.onSuccess === 'function') {
       payload.onSuccess(user);
