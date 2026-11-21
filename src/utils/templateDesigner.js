@@ -572,7 +572,8 @@ export const mergeDraftIntoRender = (renderData, formData, side, profileUrls = n
  * @param {{ signatureAsset?: object, returnNote?: string }} [options]
  * @returns {object} back side (fields, qrCode, imageLayers…)
  */
-export const buildRecommendedBackLayout = ({ unit, width, height }, { signatureAsset = null, returnNote = null } = {}) => {
+// profileSignature (school profile ki principal signature, schoolImages entry) ho to wahi (live) — warna purana signatureAsset
+export const buildRecommendedBackLayout = ({ unit, width, height }, { signatureAsset = null, profileSignature = null, returnNote = null } = {}) => {
   const W = toNumber(width);
   const H = toNumber(height);
   const isLandscape = W > H;
@@ -670,11 +671,29 @@ export const buildRecommendedBackLayout = ({ unit, width, height }, { signatureA
   );
   fields[fields.length - 1].x = margin;
 
-  // Principal signature (asset ho to) + "Principal" text uske neeche
+  // Principal signature (profile ya asset ho to) + "Principal" text uske neeche
   const imageLayers = [];
   const sigWidth = round2(short * 0.36);
   const sigX = round2(W - sigWidth - margin);
-  if (signatureAsset) {
+  if (profileSignature) {
+    imageLayers.push({
+      clientId: createClientId(),
+      source: TEMPLATE_IMAGE_SOURCES.COLLEGE_PROFILE,
+      profileKey: profileSignature.key,
+      type: 'SIGNATURE',
+      assetId: null,
+      url: profileSignature.url || null,
+      lockAspectRatio: true,
+      x: sigX,
+      y: round2(sigY - signatureHeight * 0.35),
+      width: sigWidth,
+      height: round2(signatureHeight * 0.75),
+      opacity: 1,
+      rotation: 0,
+      zIndex: 11,
+      visible: true,
+    });
+  } else if (signatureAsset) {
     imageLayers.push({
       clientId: createClientId(),
       type: 'SIGNATURE',

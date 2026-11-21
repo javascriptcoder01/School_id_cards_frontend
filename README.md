@@ -21,10 +21,12 @@ An enterprise-grade, multi-tenant Web Application for Educational Institution Go
 ## 1. Overview & Architecture
 
 The School ID Cards frontend is built using **React 19**, **Vite**, **Redux Toolkit**, and **Redux Saga**. It delivers a role-aware interface for three distinct user roles:
-- **`SUPER_ADMIN`**: Multi-tenant platform management, college provisioning, user administration, and system-wide template control.
-- **`COLLEGE_ADMIN`**: Institution-level student records, bulk CSV/Excel imports, interactive visual template designer, batch ID card generation jobs, and physical output downloads.
-- **`OPERATOR`**: Operational workspace with read-only visibility.
+- **`SUPER_ADMIN`**: Manages one tenant: college provisioning, user administration, system-wide template control, ID card commission (default, school and optional school + template rates), **Letterhead Rates**, **Letterhead Orders** and letterhead settings.
+- **`COLLEGE_ADMIN`**: Institution-level student records, bulk CSV/Excel imports, interactive visual template designer, batch ID card generation jobs and output downloads. Also the **Letterhead Studio**, the **Document composer** and history, **Send to print**, and their own letterhead print orders.
+- **`OPERATOR`** (Class Teacher): Operational workspace for assigned classes. Can create documents only if the Super Admin allows it, and never sees money (no rates, orders or payments).
 - **`UNAUTHENTICATED` / Public**: Instant, secure QR code verification of printed ID cards.
+
+Users sign in with a **Key Code** + email + password. Super Admins use their tenant code (e.g. `MAIN`); School Admins and Class Teachers use their college code. The backend keeps each tenant's data in its own database.
 
 ---
 
@@ -37,7 +39,8 @@ The School ID Cards frontend is built using **React 19**, **Vite**, **Redux Tool
 - **Routing**: React Router DOM v7 (`react-router-dom`)
 - **HTTP Client**: Axios with centralized request/response interceptors and error sanitization
 - **Icons**: Lucide React (`lucide-react`)
-- **Testing**: Vitest + React Testing Library (107 test files, 466 passing tests)
+- **Rich text (letter body)**: TipTap 3.31.4 (`@tiptap/react`, `starter-kit` incl. Underline + Link, `extension-text-align`, `extension-table`), loaded only on the composer page
+- **Testing**: Vitest + React Testing Library (126 test files, 522 tests; 47 of them currently fail and pre-date the letterhead work)
 - **Code Quality**: Oxlint
 
 ---
@@ -67,7 +70,12 @@ frontend/
 │   │   ├── idCardGeneration/   # GenerationStatusBadge, BatchProgressBar, JobCard
 │   │   ├── idCardOutput/       # DownloadPanel, StudentOutputTable, ZipDownload
 │   │   ├── idCardVerification/ # VerifiedStudentCard, VerificationBadge, QrScanner
-│   │   └── dashboard/          # StatCards, ActivityFeed, QuickActions, MetricCharts
+│   │   ├── commission/         # ID card rates, Mark Paid, payments, TemplateRatesModal, PayNowCard
+│   │   ├── letterheads/        # Letterhead Studio: TemplateGrid, SystemTemplateForm, CustomUploadEditor, LivePreview …
+│   │   ├── documents/          # LetterBodyEditor (TipTap), quick templates, preview panel
+│   │   ├── letterheadCommission/ # Letterhead rate editor + shared UI bits
+│   │   ├── letterheadOrders/   # SendToPrintModal, Mark Paid / decline / undo modals
+│   │   └── dashboard/          # StatCards, ActivityFeed, QuickActions, LetterheadPrintPanel, LetterheadPrintOrgPanel
 │   ├── constants/              # Centralized roles, routes, statuses, storage keys
 │   ├── features/               # Domain feature modules (slices, sagas, selectors, APIs)
 │   │   ├── account/            # Current account profile & security state
@@ -83,7 +91,13 @@ frontend/
 │   │   ├── students/           # Student CRUD operations
 │   │   ├── templateDesigner/   # Visual designer canvas state
 │   │   ├── templates/          # Template CRUD operations
-│   │   └── users/              # User CRUD operations
+│   │   ├── users/              # User CRUD operations
+│   │   ├── commission/         # ID card commission rates + payments
+│   │   ├── commissionTemplateRates/ # Optional school + template rates
+│   │   ├── letterheads/        # Letterhead list / editor / preview / templates / settings
+│   │   ├── documents/          # Generate (PDF blob), preview, history, saved-copy download
+│   │   ├── letterheadCommission/ # Letterhead print rates (Super Admin)
+│   │   └── letterheadOrders/   # Print orders, payments, quote, send to print, my rate
 │   ├── pages/                  # Lazy-loaded route views
 │   ├── routes/                 # AppRoutes, ProtectedRoute, RoleRoute
 │   ├── test/                   # Comprehensive Vitest test suites (107 files)
@@ -147,6 +161,20 @@ All routing is configured in `src/routes/AppRoutes.jsx` with route-level code sp
 - **Route-Level Code Splitting**: Every page is loaded via `React.lazy()` wrapped in `<Suspense fallback={<RouteLoader />}>`.
 - **Global Error Boundary**: `<AppErrorBoundary>` protects the UI tree from uncaught rendering errors.
 
+Routes added for the letterhead, document and print-rate flows (constants in `src/constants/routes.js`):
+
+| Route | Roles | Page |
+|---|---|---|
+| `/letterheads` | SA, CA | Letterhead list (Super Admin: per school, plus letterhead settings) |
+| `/letterheads/new` · `/letterheads/:id/edit` | SA, CA | Letterhead Studio (create / edit) |
+| `/documents` | SA, CA, OP | Document history |
+| `/documents/new` | SA, CA, OP | Document composer |
+| `/commission/letterhead-rates` | SA | Letterhead Rates |
+| `/letterhead-orders` | SA | Letterhead Orders (all organisations) |
+| `/my-letterhead-orders` | CA | My letterhead orders |
+
+The router is `<BrowserRouter>` (not a data router), so `useBlocker` isn't available. The Letterhead Studio's unsaved-changes guard uses `beforeunload` plus a confirm on its own Back/Cancel buttons.
+
 ---
 
 ## 7. Key Features & Modules
@@ -176,11 +204,56 @@ All routing is configured in `src/routes/AppRoutes.jsx` with route-level code sp
 - Resolves cryptographic token and displays official verification badge, student credentials, and college branding.
 - Never exposes sensitive user passwords, internal database IDs, or JWT tokens.
 
+### 6. Key Code login
+- The login form has a **Key Code** field (uppercased, remembered on the device in `localStorage.lastKeyCode`, with a "Not you?" link to clear it).
+- The header shows the tenant name.
+
+### 7. ID card commission: template rates
+- On the Commission page each school row has **Template rates**, a list of that school's ID card templates where Super Admin can set or clear a rate. It wins over the school rate (e.g. ABC ₹50, ABC + "Royal Wave" ₹55).
+- Rate history can be filtered to template rates and shows the template name.
+
+### 8. Letterhead Studio (`/letterheads`)
+- **Create:** choose **Use a ready template** or **Upload my letterhead**, then the organisation type. Super Admin picks the school first.
+- **Template editor:** template picker with thumbnails, colours (with **Match logo**), fonts, logo, header layout, organisation details (empty fields show the school profile as placeholders), footer, page 2+ header and watermark.
+- **Upload editor:** PDF / PNG / JPG upload for page 1 and an optional page 2+. You set the text area by dragging the safe-zone lines (mm) or typing the numbers. Low-resolution images get a warning, and a multi-page PDF offers **Use page 2 of my PDF**.
+- **Also:** signatory, reference number format with a live example, and a **live PDF preview** (refreshes 0.5 s after typing stops, Page 1 / Page 2 tabs, "Open preview PDF" on phones).
+- **Save:** saving shows the new version. List actions are duplicate, set default and delete.
+
+### 9. Documents (`/documents`, `/documents/new`)
+- **Composer:**
+  - letterhead (the default for its organisation type is preselected), document type, reference number (empty = next number), date, subject, recipient;
+  - rich-text body (TipTap; pasting from Word keeps only what the backend allows);
+  - **10 quick templates** with a small placeholder form (bonafide, character, leave, experience, offer, notice, fee reminder, appointment, legal notice, medical certificate);
+  - signatory override, CC, enclosures, **Save a copy**.
+- **Preview:** shows page 1 without using a number. **Generate** downloads the PDF named after the reference number.
+- **History:** filters (type, dates, search). Saved copies can be downloaded again.
+
+### 10. Letterhead printing
+- **Send to print** (School Admin): use **Generate & send to print** in the composer (always saves a copy), **Send to print** on the success banner, or **Print** in history.
+  - The form takes copies, colour / B&W, double-sided (A4) and a note. It shows a live price from the server with a breakdown, and the price is locked on submit.
+  - If no rate is set, or the document has no saved copy, the button is disabled and the reason is shown.
+- **My letterhead orders** (`/my-letterhead-orders`, School Admin):
+  - status tabs and My payments;
+  - Cancel before the order is accepted, PDF download, payment badge;
+  - the header shows their own print rate.
+- **Letterhead Rates** (`/commission/letterhead-rates`, Super Admin):
+  - global default card, sector rates (Schools, Clinics, Corporate, Legal, Government, NGO, General; "Uses global" when unset), organisation rates with search ("Inherited from Sector: Clinics ₹12");
+  - rate editor: you type rupees; unit, B/W, double-sided extra, minimum order, GST, quantity tiers with gap/overlap checks, valid dates, note;
+  - a live example priced by the server, a **Rate checker** and history.
+- **Letterhead Orders** (`/letterhead-orders`, Super Admin):
+  - tabs New / In Print / Completed / Declined / All / Payments;
+  - order actions: Accept, Decline (reason), Printing, Complete, Download PDF;
+  - **Mark as Paid** for one organisation's pending orders (method, reference no., date, optional proof, note), and **Undo** with a reason on the Payments tab.
+- **Dashboards:** separate teal **Letterhead printing** panels. Super Admin's shows all-time totals; School Admin's shows their own rate, pending, paid, in print and a separate Pay-now box. These amounts are never added to the ID card revenue / payment cards.
+
+### Downloads and PDFs
+The PDF calls (letter preview, generate, document preview, order download) use `responseType: 'arraybuffer'` with a `transformResponse`. The apiClient interceptor returns only `response.data`, so this is how a call reads response headers such as `X-Ref-No` and decodes JSON error bodies. Blobs never go into Redux; previews keep only an object URL, which is freed when replaced or when the page unmounts.
+
 ---
 
 ## 8. Testing & Quality Assurance
 
-The frontend contains **107 test files and 466 unit/integration tests** using Vitest and React Testing Library.
+The frontend contains **126 test files and 522 unit/integration tests** using Vitest and React Testing Library. 47 of them currently fail; those failures pre-date the letterhead and print-rate work and are the baseline to compare against. On a slow machine a run sometimes collects fewer tests, so if the total isn't 522, run it again.
 
 ```bash
 # Run full comprehensive test suite
@@ -225,6 +298,7 @@ npm run preview
 - Automatic chunk splitting for React, Redux, Lucide icons, and lazy-loaded routes.
 - Fully sanitized asset outputs in `dist/`.
 - Safe fallback base URL (`/api`) when environment variables are omitted in production reverse-proxy environments.
+- Deploy together with the backend: login sends a `keyCode`, which older backends don't accept.
 
 ---
 

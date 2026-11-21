@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  BadgeIndianRupee,
   Inbox,
   Printer,
   CheckCircle2,
@@ -50,6 +51,9 @@ import RequestStatusBadge from '../../components/printRequests/RequestStatusBadg
 import ConfirmActionModal from '../../components/printRequests/ConfirmActionModal.jsx';
 import { REQUEST_ACTION_CONFIG } from '../../components/printRequests/requestActionConfig.js';
 import PaymentStatusBadge from '../../components/commission/PaymentStatusBadge.jsx';
+import MarkPaidModal from '../../components/commission/MarkPaidModal.jsx';
+import { markPaidRequested, clearMarkPaidError } from '../../features/commission/commissionSlice.js';
+import { selectMarkPaidSaving, selectMarkPaidError } from '../../features/commission/commissionSelectors.js';
 import RequestAmount from '../../components/commission/RequestAmount.jsx';
 import { PAYMENT_STATUS_OPTIONS } from '../../constants/commission.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
@@ -141,6 +145,9 @@ export const PrintCenterPage = () => {
   const requests = useSelector(selectPrintRequests);
   const pagination = useSelector(selectPrintRequestPagination);
   const loading = useSelector(selectPrintRequestsLoading);
+  const markPaidSaving = useSelector(selectMarkPaidSaving);
+  const markPaidError = useSelector(selectMarkPaidError);
+  const [markPaidOpen, setMarkPaidOpen] = useState(false);
   const error = useSelector(selectPrintRequestsError);
   const counts = useSelector(selectPrintRequestCounts);
   const cardCounts = useSelector(selectPrintRequestCardCounts);
@@ -234,6 +241,35 @@ export const PrintCenterPage = () => {
   const toggleSelected = (id) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const toggleAll = (checked) => setSelectedIds(checked ? selectableIds : []);
+
+  // Mark as Paid: chuni hui sab requests payment PENDING + ek hi school
+  const selectedRequests = requests.filter((r) => visibleSelectedIds.includes(r.id));
+  const selectedSchools = new Set(selectedRequests.map((r) => r.college?.id));
+  const canMarkPaid =
+    selectedRequests.length > 0 &&
+    selectedSchools.size === 1 &&
+    selectedRequests.every((r) => r.payment?.status === 'PENDING' && r.pricing);
+  const markPaidHint = selectedRequests.length === 0
+    ? ''
+    : selectedSchools.size > 1
+      ? 'Select requests of one school to mark them paid.'
+      : canMarkPaid
+        ? ''
+        : 'Only requests with Pending Payment can be marked paid.';
+  const paySchool = selectedRequests[0]?.college || null;
+  const confirmMarkPaid = (body) =>
+    dispatch(
+      markPaidRequested({
+        collegeId: paySchool.id,
+        body,
+        onSuccess: () => {
+          setMarkPaidOpen(false);
+          setSelectedIds([]);
+          dispatch(fetchRequestsRequested({ params: listParams }));
+          dispatch(fetchSummaryRequested({ params: { collegeId: filters.collegeId } }));
+        },
+      })
+    );
 
   const bulkPrint = () => {
     if (visibleSelectedIds.length === 0 || bulkTooMany || bulkBusy) return;
@@ -547,6 +583,7 @@ export const PrintCenterPage = () => {
                     <span className="font-bold text-indigo-700">{visibleSelectedIds.length}</span> request(s) selected ·{' '}
                     <span className="font-bold text-indigo-700">{selectedCards}</span> card(s)
                     {bulkTooMany && <span className="block font-semibold text-rose-600">Select at most {BULK_PRINT_MAX} requests at once.</span>}
+                    {markPaidHint && <span className="block font-semibold text-amber-700">{markPaidHint}</span>}
                   </>
                 ) : (
                   <span className="text-slate-500">Select requests to print all their cards together.</span>
@@ -562,6 +599,18 @@ export const PrintCenterPage = () => {
                     Clear
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    dispatch(clearMarkPaidError());
+                    setMarkPaidOpen(true);
+                  }}
+                  disabled={!canMarkPaid}
+                  title={markPaidHint || 'Record the payment for the selected requests'}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 px-3.5 text-xs font-bold text-white shadow-md shadow-emerald-500/25 transition-shadow hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                >
+                  <BadgeIndianRupee className="h-3.5 w-3.5" /> Mark as Paid
+                </button>
                 <button
                   type="button"
                   onClick={bulkPrint}
@@ -661,6 +710,21 @@ export const PrintCenterPage = () => {
           )
         }
         onCancel={() => setQuickAction(null)}
+      />
+      <MarkPaidModal
+        open={markPaidOpen}
+        requests={selectedRequests.map((r) => ({
+          id: r.id,
+          requestNumber: r.requestNumber,
+          cardCount: r.pricing?.cardCount || 0,
+          amountPaise: r.pricing?.amountPaise || 0,
+        }))}
+        collegeName={paySchool?.name || ''}
+        collegeId={paySchool?.id || null}
+        loading={markPaidSaving}
+        error={markPaidError}
+        onConfirm={confirmMarkPaid}
+        onCancel={() => setMarkPaidOpen(false)}
       />
     </div>
   );

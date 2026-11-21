@@ -37,6 +37,8 @@ import {
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import UpcomingByClassTable from '../../components/commission/UpcomingByClassTable.jsx';
 import RecentPaymentsList from '../../components/commission/RecentPaymentsList.jsx';
+import PayNowCard from '../../components/commission/PayNowCard.jsx';
+import LetterheadPrintOrgPanel from '../../components/dashboard/LetterheadPrintOrgPanel.jsx';
 import { fetchCollegeAdminOverviewRequested } from '../../features/dashboard/dashboardOverviewSlice.js';
 import {
   selectCollegeAdminOverview,
@@ -189,6 +191,11 @@ export const CollegeAdminDashboard = ({
           />
         </div>
 
+        {/* Super Admin ko kaise pay karein (QR / UPI) — sirf tab jab details set hon */}
+        <div className="mt-4">
+          <PayNowCard pendingAmount={overview?.pendingPayment?.amount ?? null} />
+        </div>
+
         <div className="mt-4 space-y-3">
           <Collapsible
             id="upcoming-by-class"
@@ -218,6 +225,9 @@ export const CollegeAdminDashboard = ({
           </Collapsible>
         </div>
       </Panel>
+
+      {/* Letterhead printing — alag panel, ID card payments mein nahi jodte */}
+      <LetterheadPrintOrgPanel data={overview ? overview.letterheadPrint ?? null : undefined} loading={isOverviewLoading} />
 
       {/* Progress */}
       <Collapsible

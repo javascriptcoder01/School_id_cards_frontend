@@ -55,6 +55,32 @@ export const getPaymentById = async (paymentId) => {
   return response;
 };
 
+/** Undo (reason zaroori) — requests wapas PENDING */
+export const reversePayment = async (paymentId, reason) => {
+  const response = await apiClient.post(`${BASE}/payments/${paymentId}/reverse`, { reason });
+  return response;
+};
+
+/** Payment proof (image / PDF) → { proof: { url, publicId, mimeType } } */
+export const uploadPaymentProof = async (collegeId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('collegeId', collegeId);
+  const response = await apiClient.post(`${BASE}/payments/proof`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  return response;
+};
+
+/* Platform payment details (QR / UPI) — Super Admin likhe, College Admin padhe */
+export const getPaymentSettings = async () => apiClient.get('/platform-settings/payment');
+
+export const updatePaymentSettings = async (body) => apiClient.put('/platform-settings/payment', body);
+
+export const uploadPaymentQr = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.post('/platform-settings/payment/qr', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+};
+
 export default {
   getRates,
   getRateHistory,
@@ -65,4 +91,9 @@ export default {
   markPaid,
   getPayments,
   getPaymentById,
+  reversePayment,
+  uploadPaymentProof,
+  getPaymentSettings,
+  updatePaymentSettings,
+  uploadPaymentQr,
 };

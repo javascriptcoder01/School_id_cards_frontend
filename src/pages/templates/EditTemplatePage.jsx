@@ -73,9 +73,6 @@ export const EditTemplatePage = () => {
           <CreditCard className="w-7 h-7 text-indigo-600" />
           Edit ID Card Template
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Update card dimensions, branding theme colors, or mapped dynamic text positions with live preview
-        </p>
       </div>
 
       {/* Form Component */}

@@ -29,9 +29,11 @@ import {
   Collapsible,
 } from './CollegeDashboard.jsx';
 import RecentActivity from '../../components/dashboard/RecentActivity.jsx';
+import LetterheadPrintPanel from '../../components/dashboard/LetterheadPrintPanel.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import DateRangeFilter from '../../components/commission/DateRangeFilter.jsx';
 import SchoolRevenueTable from '../../components/commission/SchoolRevenueTable.jsx';
+import SchoolTeachersDrawer from '../../components/dashboard/SchoolTeachersDrawer.jsx';
 import { ROUTES, getCommissionCollegeRoute } from '../../constants/routes.js';
 import { fetchSummaryRequested } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import {
@@ -68,6 +70,8 @@ export const SuperAdminDashboard = ({
   const overviewError = useSelector(selectSuperAdminOverviewError);
 
   const [dateFilter, setDateFilter] = useState({ preset: 'ALL_TIME', customFrom: '', customTo: '' });
+  // Class teachers drill-down (school row ka count button)
+  const [teachersCollege, setTeachersCollege] = useState(null);
   const dateParams = useMemo(() => toDateRangeParams(dateFilter), [dateFilter]);
   const [showRevenueTable, toggleRevenueTable] = usePersistedToggle(REVENUE_TABLE_STORAGE_KEY);
   const [showActivity, toggleActivity] = usePersistedToggle(ACTIVITY_STORAGE_KEY);
@@ -167,6 +171,7 @@ export const SuperAdminDashboard = ({
               colleges={colleges}
               loading={isOverviewLoading}
               onRowClick={(college) => navigate(getCommissionCollegeRoute(college.collegeId))}
+              onCountsClick={setTeachersCollege}
             />
           </Collapsible>
         </div>
@@ -195,6 +200,9 @@ export const SuperAdminDashboard = ({
         </div>
       </Panel>
 
+      {/* Letterhead printing — apne totals, ID card revenue mein nahi jodte */}
+      <LetterheadPrintPanel data={overview ? overview.letterheadPrint ?? null : undefined} loading={isOverviewLoading} />
+
       {/* Quick actions */}
       <Panel title="Quick Actions" icon={Zap}>
         <QuickActions role="SUPER_ADMIN" />
@@ -211,6 +219,8 @@ export const SuperAdminDashboard = ({
       >
         <RecentActivity activity={activity} />
       </Collapsible>
+
+      <SchoolTeachersDrawer college={teachersCollege} onClose={() => setTeachersCollege(null)} />
     </div>
   );
 };

@@ -47,6 +47,9 @@ export const RateHistoryTable = ({ rates = [], loading = false }) => {
                   </td>
                   <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">
                     {rate.scope === 'GLOBAL' ? 'Default (all schools)' : rate.college?.name || '—'}
+                    {rate.scope === 'TEMPLATE_COLLEGE' && (
+                      <span className="block text-xs font-medium text-violet-700">Template: {rate.template?.name || '—'}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(rate.effectiveFrom)}</td>
                   <td className="px-4 py-3.5 text-xs whitespace-nowrap">

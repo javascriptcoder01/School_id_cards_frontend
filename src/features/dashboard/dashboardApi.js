@@ -225,8 +225,15 @@ export const getCollegeAdminOverview = async () => {
   return response;
 };
 
+// Super Admin: ek school ke class teachers + har teacher ke students (drill-down)
+export const getSuperAdminCollegeProgress = async (collegeId) => {
+  const response = await apiClient.get(`/dashboard/super-admin/colleges/${encodeURIComponent(collegeId)}/progress`);
+  return response?.data ?? response;
+};
+
 export default {
   getSuperAdminSummary,
+  getSuperAdminCollegeProgress,
   getCollegeAdminSummary,
   getOperatorSummary,
   getSuperAdminOverview,

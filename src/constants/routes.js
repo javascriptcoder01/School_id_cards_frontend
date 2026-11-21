@@ -4,6 +4,8 @@
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
+  // Platform owner: organisations (tenant + apna DB + Super Admin) — platform key se, app login se alag
+  PLATFORM: '/platform',
   DASHBOARD: '/dashboard',
   ACCOUNT: '/account',
   COLLEGES: '/colleges',
@@ -64,12 +66,29 @@ export const ROUTES = {
   COMMISSION: '/commission',
   COMMISSION_COLLEGE: '/commission/colleges/:collegeId',
 
+  // Letterhead Studio (SUPER_ADMIN, COLLEGE_ADMIN)
+  LETTERHEADS: '/letterheads',
+  LETTERHEAD_NEW: '/letterheads/new',
+  LETTERHEAD_EDIT: '/letterheads/:id/edit',
+
+  // Documents (letterhead par letters) — SUPER_ADMIN, COLLEGE_ADMIN, OPERATOR (flag on)
+  DOCUMENTS: '/documents',
+  DOCUMENT_NEW: '/documents/new',
+
+  // Letterhead PRINT commission (SUPER_ADMIN) — ID card commission se alag
+  LETTERHEAD_RATES: '/commission/letterhead-rates',
+  LETTERHEAD_ORDERS: '/letterhead-orders',
+  // School Admin: apne letterhead print orders
+  LETTERHEAD_MY_ORDERS: '/my-letterhead-orders',
+
   // Theme Builder artwork (SUPER_ADMIN)
   THEME_ARTWORK: '/theme-artwork',
 
   UNAUTHORIZED: '/unauthorized',
   NOT_FOUND: '*',
 };
+
+export const getLetterheadEditRoute = (id) => `/letterheads/${id}/edit`;
 
 export const getCollegeDetailRoute = (collegeId) => `/colleges/${collegeId}`;
 export const getCollegeEditRoute = (collegeId) => `/colleges/${collegeId}/edit`;

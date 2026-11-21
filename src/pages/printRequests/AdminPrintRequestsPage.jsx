@@ -291,6 +291,15 @@ export const AdminPrintRequestsPage = () => {
                                 Reject
                               </button>
                             )}
+                            {/* Declined → detail par Fix & Resubmit */}
+                            {actions.includes('RESUBMIT') && (
+                              <Link
+                                to={getPrintRequestDetailRoute(request.id)}
+                                className="px-2.5 py-1.5 rounded-lg bg-linear-to-r from-red-500 to-rose-600 text-white text-xs font-semibold shadow-sm shadow-rose-500/25"
+                              >
+                                Fix &amp; Resubmit
+                              </Link>
+                            )}
                             <Link
                               to={getPrintRequestDetailRoute(request.id)}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"

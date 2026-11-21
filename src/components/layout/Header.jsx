@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { LogOut, User, Menu } from 'lucide-react';
@@ -7,7 +7,6 @@ import { selectCurrentUser } from '../../features/auth/authSelectors.js';
 import { toggleSidebar, openMobileNav, selectMobileNavOpen } from '../../store/slices/appSlice.js';
 import { ROUTES } from '../../constants/routes.js';
 
-// Sidebar.jsx ke drawer ka id (aria-controls) aur band hone par focus yahin lautta hai
 export const MOBILE_NAV_ID = 'mobile-nav-drawer';
 export const MOBILE_NAV_TOGGLE_ID = 'mobile-nav-toggle';
 
@@ -36,7 +35,6 @@ export const Header = () => {
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       <div className="flex items-center gap-3">
-        {/* lg se chhota: overlay drawer kholta hai */}
         <button
           type="button"
           id={MOBILE_NAV_TOGGLE_ID}
@@ -48,7 +46,6 @@ export const Header = () => {
         >
           <Menu className="w-5 h-5" />
         </button>
-        {/* lg aur upar: pehle jaisa sidebar chhota / bada */}
         <button
           type="button"
           onClick={() => dispatch(toggleSidebar())}
@@ -59,7 +56,7 @@ export const Header = () => {
         </button>
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-            School ID Cards
+            Global NK Studio
           </span>
         </div>
       </div>
@@ -75,6 +72,11 @@ export const Header = () => {
               <span className="text-sm font-semibold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
                 {user.name || user.email || 'User'}
               </span>
+              {user.tenant?.name && (
+                <span className="max-w-[180px] truncate text-[10px] font-medium text-slate-400" title={`${user.tenant.name} (${user.tenant.code})`}>
+                  {user.tenant.name}
+                </span>
+              )}
               <span
                 className={`text-[11px] font-medium px-2 py-0.5 rounded-full border mt-0.5 ${getRoleBadgeColor(
                   user.role

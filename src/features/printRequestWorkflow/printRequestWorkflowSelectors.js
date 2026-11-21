@@ -26,6 +26,9 @@ export const selectPrintRequestStudents = (state) => state.printRequestWorkflow?
 const NO_WARNINGS = [];
 // Theme Builder "Print check" (Super Admin)
 export const selectPrintRequestPrintCheck = (state) => state.printRequestWorkflow?.detail?.data?.printCheck || NO_WARNINGS;
+// Declined (school): decline ke baad kitne badlav — { edited, photosChanged, removed, added } | null
+export const selectPrintRequestResubmitPreview = (state) => state.printRequestWorkflow?.detail?.data?.resubmitPreview || null;
+export const selectPrintRequestFixSaving = (state) => Boolean(state.printRequestWorkflow?.fix?.saving);
 export const selectPrintRequestDetailLoading = (state) => Boolean(state.printRequestWorkflow?.detail?.loading);
 export const selectPrintRequestDetailError = (state) => state.printRequestWorkflow?.detail?.error || null;
 

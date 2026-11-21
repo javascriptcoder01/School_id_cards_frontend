@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { GraduationCap, ArrowLeft } from 'lucide-react';
 import {
   loadOperatorStudentRequested,
@@ -23,6 +23,10 @@ export const OperatorStudentEditPage = () => {
   const { studentId } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  // Declined print request se "Edit student" → save / back par wapas wahi request
+  const location = useLocation();
+  const returnTo = typeof location.state?.returnTo === 'string' && location.state.returnTo.startsWith('/') ? location.state.returnTo : null;
+  const backPath = returnTo || '/operator/students';
 
   const student = useSelector(selectSelectedOperatorStudent);
   const assignments = useSelector(selectOperatorAssignments);
@@ -47,7 +51,7 @@ export const OperatorStudentEditPage = () => {
         updates: formData,
       })
     );
-    navigate('/operator/students');
+    navigate(backPath);
   };
 
   if (isLoading && !student) {
@@ -63,11 +67,11 @@ export const OperatorStudentEditPage = () => {
         action={
           <button
             type="button"
-            onClick={() => navigate('/operator/students')}
+            onClick={() => navigate(backPath)}
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
-            <span>Back to Roster</span>
+            <span>{returnTo ? 'Back to Request' : 'Back to Roster'}</span>
           </button>
         }
       />
@@ -77,7 +81,7 @@ export const OperatorStudentEditPage = () => {
           initialValues={student}
           assignedScopes={assignments}
           onSubmit={handleSubmit}
-          onCancel={() => navigate('/operator/students')}
+          onCancel={() => navigate(backPath)}
           isSaving={isSaving}
           error={error}
         />

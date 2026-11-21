@@ -41,6 +41,7 @@ import RequestStatusBadge from '../../components/printRequests/RequestStatusBadg
 import MarkPaidModal from '../../components/commission/MarkPaidModal.jsx';
 import PaymentsTable from '../../components/commission/PaymentsTable.jsx';
 import PaymentDetailDrawer from '../../components/commission/PaymentDetailDrawer.jsx';
+import UndoPaymentDialog from '../../components/commission/UndoPaymentDialog.jsx';
 import { cardsLabel, toPaginationProps } from '../../utils/commissionForm.js';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 import { formatInr, formatInrShort } from '../../utils/money.js';
@@ -76,6 +77,7 @@ export const CommissionCollegeLedgerPage = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [undoTarget, setUndoTarget] = useState(null);
   const [paymentsPage, setPaymentsPage] = useState(1);
 
   useEffect(() => {
@@ -282,6 +284,7 @@ export const CommissionCollegeLedgerPage = () => {
         open={modalOpen}
         requests={selected}
         collegeName={collegeName}
+        collegeId={collegeId}
         loading={saving}
         error={saveError}
         onConfirm={confirmPaid}
@@ -295,7 +298,10 @@ export const CommissionCollegeLedgerPage = () => {
         loading={paymentDetailLoading}
         error={paymentDetailError}
         onClose={closePayment}
+        onUndo={setUndoTarget}
       />
+
+      <UndoPaymentDialog payment={undoTarget} onClose={() => setUndoTarget(null)} />
     </div>
   );
 };

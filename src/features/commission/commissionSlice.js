@@ -10,6 +10,10 @@ const initialState = {
   // Modal ke andar dikhne wale error (SetRateModal / MarkPaidModal)
   rateSave: { saving: false, error: null },
   markPaid: { saving: false, error: null },
+  // Undo payment (reason ke saath)
+  reverse: { saving: false, error: null },
+  // Platform payment details (QR / UPI) — Super Admin settings + School Admin "Pay now"
+  paymentSettings: { data: null, loading: false, saving: false, error: null },
 };
 
 export const commissionSlice = createSlice({
@@ -139,6 +143,53 @@ export const commissionSlice = createSlice({
     clearPaymentDetail: (state) => {
       state.paymentDetail = initialState.paymentDetail;
     },
+
+    // { paymentId, reason, onSuccess }
+    reversePaymentRequested: (state) => {
+      state.reverse.saving = true;
+      state.reverse.error = null;
+    },
+    reversePaymentSucceeded: (state, action) => {
+      state.reverse.saving = false;
+      if (action.payload && state.paymentDetail.payment?.id === action.payload.id) state.paymentDetail.payment = action.payload;
+    },
+    reversePaymentFailed: (state, action) => {
+      state.reverse.saving = false;
+      state.reverse.error = action.payload || 'Failed to undo the payment';
+    },
+    clearReverseError: (state) => {
+      state.reverse.error = null;
+    },
+
+    fetchPaymentSettingsRequested: (state) => {
+      state.paymentSettings.loading = true;
+      state.paymentSettings.error = null;
+    },
+    fetchPaymentSettingsSucceeded: (state, action) => {
+      state.paymentSettings.loading = false;
+      state.paymentSettings.data = action.payload || null;
+    },
+    fetchPaymentSettingsFailed: (state, action) => {
+      state.paymentSettings.loading = false;
+      state.paymentSettings.error = action.payload || 'Failed to load payment details';
+    },
+    // { body, onSuccess } / { file, onSuccess }
+    updatePaymentSettingsRequested: (state) => {
+      state.paymentSettings.saving = true;
+      state.paymentSettings.error = null;
+    },
+    uploadPaymentQrRequested: (state) => {
+      state.paymentSettings.saving = true;
+      state.paymentSettings.error = null;
+    },
+    savePaymentSettingsSucceeded: (state, action) => {
+      state.paymentSettings.saving = false;
+      state.paymentSettings.data = action.payload || state.paymentSettings.data;
+    },
+    savePaymentSettingsFailed: (state, action) => {
+      state.paymentSettings.saving = false;
+      state.paymentSettings.error = action.payload || 'Failed to save payment details';
+    },
   },
 });
 
@@ -169,6 +220,17 @@ export const {
   fetchPaymentSucceeded,
   fetchPaymentFailed,
   clearPaymentDetail,
+  reversePaymentRequested,
+  reversePaymentSucceeded,
+  reversePaymentFailed,
+  clearReverseError,
+  fetchPaymentSettingsRequested,
+  fetchPaymentSettingsSucceeded,
+  fetchPaymentSettingsFailed,
+  updatePaymentSettingsRequested,
+  uploadPaymentQrRequested,
+  savePaymentSettingsSucceeded,
+  savePaymentSettingsFailed,
 } = commissionSlice.actions;
 
 export default commissionSlice.reducer;

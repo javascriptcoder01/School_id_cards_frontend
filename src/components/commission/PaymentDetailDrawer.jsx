@@ -1,21 +1,13 @@
 // PaymentDetailDrawer.jsx — ek payment ka receipt jaisa detail + uski requests (daayein se drawer)
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { Undo2, X } from 'lucide-react';
 import ErrorMessage from '../common/ErrorMessage.jsx';
 import InlineLoader from '../common/InlineLoader.jsx';
-import { PAYMENT_MODE_LABELS } from '../../constants/commission.js';
+import PaymentReceiptDetails from './PaymentReceiptDetails.jsx';
 import { getPrintCenterDetailRoute } from '../../constants/routes.js';
 import { cardsLabel } from '../../utils/commissionForm.js';
-import { formatDateTime } from '../../utils/idCardFormat.js';
 import { formatInr, formatInrShort } from '../../utils/money.js';
-
-const Row = ({ label, children }) => (
-  <div className="flex justify-between gap-3 py-1.5">
-    <dt className="text-slate-500">{label}</dt>
-    <dd className="font-semibold text-slate-800 text-right min-w-0 break-words">{children}</dd>
-  </div>
-);
 
 /**
  * @param {object} props
@@ -25,10 +17,11 @@ const Row = ({ label, children }) => (
  * @param {boolean} [props.loading]
  * @param {string|null} [props.error]
  * @param {() => void} props.onClose
+ * @param {((payment: object) => void)|null} [props.onUndo] - Super Admin: undo (reason modal parent kholta hai)
  */
 export const PaymentDetailDrawer = ({ open = false, ...props }) => (open ? <Drawer {...props} /> : null);
 
-const Drawer = ({ payment = null, requests = [], loading = false, error = null, onClose }) => {
+const Drawer = ({ payment = null, requests = [], loading = false, error = null, onClose, onUndo = null }) => {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose?.();
@@ -63,15 +56,16 @@ const Drawer = ({ payment = null, requests = [], loading = false, error = null, 
 
           {payment && (
             <>
-              <dl className="text-sm divide-y divide-slate-100">
-                <Row label="Amount">{formatInr(payment.amount)}</Row>
-                <Row label="Cards">{payment.cardCount}</Row>
-                <Row label="Mode">{PAYMENT_MODE_LABELS[payment.mode] || payment.mode}</Row>
-                <Row label="Reference">{payment.referenceNo || '—'}</Row>
-                <Row label="Paid on">{formatDateTime(payment.paidAt)}</Row>
-                <Row label="Recorded by">{payment.recordedBy?.name || '—'}</Row>
-                {payment.note && <Row label="Note">{payment.note}</Row>}
-              </dl>
+              <PaymentReceiptDetails payment={payment} />
+              {onUndo && !payment.isReversed && (
+                <button
+                  type="button"
+                  onClick={() => onUndo(payment)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                >
+                  <Undo2 className="h-3.5 w-3.5" /> Undo payment
+                </button>
+              )}
 
               <div>
                 <h3 className="text-sm font-bold text-slate-800 mb-2">Requests ({requests.length})</h3>

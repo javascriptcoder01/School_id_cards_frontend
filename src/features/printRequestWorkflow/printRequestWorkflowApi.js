@@ -14,6 +14,8 @@ export const PRINT_REQUEST_ACTION_PATHS = {
   ACCEPT: 'accept',
   DECLINE: 'decline',
   COMPLETE: 'complete',
+  // Declined → fix → resubmit (body: { note?, noChangeNeeded? })
+  RESUBMIT: 'resubmit',
 };
 
 // Khaali values hatao; status array → "APPROVED,PRINTING"

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Printer, RefreshCw, Eye, Pencil, GraduationCap } from 'lucide-react';
+import { Plus, Printer, RefreshCw, Eye, Pencil, GraduationCap, RotateCcw } from 'lucide-react';
 import {
   fetchRequestsRequested,
   fetchSummaryRequested,
@@ -22,19 +22,21 @@ import PageHeader from '../../components/common/PageHeader.jsx';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
 import StudentPagination from '../../components/students/StudentPagination.jsx';
-import RequestTabs from '../../components/printRequests/RequestTabs.jsx';
+import GradientRequestTabs from './GradientRequestTabs.jsx';
 import RequestStatusBadge from '../../components/printRequests/RequestStatusBadge.jsx';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 
-// Tab → kaun se statuses (tab ka naam hai, status ka label API deta hai)
+// Tab → kaun se statuses (tab ka naam hai, status ka label API deta hai); tone = GradientRequestTabs rang
+// Declined alag tab (laal): Print Center ne lautaya → fix & resubmit
 const TABS = [
-  { key: 'ALL', label: 'All', statuses: [] },
-  { key: 'DRAFT', label: 'Draft', statuses: ['DRAFT'] },
-  { key: 'PENDING', label: 'Sent for Approval', statuses: ['PENDING_APPROVAL'] },
-  { key: 'APPROVED', label: 'Approved', statuses: ['APPROVED'] },
-  { key: 'PRINTING', label: 'Printing', statuses: ['PRINTING'] },
-  { key: 'COMPLETED', label: 'Completed', statuses: ['COMPLETED'] },
-  { key: 'CLOSED', label: 'Rejected / Declined', statuses: ['REJECTED_BY_ADMIN', 'DECLINED', 'CANCELLED'] },
+  { key: 'ALL', label: 'All', statuses: [], tone: 'indigo' },
+  { key: 'DRAFT', label: 'Draft', statuses: ['DRAFT'], tone: 'violet' },
+  { key: 'PENDING', label: 'Sent for Approval', statuses: ['PENDING_APPROVAL'], tone: 'amber' },
+  { key: 'APPROVED', label: 'Approved', statuses: ['APPROVED'], tone: 'blue' },
+  { key: 'PRINTING', label: 'Printing', statuses: ['PRINTING'], tone: 'violet' },
+  { key: 'COMPLETED', label: 'Completed', statuses: ['COMPLETED'], tone: 'emerald' },
+  { key: 'DECLINED', label: 'Declined', statuses: ['DECLINED'], tone: 'red' },
+  { key: 'CLOSED', label: 'Rejected / Cancelled', statuses: ['REJECTED_BY_ADMIN', 'CANCELLED'], tone: 'rose' },
 ];
 
 const PAGE_SIZE = 10;
@@ -119,7 +121,7 @@ export const OperatorPrintRequestsPage = () => {
         }
       />
 
-      <RequestTabs tabs={tabsWithCounts} active={activeTab} onChange={handleTabChange} />
+      <GradientRequestTabs tabs={tabsWithCounts} active={activeTab} onChange={handleTabChange} ariaLabel="Print request status" />
 
       {error && <ErrorMessage message={error} title="Couldn't load requests" />}
 
@@ -157,6 +159,7 @@ export const OperatorPrintRequestsPage = () => {
                   : requests.map((request) => {
                     // Edit sirf jab request bhej sakte ho (DRAFT / REJECTED) — backend ke actions se
                     const canEdit = request.availableActions?.includes('SUBMIT');
+                    const canFix = request.availableActions?.includes('RESUBMIT');
                     return (
                       <tr key={request.id} className="hover:bg-slate-50/70">
                         <td className="px-4 sm:px-6 py-3.5">
@@ -171,6 +174,14 @@ export const OperatorPrintRequestsPage = () => {
                         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">{formatDateTime(request.updatedAt)}</td>
                         <td className="px-4 sm:px-6 py-3.5">
                           <div className="flex justify-end gap-2">
+                            {canFix && (
+                              <Link
+                                to={getPrintRequestDetailRoute(request.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-linear-to-r from-red-500 to-rose-600 text-xs font-semibold text-white shadow-sm shadow-rose-500/25"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" /> Fix &amp; Resubmit
+                              </Link>
+                            )}
                             {canEdit && (
                               <Link
                                 to={getPrintRequestEditRoute(request.id)}

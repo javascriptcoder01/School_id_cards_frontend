@@ -45,7 +45,52 @@ export const updateStudentStatus = async (studentId, isActive) => {
   return response;
 };
 
+/* ---------------- Bulk import (Excel / CSV + photos) — /students/import/* ---------------- */
+
+/**
+ * Preview: file + optional photos (ek .zip ya kai images) + School admin ki default class (khaali Class rows ke liye)
+ * @param {{ file: File, photos?: File[], className?: string, section?: string }} input
+ */
+export const previewStudentImport = async ({ file, photos = [], className, section }) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  photos.forEach((photo) => formData.append('photos', photo));
+  if (className) formData.append('className', className);
+  if (section) formData.append('section', section);
+  const response = await apiClient.post('/students/import/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 5 * 60 * 1000, // 200 MB ZIP tak
+  });
+  return response;
+};
+
+export const confirmStudentImport = async (importId, { skipInvalid = true } = {}) => {
+  const response = await apiClient.post(`/students/import/${importId}/confirm`, { skipInvalid });
+  return response;
+};
+
+// Confirm ke baad photo upload progress
+export const getStudentImportStatus = async (importId) => {
+  const response = await apiClient.get(`/students/import/${importId}/status`);
+  return response;
+};
+
+export const downloadStudentImportTemplate = async () => {
+  const blob = await apiClient.get('/students/import/template', { responseType: 'blob' });
+  return blob;
+};
+
+export const downloadStudentImportErrors = async (importId) => {
+  const blob = await apiClient.get(`/students/import/${importId}/errors`, { responseType: 'blob' });
+  return blob;
+};
+
 export default {
+  previewStudentImport,
+  confirmStudentImport,
+  getStudentImportStatus,
+  downloadStudentImportTemplate,
+  downloadStudentImportErrors,
   getStudents,
   getStudentById,
   createStudent,

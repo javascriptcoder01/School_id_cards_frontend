@@ -25,6 +25,16 @@ import {
   fetchPaymentRequested,
   fetchPaymentSucceeded,
   fetchPaymentFailed,
+  reversePaymentRequested,
+  reversePaymentSucceeded,
+  reversePaymentFailed,
+  fetchPaymentSettingsRequested,
+  fetchPaymentSettingsSucceeded,
+  fetchPaymentSettingsFailed,
+  updatePaymentSettingsRequested,
+  uploadPaymentQrRequested,
+  savePaymentSettingsSucceeded,
+  savePaymentSettingsFailed,
 } from './commissionSlice.js';
 import {
   getRates,
@@ -36,6 +46,10 @@ import {
   markPaid,
   getPayments,
   getPaymentById,
+  reversePayment,
+  getPaymentSettings,
+  updatePaymentSettings,
+  uploadPaymentQr,
 } from './commissionApi.js';
 import {
   selectRateHistoryParams,
@@ -177,6 +191,60 @@ export function* markPaidWorker(action) {
   }
 }
 
+/* ---------------- Undo payment ---------------- */
+
+export function* reversePaymentWorker(action) {
+  const { paymentId, reason, collegeId, onSuccess } = action.payload || {};
+  try {
+    const response = yield call(reversePayment, paymentId, reason);
+    const payment = dataOf(response)?.payment || null;
+    yield put(reversePaymentSucceeded(payment));
+    yield put(
+      showNotification({
+        type: 'SUCCESS',
+        title: 'Payment undone',
+        message: payment ? `${payment.paymentNumber} was undone. Its requests are pending again.` : 'Requests are pending again.',
+      })
+    );
+    yield call(refreshAfterPayment, collegeId || payment?.college?.id);
+    if (typeof onSuccess === 'function') onSuccess(payment);
+  } catch (error) {
+    yield put(reversePaymentFailed(errorMessage(error, 'Failed to undo the payment')));
+  }
+}
+
+/* ---------------- Platform payment details (QR / UPI) ---------------- */
+
+export function* fetchPaymentSettingsWorker() {
+  try {
+    const response = yield call(getPaymentSettings);
+    yield put(fetchPaymentSettingsSucceeded(dataOf(response)?.paymentSettings || null));
+  } catch (error) {
+    yield put(fetchPaymentSettingsFailed(errorMessage(error, 'Failed to load payment details')));
+  }
+}
+
+function* savePaymentSettings(apiCall, arg, successMessage, onSuccess) {
+  try {
+    const response = yield call(apiCall, arg);
+    yield put(savePaymentSettingsSucceeded(dataOf(response)?.paymentSettings || null));
+    yield put(showNotification({ type: 'SUCCESS', title: 'Payment details saved', message: successMessage }));
+    if (typeof onSuccess === 'function') onSuccess();
+  } catch (error) {
+    yield put(savePaymentSettingsFailed(errorMessage(error, 'Failed to save payment details')));
+  }
+}
+
+export function* updatePaymentSettingsWorker(action) {
+  const { body, onSuccess } = action.payload || {};
+  yield call(savePaymentSettings, updatePaymentSettings, body, 'Schools now see the updated payment details.', onSuccess);
+}
+
+export function* uploadPaymentQrWorker(action) {
+  const { file, onSuccess } = action.payload || {};
+  yield call(savePaymentSettings, uploadPaymentQr, file, 'Schools now see the new payment QR.', onSuccess);
+}
+
 export function* watchCommission() {
   yield takeLatest(fetchRatesRequested.type, fetchRatesWorker);
   yield takeLatest(fetchRateHistoryRequested.type, fetchRateHistoryWorker);
@@ -187,6 +255,10 @@ export function* watchCommission() {
   yield takeEvery(setCollegeRateRequested.type, setCollegeRateWorker);
   yield takeEvery(removeCollegeRateRequested.type, removeCollegeRateWorker);
   yield takeEvery(markPaidRequested.type, markPaidWorker);
+  yield takeEvery(reversePaymentRequested.type, reversePaymentWorker);
+  yield takeLatest(fetchPaymentSettingsRequested.type, fetchPaymentSettingsWorker);
+  yield takeEvery(updatePaymentSettingsRequested.type, updatePaymentSettingsWorker);
+  yield takeEvery(uploadPaymentQrRequested.type, uploadPaymentQrWorker);
 }
 
 export default watchCommission;

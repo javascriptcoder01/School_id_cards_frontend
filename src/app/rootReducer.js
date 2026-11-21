@@ -4,6 +4,7 @@ import appReducer from '../store/slices/appSlice.js';
 import collegeReducer from '../features/colleges/collegeSlice.js';
 import userReducer from '../features/users/userSlice.js';
 import studentReducer from '../features/students/studentSlice.js';
+import studentBulkImportReducer from '../features/students/studentBulkImportSlice.js';
 import studentImportReducer from '../features/studentImport/studentImportSlice.js';
 import templateReducer from '../features/templates/templateSlice.js';
 import idCardGenerationReducer from '../features/idCardGeneration/idCardGenerationSlice.js';
@@ -19,6 +20,12 @@ import idCardReducer from '../features/idCards/idCardSlice.js';
 import printRequestWorkflowReducer from '../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import commissionReducer from '../features/commission/commissionSlice.js';
 import themeArtworkReducer from '../features/themeArtwork/themeArtworkSlice.js';
+import letterheadReducer from '../features/letterheads/letterheadSlice.js';
+import documentReducer from '../features/documents/documentSlice.js';
+import commissionTemplateRatesReducer from '../features/commissionTemplateRates/commissionTemplateRatesSlice.js';
+import letterheadCommissionReducer from '../features/letterheadCommission/letterheadCommissionSlice.js';
+import letterheadOrdersReducer from '../features/letterheadOrders/letterheadOrdersSlice.js';
+import platformReducer from '../features/platform/platformSlice.js';
 import dashboardOverviewReducer from '../features/dashboard/dashboardOverviewSlice.js';
 
 export const rootReducer = combineReducers({
@@ -27,6 +34,7 @@ export const rootReducer = combineReducers({
   colleges: collegeReducer,
   users: userReducer,
   students: studentReducer,
+  studentBulkImport: studentBulkImportReducer,
   studentImport: studentImportReducer,
   templates: templateReducer,
   idCardGeneration: idCardGenerationReducer,
@@ -43,6 +51,12 @@ export const rootReducer = combineReducers({
   commission: commissionReducer,
   themeArtwork: themeArtworkReducer,
   dashboardOverview: dashboardOverviewReducer,
+  letterheads: letterheadReducer,
+  documents: documentReducer,
+  commissionTemplateRates: commissionTemplateRatesReducer,
+  letterheadCommission: letterheadCommissionReducer,
+  letterheadOrders: letterheadOrdersReducer,
+  platform: platformReducer,
 });
 
 export default rootReducer;

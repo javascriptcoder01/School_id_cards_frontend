@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, KeyRound } from 'lucide-react';
 import { loginRequested, clearAuthError } from '../../features/auth/authSlice.js';
 import {
   selectIsAuthenticated,
@@ -12,6 +12,28 @@ import { ROUTES } from '../../constants/routes.js';
 import ErrorMessage from '../../components/common/ErrorMessage.jsx';
 import Loader from '../../components/common/Loader.jsx';
 
+// Is device par aakhri Key Code yaad (private mode / blocked storage mein chupchap skip)
+const KEY_CODE_STORAGE = 'lastKeyCode';
+const readSavedKeyCode = () => {
+  try {
+    return window.localStorage.getItem(KEY_CODE_STORAGE) || '';
+  } catch {
+    return '';
+  }
+};
+const writeSavedKeyCode = (value) => {
+  try {
+    if (value) window.localStorage.setItem(KEY_CODE_STORAGE, value);
+    else window.localStorage.removeItem(KEY_CODE_STORAGE);
+  } catch {
+    // storage band hai — koi baat nahi
+  }
+};
+// "dps 45" → "DPS45", "Global NK Studio" → "GLOBALNKSTUDIO" (backend bhi yahi karta hai — sirf check ke liye)
+const cleanKeyCode = (value) => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
+// Organisation naam jaisa likha waisa dikhao (sirf aage-peeche ki spaces hatao)
+const tidyOrgInput = (value) => String(value || '').replace(/\s+/g, ' ').slice(0, 150);
+
 export const LoginPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -21,6 +43,8 @@ export const LoginPage = () => {
   const isLoading = useSelector(selectAuthLoading);
   const authError = useSelector(selectAuthError);
 
+  const [keyCode, setKeyCode] = useState(() => tidyOrgInput(readSavedKeyCode()));
+  const [rememberedKeyCode, setRememberedKeyCode] = useState(() => Boolean(readSavedKeyCode()));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationErrors, setValidationErrors] = useState({});
@@ -45,6 +69,12 @@ export const LoginPage = () => {
     const errors = {};
     const trimmedEmail = email.trim();
 
+    if (!keyCode.trim()) {
+      errors.keyCode = 'Organisation or Key Code is required';
+    } else if (cleanKeyCode(keyCode).length < 2) {
+      errors.keyCode = 'Enter your organisation name or Key Code (at least 2 letters or digits)';
+    }
+
     if (!trimmedEmail) {
       errors.email = 'Email address is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
@@ -65,8 +95,11 @@ export const LoginPage = () => {
     if (isLoading) return; // Prevent duplicate submit
 
     if (validateForm()) {
+      const typed = keyCode.trim();
+      writeSavedKeyCode(typed);
       dispatch(
         loginRequested({
+          keyCode: typed,
           email: email.trim().toLowerCase(),
           password,
         })
@@ -83,7 +116,7 @@ export const LoginPage = () => {
             <ShieldCheck className="w-8 h-8 text-indigo-400" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            School ID Cards
+            Global N K Solutions
           </h1>
           <p className="text-slate-400 text-sm mt-1.5">
             Sign in to access your administrative dashboard
@@ -102,6 +135,67 @@ export const LoginPage = () => {
           )}
 
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
+            {/* Key Code Field */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="keyCode" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  Organisation / Key Code
+                </label>
+                {rememberedKeyCode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      writeSavedKeyCode('');
+                      setRememberedKeyCode(false);
+                      setKeyCode('');
+                    }}
+                    className="text-xs font-semibold text-indigo-300 hover:text-indigo-200"
+                  >
+                    Not you?
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <input
+                  id="keyCode"
+                  name="keyCode"
+                  type="text"
+                  autoComplete="organization"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  inputMode="text"
+                  maxLength={150}
+                  value={keyCode}
+                  disabled={isLoading}
+                  onChange={(e) => {
+                    setKeyCode(tidyOrgInput(e.target.value));
+                    if (validationErrors.keyCode) {
+                      setValidationErrors((prev) => ({ ...prev, keyCode: null }));
+                    }
+                    if (authError) {
+                      dispatch(clearAuthError());
+                    }
+                  }}
+                  aria-describedby="keyCode-help"
+                  className={`w-full pl-11 pr-4 py-3 bg-slate-900/60 border rounded-xl text-white placeholder-slate-500 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all ${validationErrors.keyCode
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
+                    : 'border-slate-700 focus:border-indigo-500'
+                    }`}
+                  placeholder="e.g. Global NK Studio or DPS45"
+                />
+              </div>
+              {validationErrors.keyCode ? (
+                <p className="mt-1.5 text-xs text-red-400 font-medium">{validationErrors.keyCode}</p>
+              ) : (
+                <p id="keyCode-help" className="mt-1.5 text-xs text-slate-500">
+                  Super Admin: your organisation name or Key Code. School users: the school code from your welcome email.
+                </p>
+              )}
+            </div>
+
             {/* Email Field */}
             <div>
               <label
@@ -131,8 +225,8 @@ export const LoginPage = () => {
                     }
                   }}
                   className={`w-full pl-11 pr-4 py-3 bg-slate-900/60 border rounded-xl text-white placeholder-slate-500 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all ${validationErrors.email
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-slate-700 focus:border-indigo-500'
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
+                    : 'border-slate-700 focus:border-indigo-500'
                     }`}
                   placeholder="admin@school.edu"
                 />
@@ -173,8 +267,8 @@ export const LoginPage = () => {
                     }
                   }}
                   className={`w-full pl-11 pr-4 py-3 bg-slate-900/60 border rounded-xl text-white placeholder-slate-500 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all ${validationErrors.password
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
-                      : 'border-slate-700 focus:border-indigo-500'
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30'
+                    : 'border-slate-700 focus:border-indigo-500'
                     }`}
                   placeholder="••••••••••••"
                 />

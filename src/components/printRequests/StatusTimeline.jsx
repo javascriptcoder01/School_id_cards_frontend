@@ -3,8 +3,18 @@ import React from 'react';
 import { formatDateTime } from '../../utils/idCardFormat.js';
 import { toneClasses, ROLE_LABELS } from './requestTones.js';
 
+// Resubmit entry → "Resubmitted (rev N)" (N = us waqt tak ke resubmits + 1)
+const withRevisionLabels = (history) => {
+  let resubmits = 0;
+  return history.map((entry) => {
+    if (entry.action !== 'RESUBMIT') return entry;
+    resubmits += 1;
+    return { ...entry, label: `Resubmitted (rev ${resubmits + 1})` };
+  });
+};
+
 export const StatusTimeline = ({ history = [], className = '' }) => {
-  const entries = [...history].reverse();
+  const entries = withRevisionLabels(history).reverse();
 
   if (entries.length === 0) {
     return <p className={`text-sm text-slate-500 ${className}`}>No activity yet.</p>;
@@ -21,7 +31,7 @@ export const StatusTimeline = ({ history = [], className = '' }) => {
             <span className={`relative mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full ring-4 ring-white ${tone.dot}`} aria-hidden="true" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-800">
-                {entry.statusView?.label || entry.to}
+                {entry.label || entry.statusView?.label || entry.to}
               </p>
               <p className="text-xs text-slate-500">
                 {ROLE_LABELS[entry.byRole] || entry.byRole || '—'} · {formatDateTime(entry.at)}

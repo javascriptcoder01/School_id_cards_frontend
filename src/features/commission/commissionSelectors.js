@@ -43,3 +43,13 @@ export const selectPaymentDetail = (state) => state.commission?.paymentDetail?.p
 export const selectPaymentDetailRequests = (state) => state.commission?.paymentDetail?.requests || EMPTY_LIST;
 export const selectPaymentDetailLoading = (state) => Boolean(state.commission?.paymentDetail?.loading);
 export const selectPaymentDetailError = (state) => state.commission?.paymentDetail?.error || null;
+
+// Undo payment
+export const selectReverseSaving = (state) => Boolean(state.commission?.reverse?.saving);
+export const selectReverseError = (state) => state.commission?.reverse?.error || null;
+
+// Platform payment details (QR / UPI)
+export const selectPaymentSettings = (state) => state.commission?.paymentSettings?.data || null;
+export const selectPaymentSettingsLoading = (state) => Boolean(state.commission?.paymentSettings?.loading);
+export const selectPaymentSettingsSaving = (state) => Boolean(state.commission?.paymentSettings?.saving);
+export const selectPaymentSettingsError = (state) => state.commission?.paymentSettings?.error || null;

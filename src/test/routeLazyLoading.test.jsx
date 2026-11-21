@@ -43,7 +43,7 @@ describe('ROUTE-LEVEL LAZY LOADING & SUSPENSE BOUNDARIES', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /School ID Cards/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Global N K Solutions/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Sign In/i })).toBeInTheDocument();
     });
   });

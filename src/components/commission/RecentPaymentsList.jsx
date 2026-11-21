@@ -23,7 +23,8 @@ export const RecentPaymentsList = ({ payments = [] }) => {
           <div className="min-w-0">
             <p className="font-mono text-xs font-semibold text-slate-800 break-words">{payment.paymentNumber}</p>
             <p className="mt-0.5 text-xs text-slate-500">
-              {cardsLabel(payment.cards)} · {PAYMENT_MODE_LABELS[payment.mode] || payment.mode} · {formatDateTime(payment.paidAt)}
+              {cardsLabel(payment.cards)} · {PAYMENT_MODE_LABELS[payment.mode] || payment.mode}
+              {payment.referenceNo ? ` · Ref ${payment.referenceNo}` : ''} · {formatDateTime(payment.paidAt)}
             </p>
           </div>
           <span className="shrink-0 font-semibold text-slate-900 tabular-nums">{formatInr(payment.amount)}</span>

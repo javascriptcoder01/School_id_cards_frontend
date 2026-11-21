@@ -35,6 +35,11 @@ const initialState = {
     loadingAction: null, // e.g. 'APPROVE'
     error: null,
   },
+  // Declined request fix: student hatana (PUT studentIds)
+  fix: {
+    saving: false,
+    error: null,
+  },
   download: {
     loadingKey: null, // e.g. '<id>:pdf'
     error: null,
@@ -187,6 +192,19 @@ export const printRequestWorkflowSlice = createSlice({
       state.actionState.error = action.payload || 'Action failed';
     },
 
+    // Declined fix: request se student hatao (existing PUT /:id)
+    removeRequestStudentRequested: (state) => {
+      state.fix.saving = true;
+      state.fix.error = null;
+    },
+    removeRequestStudentSucceeded: (state) => {
+      state.fix.saving = false;
+    },
+    removeRequestStudentFailed: (state, action) => {
+      state.fix.saving = false;
+      state.fix.error = action.payload || 'Failed to remove student';
+    },
+
     // Downloads (sirf kaunsa file chal raha hai)
     downloadFileRequested: (state, action) => {
       state.download.loadingKey = `${action.payload?.id}:${action.payload?.kind}`;
@@ -311,6 +329,9 @@ export const {
   requestActionRequested,
   requestActionSucceeded,
   requestActionFailed,
+  removeRequestStudentRequested,
+  removeRequestStudentSucceeded,
+  removeRequestStudentFailed,
   downloadFileRequested,
   downloadFileSucceeded,
   downloadFileFailed,

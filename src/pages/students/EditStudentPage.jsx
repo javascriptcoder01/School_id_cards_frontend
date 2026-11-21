@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { GraduationCap, ArrowLeft } from 'lucide-react';
 import {
@@ -21,6 +21,9 @@ export const EditStudentPage = () => {
   const { studentId } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  // Declined print request se "Edit student" → save / cancel par wapas wahi request
+  const location = useLocation();
+  const returnTo = typeof location.state?.returnTo === 'string' && location.state.returnTo.startsWith('/') ? location.state.returnTo : null;
 
   const student = useSelector(selectSelectedStudent);
   const isFetching = useSelector(selectStudentDetailLoading);
@@ -40,14 +43,14 @@ export const EditStudentPage = () => {
         id: studentId,
         data: formData,
         onSuccess: () => {
-          navigate(getStudentDetailRoute(studentId));
+          navigate(returnTo || getStudentDetailRoute(studentId));
         },
       })
     );
   };
 
   const handleCancel = () => {
-    navigate(getStudentDetailRoute(studentId));
+    navigate(returnTo || getStudentDetailRoute(studentId));
   };
 
   if (isFetching && !student) {

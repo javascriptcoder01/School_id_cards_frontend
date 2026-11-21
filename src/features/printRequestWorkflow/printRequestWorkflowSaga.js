@@ -19,6 +19,9 @@ import {
   requestActionRequested,
   requestActionSucceeded,
   requestActionFailed,
+  removeRequestStudentRequested,
+  removeRequestStudentSucceeded,
+  removeRequestStudentFailed,
   downloadFileRequested,
   downloadFileSucceeded,
   downloadFileFailed,
@@ -77,6 +80,7 @@ const ACTION_SUCCESS_MESSAGES = {
   ACCEPT: 'Request accepted for printing.',
   DECLINE: 'Request declined.',
   COMPLETE: 'Request marked as completed.',
+  RESUBMIT: 'Request resubmitted.',
 };
 
 // Blob error body padha nahi ja sakta → status se message
@@ -172,7 +176,14 @@ export function* fetchRequestWorker(action) {
     const requestId = action.payload?.requestId || action.payload;
     const response = yield call(getRequestById, requestId);
     const data = dataOf(response);
-    yield put(fetchRequestSucceeded({ request: data?.request || null, students: data?.students || [], printCheck: data?.printCheck || [] }));
+    yield put(
+      fetchRequestSucceeded({
+        request: data?.request || null,
+        students: data?.students || [],
+        printCheck: data?.printCheck || [],
+        resubmitPreview: data?.resubmitPreview || null,
+      })
+    );
   } catch (error) {
     yield put(fetchRequestFailed(errorMessage(error, 'Failed to load print request')));
   }
@@ -241,19 +252,22 @@ export function* saveRequestWorker(action) {
 }
 
 /**
- * payload: { requestId, action, reason?, onSuccess? }
+ * payload: { requestId, action, reason?, body?, onSuccess? }
+ * body (optional) poora request body hai — DECLINE { reason, declinedItems }, RESUBMIT { note, noChangeNeeded }
  */
 export function* requestActionWorker(action) {
-  const { requestId, action: name, reason, onSuccess } = action.payload || {};
+  const { requestId, action: name, reason, body, onSuccess } = action.payload || {};
   try {
-    const response = yield call(runRequestAction, requestId, name, reason ? { reason } : {});
+    const response = yield call(runRequestAction, requestId, name, body || (reason ? { reason } : {}));
     const request = dataOf(response)?.request || null;
     yield put(requestActionSucceeded(request));
+    // Resubmit: server batata hai approve bhi hua ya nahi
+    const serverMessage = name === 'RESUBMIT' && typeof response?.message === 'string' ? response.message : null;
     yield put(
       showNotification({
-        type: 'SUCCESS',
+        type: serverMessage && /did not finish/i.test(serverMessage) ? 'WARNING' : 'SUCCESS',
         title: request?.statusView?.label || 'Updated',
-        message: ACTION_SUCCESS_MESSAGES[name] || 'Request updated.',
+        message: serverMessage || ACTION_SUCCESS_MESSAGES[name] || 'Request updated.',
       })
     );
     yield call(refreshAll, { detailId: requestId });
@@ -264,6 +278,32 @@ export function* requestActionWorker(action) {
     yield put(requestActionFailed(message));
     yield put(showNotification({ type: 'ERROR', title: 'Action Failed', message }));
     // 409 = kisi aur ne status badla → taaza data dikhao
+    if (error?.statusCode === 409) yield call(refreshAll, { detailId: requestId });
+  }
+}
+
+/**
+ * Declined request fix: student hatao (baaki studentIds ke saath existing PUT /:id).
+ * payload: { requestId, studentIds, studentName?, onSuccess? }
+ */
+export function* removeRequestStudentWorker(action) {
+  const { requestId, studentIds, studentName, onSuccess } = action.payload || {};
+  try {
+    const response = yield call(updateRequest, requestId, { studentIds });
+    yield put(removeRequestStudentSucceeded(dataOf(response)?.request || null));
+    yield put(
+      showNotification({
+        type: 'SUCCESS',
+        title: 'Student removed',
+        message: `${studentName || 'The student'} was removed from this request.`,
+      })
+    );
+    yield call(refreshAll, { detailId: requestId });
+    if (typeof onSuccess === 'function') onSuccess();
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to remove student');
+    yield put(removeRequestStudentFailed(message));
+    yield put(showNotification({ type: 'ERROR', title: 'Could not remove', message }));
     if (error?.statusCode === 409) yield call(refreshAll, { detailId: requestId });
   }
 }
@@ -439,6 +479,7 @@ export function* watchPrintRequestWorkflow() {
   yield takeLatest(fetchRequestRequested.type, fetchRequestWorker);
   yield takeLatest(saveRequestRequested.type, saveRequestWorker);
   yield takeLatest(requestActionRequested.type, requestActionWorker);
+  yield takeLatest(removeRequestStudentRequested.type, removeRequestStudentWorker);
   // Har file ka download alag (ek doosre ko cancel na kare)
   yield takeEvery(downloadFileRequested.type, downloadFileWorker);
   yield takeEvery(fetchRequestCardPreviewRequested.type, fetchRequestCardPreviewWorker);

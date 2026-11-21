@@ -2,7 +2,7 @@
 // Kaun se buttons dikhenge ye backend ka `availableActions` batata hai; status label `statusView` se.
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, FileArchive, Loader2, Pencil, AlertTriangle, StickyNote, Printer, Eye } from 'lucide-react';
 import {
   fetchRequestRequested,
@@ -14,6 +14,7 @@ import {
   cardPreviewKey,
   startPrintRequestPolling,
   stopPrintRequestPolling,
+  removeRequestStudentRequested,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import {
   selectPrintRequestDetail,
@@ -24,6 +25,8 @@ import {
   selectPrintRequestLoadingAction,
   selectPrintRequestDownloadKey,
   selectRequestCardPreviews,
+  selectPrintRequestResubmitPreview,
+  selectPrintRequestFixSaving,
 } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
 import IdCardPreviewCarousel from '../../components/idCards/IdCardPreviewCarousel.jsx';
 import IdCardPreviewModal from '../../components/idCards/IdCardPreviewModal.jsx';
@@ -44,6 +47,11 @@ import { approveAmountMessage, cardsLabel } from '../../utils/commissionForm.js'
 import { formatDateTime } from '../../utils/idCardFormat.js';
 import { formatInrShort } from '../../utils/money.js';
 import PrintCheckChip from '../../components/idCards/PrintCheckChip.jsx';
+import RequestPaymentPanel from '../../components/commission/RequestPaymentPanel.jsx';
+import DeclineRequestModal from '../../components/printRequests/DeclineRequestModal.jsx';
+import DeclinedRequestBanner from '../../components/printRequests/DeclinedRequestBanner.jsx';
+import FlaggedStudentsList from '../../components/printRequests/FlaggedStudentsList.jsx';
+import ResubmitBar from '../../components/printRequests/ResubmitBar.jsx';
 
 // Print files sirf in statuses mein (backend bhi yahi check karta hai — 409 warna)
 const PRINT_FILE_STATUSES = ['PRINTING', 'COMPLETED'];
@@ -85,6 +93,9 @@ export const PrintRequestDetailPage = () => {
   const downloadKey = useSelector(selectPrintRequestDownloadKey);
 
   const cardPreviews = useSelector(selectRequestCardPreviews);
+  const resubmitPreview = useSelector(selectPrintRequestResubmitPreview);
+  const fixSaving = useSelector(selectPrintRequestFixSaving);
+  const location = useLocation();
 
   const [modalAction, setModalAction] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -135,7 +146,33 @@ export const PrintRequestDetailPage = () => {
   const canDownload = role === ROLES.SUPER_ADMIN && PRINT_FILE_STATUSES.includes(request.status);
   // School Admin approve se pehle saare cards dekh sake (approve par yahi data lock hota hai)
   const canApprovePreview = role === ROLES.COLLEGE_ADMIN && actions.includes('APPROVE');
-  const modalConfig = modalAction ? REQUEST_ACTION_CONFIG[modalAction] : null;
+  // Decline (Super Admin) apna modal kholta hai (reason + flagged students)
+  const modalConfig = modalAction && modalAction !== 'DECLINE' ? REQUEST_ACTION_CONFIG[modalAction] : null;
+  const isDeclined = request.status === 'DECLINED';
+  // Declined → Fix & Resubmit: backend RESUBMIT deta hai (operator apni class, school admin)
+  const canFix = isDeclined && (request.availableActions || []).includes('RESUBMIT');
+
+  const removeStudent = (student, done) => {
+    dispatch(
+      removeRequestStudentRequested({
+        requestId: request.id,
+        studentIds: (request.studentIds || students.map((s) => s.id)).filter((id) => id !== student.id),
+        studentName: student.name,
+        onSuccess: done,
+      })
+    );
+  };
+
+  const resubmit = (body, done) => {
+    dispatch(
+      requestActionRequested({
+        requestId: request.id,
+        action: 'RESUBMIT',
+        body,
+        onSuccess: done,
+      })
+    );
+  };
   const classLabel = request.className ? `${request.className}${request.section ? ` - ${request.section}` : ''}` : '—';
 
   const confirmAction = (reason) => {
@@ -221,6 +258,20 @@ export const PrintRequestDetailPage = () => {
       <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
         <RequestProgressStepper request={request} />
       </div>
+
+      {/* Declined: laal banner + flagged students (school: edit / remove) */}
+      {isDeclined && <DeclinedRequestBanner request={request} forSchool={role !== ROLES.SUPER_ADMIN} />}
+      {isDeclined && students.length > 0 && (canFix || (request.declinedItems || []).length > 0) && (
+        <FlaggedStudentsList
+          students={students}
+          declinedItems={request.declinedItems || []}
+          canFix={canFix}
+          role={role}
+          returnTo={location.pathname}
+          saving={fixSaving}
+          onRemove={removeStudent}
+        />
+      )}
 
       {/* Reject reason (editable request par operator ko dikhe) */}
       {request.rejectionReason && request.status === 'REJECTED_BY_ADMIN' && (
@@ -327,6 +378,14 @@ export const PrintRequestDetailPage = () => {
             </dl>
           </div>
 
+          {/* Super Admin: Mark as Paid / receipt + undo */}
+          {role === ROLES.SUPER_ADMIN && (
+            <RequestPaymentPanel
+              request={request}
+              onChanged={() => dispatch(fetchRequestRequested({ requestId, silent: true }))}
+            />
+          )}
+
           {request.note && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
               <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-800"><StickyNote className="h-4 w-4 text-slate-400" /> Note from class teacher</h2>
@@ -379,6 +438,35 @@ export const PrintRequestDetailPage = () => {
           renderBadge={(studentId) => <PreviewSourceBadge entry={getCardPreview(studentId)} />}
         />
       </IdCardPreviewModal>
+
+      <DeclineRequestModal
+        open={modalAction === 'DECLINE'}
+        request={request}
+        students={students}
+        loading={Boolean(loadingAction)}
+        onConfirm={(body) =>
+          dispatch(
+            requestActionRequested({
+              requestId: request.id,
+              action: 'DECLINE',
+              body,
+              onSuccess: () => setModalAction(null),
+            })
+          )
+        }
+        onCancel={() => setModalAction(null)}
+      />
+
+      {canFix && (
+        <ResubmitBar
+          key={`${request.id}:${request.revision || 1}`}
+          summary={resubmitPreview}
+          isAdmin={role === ROLES.COLLEGE_ADMIN}
+          nextRevision={(request.revision || 1) + 1}
+          loading={loadingAction === 'RESUBMIT'}
+          onResubmit={resubmit}
+        />
+      )}
 
       <ConfirmActionModal
         open={Boolean(modalConfig)}

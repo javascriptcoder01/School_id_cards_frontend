@@ -56,6 +56,14 @@ const GenerateIdCardsPage = lazy(() => import('../pages/idCards/GenerateIdCardsP
 const CommissionPage = lazy(() => import('../pages/commission/CommissionPage.jsx'));
 const CommissionCollegeLedgerPage = lazy(() => import('../pages/commission/CommissionCollegeLedgerPage.jsx'));
 const ThemeArtworkPage = lazy(() => import('../pages/themeArtwork/ThemeArtworkPage.jsx'));
+const LetterheadListPage = lazy(() => import('../pages/letterheads/LetterheadListPage.jsx'));
+const LetterheadEditorPage = lazy(() => import('../pages/letterheads/LetterheadEditorPage.jsx'));
+const DocumentHistoryPage = lazy(() => import('../pages/documents/DocumentHistoryPage.jsx'));
+const DocumentComposerPage = lazy(() => import('../pages/documents/DocumentComposerPage.jsx'));
+const LetterheadRatesPage = lazy(() => import('../pages/letterheadCommission/LetterheadRatesPage.jsx'));
+const LetterheadOrdersPage = lazy(() => import('../pages/letterheadOrders/LetterheadOrdersPage.jsx'));
+const MyLetterheadOrdersPage = lazy(() => import('../pages/letterheadOrders/MyLetterheadOrdersPage.jsx'));
+const PlatformOrganizationsPage = lazy(() => import('../pages/platform/PlatformOrganizationsPage.jsx'));
 
 // Helper wrapper to ensure Suspense fallback on all lazy-loaded routes
 const withSuspense = (Component) => (
@@ -98,6 +106,7 @@ export const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path={ROUTES.LOGIN} element={withSuspense(LoginPage)} />
+      <Route path={ROUTES.PLATFORM} element={withSuspense(PlatformOrganizationsPage)} />
       <Route path={ROUTES.ID_CARD_VERIFY} element={withSuspense(PublicVerificationPage)} />
 
       {/* Protected Application Routes wrapped in AppLayout */}
@@ -425,6 +434,78 @@ export const AppRoutes = () => {
         <Route path={ROUTES.SUPER_ADMIN_PRINT_CENTER} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
         <Route path={ROUTES.SUPER_ADMIN_PRINT_COLLEGE_DETAIL} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
         <Route path={ROUTES.ADMIN_PRINT_REQUESTS} element={<Navigate to={ROUTES.PRINT_CENTER} replace />} />
+
+        {/* Letterhead Studio (SUPER_ADMIN, COLLEGE_ADMIN) */}
+        <Route
+          path={ROUTES.LETTERHEADS}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+              {withSuspense(LetterheadListPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.LETTERHEAD_NEW}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+              {withSuspense(LetterheadEditorPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.LETTERHEAD_EDIT}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN']}>
+              {withSuspense(LetterheadEditorPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Documents (SUPER_ADMIN, COLLEGE_ADMIN, OPERATOR — backend flag check karta hai) */}
+        <Route
+          path={ROUTES.DOCUMENTS}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'OPERATOR']}>
+              {withSuspense(DocumentHistoryPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.DOCUMENT_NEW}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN', 'COLLEGE_ADMIN', 'OPERATOR']}>
+              {withSuspense(DocumentComposerPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* Letterhead PRINT rates + orders (SUPER_ADMIN) */}
+        <Route
+          path={ROUTES.LETTERHEAD_RATES}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(LetterheadRatesPage)}
+            </RoleRoute>
+          }
+        />
+        <Route
+          path={ROUTES.LETTERHEAD_ORDERS}
+          element={
+            <RoleRoute allowedRoles={['SUPER_ADMIN']}>
+              {withSuspense(LetterheadOrdersPage)}
+            </RoleRoute>
+          }
+        />
+
+        {/* School Admin: apne letterhead print orders */}
+        <Route
+          path={ROUTES.LETTERHEAD_MY_ORDERS}
+          element={
+            <RoleRoute allowedRoles={['COLLEGE_ADMIN']}>
+              {withSuspense(MyLetterheadOrdersPage)}
+            </RoleRoute>
+          }
+        />
 
         {/* Theme Builder artwork (SUPER_ADMIN) */}
         <Route

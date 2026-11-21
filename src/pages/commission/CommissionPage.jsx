@@ -49,7 +49,10 @@ import SchoolRevenueTable from '../../components/commission/SchoolRevenueTable.j
 import RateHistoryTable from '../../components/commission/RateHistoryTable.jsx';
 import PaymentsTable from '../../components/commission/PaymentsTable.jsx';
 import PaymentDetailDrawer from '../../components/commission/PaymentDetailDrawer.jsx';
+import PaymentSettingsCard from '../../components/commission/PaymentSettingsCard.jsx';
+import UndoPaymentDialog from '../../components/commission/UndoPaymentDialog.jsx';
 import SetRateModal from '../../components/commission/SetRateModal.jsx';
+import TemplateRatesModal from '../../components/commission/TemplateRatesModal.jsx';
 import { cardsLabel, toPaginationProps } from '../../utils/commissionForm.js';
 import { formatInr, formatInrShort } from '../../utils/money.js';
 
@@ -57,6 +60,8 @@ const TABS = [
   { key: 'SCHOOLS', label: 'Schools' },
   { key: 'HISTORY', label: 'Rate history' },
   { key: 'PAYMENTS', label: 'Payments' },
+  // Schools kahan pay karein (QR / UPI)
+  { key: 'PAYMENT_QR', label: 'Payment QR' },
 ];
 
 const PAGE_SIZE = 10;
@@ -90,7 +95,9 @@ export const CommissionPage = () => {
   const [activeTab, setActiveTab] = useState('SCHOOLS');
   const [rateModal, setRateModal] = useState(null); // { college } — college null = default rate
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [templateRatesCollege, setTemplateRatesCollege] = useState(null); // optional school + template rates
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [undoTarget, setUndoTarget] = useState(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyScope, setHistoryScope] = useState('');
   const [historyCollegeId, setHistoryCollegeId] = useState('');
@@ -184,6 +191,13 @@ export const CommissionPage = () => {
           Use default
         </button>
       )}
+      <button
+        type="button"
+        onClick={() => setTemplateRatesCollege({ collegeId: college.collegeId, name: college.name })}
+        className="text-xs font-semibold text-violet-700 hover:underline"
+      >
+        Template rates
+      </button>
     </>
   );
 
@@ -298,6 +312,7 @@ export const CommissionPage = () => {
               <option value="">All rates</option>
               <option value="GLOBAL">Default rate</option>
               <option value="COLLEGE">School rates</option>
+              <option value="TEMPLATE_COLLEGE">Template rates</option>
             </select>
             <select
               aria-label="Filter by school"
@@ -367,6 +382,10 @@ export const CommissionPage = () => {
         onCancel={() => setRemoveTarget(null)}
       />
 
+      <TemplateRatesModal college={templateRatesCollege} onClose={() => setTemplateRatesCollege(null)} />
+
+      {activeTab === 'PAYMENT_QR' && <PaymentSettingsCard />}
+
       <PaymentDetailDrawer
         open={drawerOpen}
         payment={paymentDetail}
@@ -374,7 +393,10 @@ export const CommissionPage = () => {
         loading={paymentDetailLoading}
         error={paymentDetailError}
         onClose={closePayment}
+        onUndo={setUndoTarget}
       />
+
+      <UndoPaymentDialog payment={undoTarget} onClose={() => setUndoTarget(null)} />
     </div>
   );
 };

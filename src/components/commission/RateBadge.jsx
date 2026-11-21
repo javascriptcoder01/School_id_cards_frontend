@@ -2,7 +2,7 @@
 import React from 'react';
 import { formatInrShort } from '../../utils/money.js';
 
-const SCOPE_LABELS = { COLLEGE: 'School rate', GLOBAL: 'Default' };
+const SCOPE_LABELS = { COLLEGE: 'School rate', GLOBAL: 'Default', TEMPLATE_COLLEGE: 'Template rate' };
 
 /**
  * @param {object} props

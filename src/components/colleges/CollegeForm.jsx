@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { LETTERHEAD_SEGMENTS } from '../../constants/letterhead.js';
 import { useNavigate } from 'react-router-dom';
 import { School, MapPin, Mail, Phone, Image, Save, PenTool, Stamp, Upload, X, AlertCircle } from 'lucide-react';
 import { ROUTES } from '../../constants/routes.js';
@@ -150,6 +151,8 @@ export const CollegeForm = ({
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    // Organisation type (letterhead print rate isi se)
+    segment: 'ACADEMIC',
     collegeLogo: { ...EMPTY_IMAGE },
     adminSignature: { ...EMPTY_IMAGE },
     collegeStamp: { ...EMPTY_IMAGE },
@@ -181,6 +184,7 @@ export const CollegeForm = ({
       setFormData({
         name: initialValues.name || '',
         code: initialValues.code || '',
+        segment: initialValues.segment || 'ACADEMIC',
         collegeLogo: {
           url: logo.url || '',
           publicId: logo.publicId || '',
@@ -347,6 +351,7 @@ export const CollegeForm = ({
       const payload = {
         name: formData.name.trim(),
         code: formData.code.trim().toUpperCase(),
+        segment: formData.segment || 'ACADEMIC',
         // Backend (syncLogoFields) collegeLogo se legacy `logo` khud bhar deta hai
         collegeLogo: buildImagePayload(formData.collegeLogo),
         adminSignature: buildImagePayload(formData.adminSignature),
@@ -433,6 +438,28 @@ export const CollegeForm = ({
                 }`}
             />
             {errors.code && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.code}</p>}
+          </div>
+
+          {/* Organisation type (letterhead print rates by sector) */}
+          <div>
+            <label
+              htmlFor="college-segment"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+            >
+              Organisation type
+            </label>
+            <select
+              id="college-segment"
+              value={formData.segment}
+              disabled={isLoading}
+              onChange={(e) => handleChange('segment', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            >
+              {LETTERHEAD_SEGMENTS.map((seg) => (
+                <option key={seg.value} value={seg.value}>{seg.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1.5">Used for letterhead print rates by sector.</p>
           </div>
 
           {/* College Logo Upload & Preview (same UI as signature) */}

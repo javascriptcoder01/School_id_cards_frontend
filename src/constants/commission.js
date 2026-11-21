@@ -10,6 +10,16 @@ export const PAYMENT_MODE_OPTIONS = [
 
 export const PAYMENT_MODE_LABELS = Object.fromEntries(PAYMENT_MODE_OPTIONS.map(({ value, label }) => [value, label]));
 
+// Mark as Paid modal: UPI QR pehle (default). Backend UPI_QR ko UPI ki tarah save karta hai.
+export const MARK_PAID_MODE_OPTIONS = [{ value: 'UPI_QR', label: 'UPI QR' }, ...PAYMENT_MODE_OPTIONS];
+// In modes mein UTR / transaction id zaroori (backend jaisa)
+export const PAYMENT_REFERENCE_REQUIRED_MODES = ['UPI_QR', 'UPI', 'BANK_TRANSFER'];
+export const PAYMENT_REVERSE_REASON_MIN = 5;
+// Payment proof / QR: image ya PDF, 5 MB
+export const PAYMENT_PROOF_MAX_BYTES = 5 * 1024 * 1024;
+export const PAYMENT_PROOF_ACCEPT = 'image/png,image/jpeg,image/webp,application/pdf';
+export const PAYMENT_QR_ACCEPT = 'image/png,image/jpeg,image/webp';
+
 // Print request list ka payment filter (label backend ke PAYMENT_STATUS_VIEW jaise)
 export const PAYMENT_STATUS_OPTIONS = [
   { value: 'NOT_DUE', label: 'Not due' },

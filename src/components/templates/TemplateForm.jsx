@@ -807,7 +807,11 @@ export const TemplateForm = ({
     setFormData((prev) => {
       const layout = buildRecommendedBackLayout(
         { unit: prev.unit, width: prev.width, height: prev.height },
-        { signatureAsset: usableAssets.find((a) => a.type === 'SIGNATURE') || null }
+        {
+          // School profile ki principal signature pehle (live); na ho to purana CollegeAsset signature
+          profileSignature: availableSchoolImage(TEMPLATE_COLLEGE_PROFILE_IMAGES.PRINCIPAL_SIGNATURE),
+          signatureAsset: usableAssets.find((a) => a.type === 'SIGNATURE') || null,
+        }
       );
       // Back ka background (type / letterhead) waisa hi rahe
       const current = prev.back || newBackSide();
@@ -1151,18 +1155,32 @@ export const TemplateForm = ({
       {/* Actions */}
       {/* Neeche chipka hua action bar: lamba designer scroll karte hue bhi Save haath mein */}
       <div className="sticky bottom-3 z-20 flex items-center justify-end gap-2 rounded-2xl border border-white/60 bg-white/80 p-2 shadow-lg shadow-indigo-500/10 ring-1 ring-slate-200/70 backdrop-blur-md">
+        {/* Mobile (lg se neeche): naam bhi yahin — designer mein neeche scroll karke bhi naam dikhe / badle. Desktop waisa hi. */}
+        <div className="min-w-0 flex-1 lg:hidden">
+          <input
+            type="text"
+            maxLength={150}
+            value={formData.name}
+            disabled={isLoading}
+            onChange={(e) => update({ name: e.target.value })}
+            placeholder="Name this card"
+            aria-label="Card name (quick edit)"
+            aria-invalid={Boolean(errors.name)}
+            className={`h-10 w-full rounded-xl border bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-400 disabled:opacity-50 ${errors.name ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'}`}
+          />
+        </div>
         <button
           type="button"
           disabled={isLoading}
           onClick={handleCancel}
-          className="h-10 rounded-xl px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50"
+          className="h-10 shrink-0 rounded-xl px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50 sm:px-4"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isLoading}
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-5 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-linear-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-4 sm:px-5 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition-all hover:-translate-y-0.5 hover:shadow-xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           {isLoading ? (
             <>
@@ -1172,7 +1190,9 @@ export const TemplateForm = ({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              {isEdit ? 'Save Template' : 'Create Template'}
+              {/* Chhoti screen par chhota label (naam input ke liye jagah) */}
+              <span className="sm:hidden">{isEdit ? 'Save' : 'Create'}</span>
+              <span className="hidden sm:inline">{isEdit ? 'Save Template' : 'Create Template'}</span>
             </>
           )}
         </button>

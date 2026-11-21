@@ -57,7 +57,7 @@ describe('GROUP A — PROJECT FOUNDATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /School ID Cards/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Global N K Solutions/i })).toBeInTheDocument();
       expect(screen.getByLabelText(/Email Address/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
     });

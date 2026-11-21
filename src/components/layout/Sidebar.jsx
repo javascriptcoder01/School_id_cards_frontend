@@ -1,31 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  X,
-  LayoutDashboard,
-  School,
-  Users,
-  GraduationCap,
-  FileSpreadsheet,
-  CreditCard,
-  Sparkles,
-  User,
-  UserCheck,
-  Printer,
-  IndianRupee,
-  Shapes,
-} from 'lucide-react';
-import { ROUTES } from '../../constants/routes.js';
+import { X } from 'lucide-react';
 import { selectUserRole } from '../../features/auth/authSelectors.js';
 import { selectSidebarOpen, selectMobileNavOpen, closeMobileNav } from '../../store/slices/appSlice.js';
 import { fetchBadgeCountsRequested } from '../../features/printRequestWorkflow/printRequestWorkflowSlice.js';
 import { selectPrintRequestBadgeCounts } from '../../features/printRequestWorkflow/printRequestWorkflowSelectors.js';
 import { MOBILE_NAV_ID, MOBILE_NAV_TOGGLE_ID } from './Header.jsx';
+import { navItems } from '../../constants/menuItem.js';
 
-// Badge counts har 60 s (pages apna 30 s poll alag karte hain)
+
 const BADGE_REFRESH_MS = 60000;
-// Tailwind lg breakpoint — isse upar drawer nahi, normal sidebar
 const DESKTOP_QUERY = '(min-width: 1024px)';
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -38,7 +23,7 @@ export const Sidebar = () => {
   const badgeCounts = useSelector(selectPrintRequestBadgeCounts);
   const drawerRef = useRef(null);
   const closeRef = useRef(null);
-  // Drawer ke links sirf khulne par (band hone ki slide khatam hone tak) — DOM mein nav do baar na rahe
+
   const [drawerContent, setDrawerContent] = useState(mobileOpen);
   if (mobileOpen && !drawerContent) setDrawerContent(true);
 
@@ -49,14 +34,10 @@ export const Sidebar = () => {
     return () => clearInterval(timer);
   }, [dispatch, userRole]);
 
-  /* ---------- Mobile drawer ---------- */
-
-  // Route badla → drawer band
   useEffect(() => {
     dispatch(closeMobileNav());
   }, [dispatch, location.pathname]);
 
-  // Screen lg ya bada hua → drawer band
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
     const media = window.matchMedia(DESKTOP_QUERY);
@@ -102,109 +83,17 @@ export const Sidebar = () => {
     };
   }, [mobileOpen, dispatch]);
 
-  // Navigation Configuration with Granular Role-Based Access
-  const navItems = [
-    {
-      label: 'Dashboard',
-      path: ROUTES.DASHBOARD,
-      icon: LayoutDashboard,
-      roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'OPERATOR'],
-    },
-    {
-      label: 'Colleges',
-      path: ROUTES.COLLEGES,
-      icon: School,
-      roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
-    },
-    {
-      label: 'Teachers',
-      path: ROUTES.USERS,
-      icon: Users,
-      roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
-    },
-    // College Admin Specific
-    {
-      label: 'Assign Classes',
-      path: ROUTES.OPERATOR_ASSIGNMENTS,
-      icon: UserCheck,
-      roles: ['COLLEGE_ADMIN'],
-    },
-    {
-      label: 'Students',
-      path: ROUTES.STUDENTS,
-      icon: GraduationCap,
-      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
-    },
-    {
-      label: 'Bulk Import',
-      path: ROUTES.STUDENT_IMPORT,
-      icon: FileSpreadsheet,
-      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
-    },
-    {
-      label: 'Templates',
-      path: ROUTES.TEMPLATES,
-      icon: CreditCard,
-      roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN'],
-    },
-    // Purane "ID Card Generation" / "Generate ID Cards" pages URL se ab bhi khulte hain (print requests ke liye)
-    {
-      label: 'ID Cards',
-      path: ROUTES.ID_CARDS,
-      icon: Sparkles,
-      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
-    },
-    // Badge: Operator → Rejected, School Admin → Pending Approval
-    {
-      label: 'Print Center',
-      path: ROUTES.PRINT_REQUESTS,
-      icon: Printer,
-      roles: ['COLLEGE_ADMIN', 'OPERATOR'],
-      badgeStatusByRole: { OPERATOR: 'REJECTED_BY_ADMIN', COLLEGE_ADMIN: 'PENDING_APPROVAL' },
-    },
-    // Super Admin Print Center — badge: New Requests
-    {
-      label: 'Print Center',
-      path: ROUTES.PRINT_CENTER,
-      icon: Printer,
-      roles: ['SUPER_ADMIN'],
-      badgeStatusByRole: { SUPER_ADMIN: 'APPROVED' },
-    },
-    // Theme Builder: SVG artwork jo schools recolour karti hain
-    {
-      label: 'Theme Artwork',
-      path: ROUTES.THEME_ARTWORK,
-      icon: Shapes,
-      roles: ['SUPER_ADMIN'],
-    },
-    // Rate per card + payments
-    {
-      label: 'Commission',
-      path: ROUTES.COMMISSION,
-      icon: IndianRupee,
-      roles: ['SUPER_ADMIN'],
-    },
-    // Account Settings (All Authenticated)
-    {
-      label: 'My Account',
-      path: ROUTES.ACCOUNT,
-      icon: User,
-      roles: ['SUPER_ADMIN', 'COLLEGE_ADMIN', 'OPERATOR'],
-    },
-  ];
 
-  // Filter items allowed for the authenticated user's role
+
   const visibleNavItems = navItems.filter(
     (item) => !item.roles || (userRole && item.roles.includes(userRole))
   );
 
-  // Print request badge: is role ko kitni requests par dhyan dena hai
   const badgeFor = (item) => {
     const status = item.badgeStatusByRole?.[userRole];
     return status ? badgeCounts[status] || 0 : 0;
   };
 
-  // Desktop aur mobile drawer dono yahi nav dikhate hain (expanded = labels ke saath)
   const renderNav = (expanded) => (
     <nav className="space-y-1" aria-label="Primary">
       {visibleNavItems.map((item) => {
@@ -251,7 +140,6 @@ export const Sidebar = () => {
 
   return (
     <>
-      {/* Desktop (lg+): pehle jaisa, layout ke andar */}
       <aside
         className={`bg-slate-900 text-slate-200 border-r border-slate-800 transition-all duration-300 hidden lg:flex flex-col z-20 shrink-0 ${isOpen ? 'w-64' : 'w-0 sm:w-20 overflow-hidden'
           }`}
@@ -265,12 +153,10 @@ export const Sidebar = () => {
             {renderNav(isOpen)}
           </div>
 
-          {/* Sidebar Footer */}
           {isOpen && footer}
         </div>
       </aside>
 
-      {/* Mobile (lg se chhota): overlay drawer — content ko dabata nahi */}
       <div className="lg:hidden">
         {mobileOpen && (
           <div className="fixed inset-0 z-40 bg-slate-900/50" aria-hidden="true" onClick={() => dispatch(closeMobileNav())} />

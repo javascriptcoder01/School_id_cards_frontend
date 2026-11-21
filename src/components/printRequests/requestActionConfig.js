@@ -52,6 +52,15 @@ export const REQUEST_ACTION_CONFIG = {
     confirmLabel: 'Decline Request',
     reasonLabel: 'Reason for declining',
   },
+  // Declined → school: sticky "Fix & Resubmit" bar se chalta hai (header button nahi)
+  RESUBMIT: {
+    label: 'Fix & Resubmit',
+    tone: 'primary',
+    reasonMode: 'none',
+    title: 'Resubmit this request?',
+    message: 'It goes back for approval with the same request number.',
+    confirmLabel: 'Resubmit',
+  },
   COMPLETE: {
     label: 'Mark Printing Done',
     tone: 'primary',
