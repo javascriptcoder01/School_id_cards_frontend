@@ -61,7 +61,7 @@ describe('TEMPLATE ROUTING & ACCESS CONTROL', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Create ID Card Template/i })).toBeInTheDocument();
-      expect(screen.getByText(/Template Specifications/i)).toBeInTheDocument();
+      expect(screen.getByText(/Template Details/i)).toBeInTheDocument();
     });
   });
 

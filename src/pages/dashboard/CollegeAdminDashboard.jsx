@@ -122,7 +122,7 @@ export const CollegeAdminDashboard = ({
                 value={lastRate ? formatInrShort(lastRate.rate) : '—'}
                 loading={isKpiLoading}
               />
-              <HeroStat icon={Printer} label="Printed" value={overview?.printed?.cards ?? 0} loading={isKpiLoading} />
+              <HeroStat icon={Printer} label="Printed" value={overview ? (overview.printed?.cards ?? 0) : "—"} loading={isKpiLoading} />
             </div>
 
             <button
@@ -169,7 +169,7 @@ export const CollegeAdminDashboard = ({
           <MoneyCard
             icon={BadgeIndianRupee}
             title="Pending Payment"
-            value={formatInr(overview?.pendingPayment?.amount ?? 0)}
+            value={formatInr(overview?.pendingPayment?.amount)}
             subtitle={cardsLabel(overview?.pendingPayment?.cards)}
             tone="amber"
             loading={isKpiLoading}
@@ -177,7 +177,7 @@ export const CollegeAdminDashboard = ({
           <MoneyCard
             icon={CheckCircle2}
             title="Total Paid"
-            value={formatInr(overview?.paid?.amount ?? 0)}
+            value={formatInr(overview?.paid?.amount)}
             subtitle={cardsLabel(overview?.paid?.cards)}
             tone="emerald"
             loading={isKpiLoading}

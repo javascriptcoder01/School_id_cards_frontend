@@ -49,7 +49,7 @@ describe('GROUP F — USER ROUTING & AUTHORIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Users Directory')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Class Teachers/ })).toBeInTheDocument();
       expect(screen.getByText('Add User')).toBeInTheDocument();
       expect(screen.getByText('Managed User')).toBeInTheDocument();
     });
@@ -91,7 +91,7 @@ describe('GROUP F — USER ROUTING & AUTHORIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Users Directory')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Class Teachers/ })).toBeInTheDocument();
       expect(screen.getByText('College Operator')).toBeInTheDocument();
     });
   });

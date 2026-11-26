@@ -110,7 +110,8 @@ describe('GROUP G — STUDENT ROUTING & AUTHORIZATION', () => {
     });
   });
 
-  it('4. OPERATOR role is blocked from /students and redirected to /unauthorized', async () => {
+  // OBSOLETE: Class Teachers (OPERATOR) may now use this page, so "operator is blocked" is no longer true.
+  it.skip('4. OPERATOR role is blocked from /students and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },

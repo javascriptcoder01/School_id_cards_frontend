@@ -51,8 +51,10 @@ describe('ACCOUNT REDUX SLICE', () => {
       name: 'Super Admin',
       email: 'admin@school.edu',
       role: 'SUPER_ADMIN',
-      collegeId: null,
       isActive: true,
+      collegeId: null,
+      collegeName: null,
+      collegeCode: null,
     });
     expect(state.profile).not.toHaveProperty('passwordHash');
     expect(state.profile).not.toHaveProperty('__v');

@@ -134,7 +134,7 @@ describe('GROUP E & F — COLLEGE UI COMPONENTS & FORMS', () => {
     const logoInput = screen.getByLabelText(/Logo URL/i);
     fireEvent.change(logoInput, { target: { value: 'not-a-url' } });
     fireEvent.click(submitBtn);
-    expect(screen.getByText('Please provide a valid URL for the logo')).toBeInTheDocument();
+    expect(screen.getByText('Please provide a valid image URL or upload a file')).toBeInTheDocument();
   });
 
   it('6. CollegeForm submits sanitized data and auto-uppercases code', () => {

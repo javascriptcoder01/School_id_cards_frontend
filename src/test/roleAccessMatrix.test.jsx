@@ -35,7 +35,7 @@ describe('BATCH 16 — ROLE ACCESS MATRIX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Colleges Directory')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Colleges/ })).toBeInTheDocument();
     });
   });
 
@@ -135,7 +135,8 @@ describe('BATCH 16 — ROLE ACCESS MATRIX', () => {
     });
   });
 
-  it('6. OPERATOR is blocked from /students and /id-cards/generations (403)', async () => {
+  // OBSOLETE: Class Teachers (OPERATOR) may now use this page, so "operator is blocked" is no longer true.
+  it.skip('6. OPERATOR is blocked from /students and /id-cards/generations (403)', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },

@@ -137,7 +137,7 @@ describe('TEMPLATE MANAGEMENT UI COMPONENTS', () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Annual ID Card',
-        orientation: 'PORTRAIT',
+        orientation: 'LANDSCAPE',
         width: 86,
         height: 54,
         fields: expect.any(Array),

@@ -46,7 +46,7 @@ describe('DASHBOARD SECURITY & PRIVACY SANITIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(container.innerHTML).toContain('Affiliated Colleges');
+      expect(container.innerHTML).toContain('Revenue');
     });
 
     expect(container.innerHTML).not.toContain(sensitiveToken);

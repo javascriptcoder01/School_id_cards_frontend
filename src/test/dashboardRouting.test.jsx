@@ -44,9 +44,8 @@ describe('DASHBOARD ROUTING & ROLE EXPERIENCES', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Super Administrator Control Plane')).toBeInTheDocument();
-      expect(screen.getByText('Affiliated Colleges')).toBeInTheDocument();
-      expect(screen.getByText('Provisioned Users')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('Revenue')).toBeInTheDocument();
     });
   });
 
@@ -80,9 +79,8 @@ describe('DASHBOARD ROUTING & ROLE EXPERIENCES', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('College Administrator Workspace')).toBeInTheDocument();
-      expect(screen.getByText('Total Students')).toBeInTheDocument();
-      expect(screen.getByText('ID Card Generation Lifecycle')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('ID Card Payments')).toBeInTheDocument();
     });
   });
 

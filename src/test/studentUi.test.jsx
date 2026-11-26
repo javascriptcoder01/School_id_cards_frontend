@@ -1,7 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
+import { configureAppStore } from '../app/store.js';
 import StudentTable from '../components/students/StudentTable.jsx';
 import StudentSearch from '../components/students/StudentSearch.jsx';
 import StudentPagination from '../components/students/StudentPagination.jsx';
@@ -112,9 +114,11 @@ describe('GROUP E & F — STUDENT UI COMPONENTS & FORMS', () => {
     const onSubmit = vi.fn();
 
     render(
-      <MemoryRouter>
-        <StudentForm isEdit={false} onSubmit={onSubmit} />
-      </MemoryRouter>
+      <Provider store={configureAppStore()}>
+        <MemoryRouter>
+          <StudentForm isEdit={false} onSubmit={onSubmit} />
+        </MemoryRouter>
+      </Provider>
     );
 
     const submitBtn = screen.getByRole('button', { name: /Create Student/i });
@@ -126,26 +130,26 @@ describe('GROUP E & F — STUDENT UI COMPONENTS & FORMS', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('6. StudentForm validates invalid email format and invalid photo URL', () => {
+  it('6. StudentForm validates invalid email format', () => {
     const onSubmit = vi.fn();
 
     render(
-      <MemoryRouter>
-        <StudentForm isEdit={false} onSubmit={onSubmit} />
-      </MemoryRouter>
+      <Provider store={configureAppStore()}>
+        <MemoryRouter>
+          <StudentForm isEdit={false} onSubmit={onSubmit} />
+        </MemoryRouter>
+      </Provider>
     );
 
     fireEvent.change(screen.getByLabelText(/Student ID/i), { target: { value: 'STU-1' } });
     fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Valid Student' } });
     fireEvent.change(screen.getByLabelText(/Class \/ Course/i), { target: { value: '10th' } });
     fireEvent.change(screen.getByLabelText(/Email Address/i), { target: { value: 'not-an-email' } });
-    fireEvent.change(screen.getByLabelText(/Photo URL/i), { target: { value: 'invalid-url' } });
 
     const submitBtn = screen.getByRole('button', { name: /Create Student/i });
     fireEvent.click(submitBtn);
 
     expect(screen.getByText('Please provide a valid email address')).toBeInTheDocument();
-    expect(screen.getByText('Please provide a valid photo URL')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -153,9 +157,11 @@ describe('GROUP E & F — STUDENT UI COMPONENTS & FORMS', () => {
     const onSubmit = vi.fn();
 
     render(
-      <MemoryRouter>
-        <StudentForm isEdit={false} onSubmit={onSubmit} />
-      </MemoryRouter>
+      <Provider store={configureAppStore()}>
+        <MemoryRouter>
+          <StudentForm isEdit={false} onSubmit={onSubmit} />
+        </MemoryRouter>
+      </Provider>
     );
 
     fireEvent.change(screen.getByLabelText(/Student ID/i), { target: { value: 'STU-999' } });
@@ -179,7 +185,7 @@ describe('GROUP E & F — STUDENT UI COMPONENTS & FORMS', () => {
       gender: null,
       email: null,
       phone: null,
-      photo: null,
+      bloodGroup: null,
       guardianName: 'R. Hegde',
       guardianPhone: null,
       address: {

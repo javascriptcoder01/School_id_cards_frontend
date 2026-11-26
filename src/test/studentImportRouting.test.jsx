@@ -39,7 +39,8 @@ describe('STUDENT BULK IMPORT ROUTING & AUTHORIZATION', () => {
     });
   });
 
-  it('2. OPERATOR is blocked from /students/import and redirected to /unauthorized', async () => {
+  // OBSOLETE: Class Teachers (OPERATOR) may now use this page, so "operator is blocked" is no longer true.
+  it.skip('2. OPERATOR is blocked from /students/import and redirected to /unauthorized', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },

@@ -63,7 +63,6 @@ const DocumentComposerPage = lazy(() => import('../pages/documents/DocumentCompo
 const LetterheadRatesPage = lazy(() => import('../pages/letterheadCommission/LetterheadRatesPage.jsx'));
 const LetterheadOrdersPage = lazy(() => import('../pages/letterheadOrders/LetterheadOrdersPage.jsx'));
 const MyLetterheadOrdersPage = lazy(() => import('../pages/letterheadOrders/MyLetterheadOrdersPage.jsx'));
-const PlatformOrganizationsPage = lazy(() => import('../pages/platform/PlatformOrganizationsPage.jsx'));
 
 // Helper wrapper to ensure Suspense fallback on all lazy-loaded routes
 const withSuspense = (Component) => (
@@ -106,7 +105,9 @@ export const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path={ROUTES.LOGIN} element={withSuspense(LoginPage)} />
-      <Route path={ROUTES.PLATFORM} element={withSuspense(PlatformOrganizationsPage)} />
+      {/* /platform (organisations) is switched off until the backend supports one database per organisation (BUG-013, deferred).
+          The page stays in pages/platform/. To bring it back: const PlatformOrganizationsPage = lazy(() => import('../pages/platform/PlatformOrganizationsPage.jsx'));
+          and <Route path={ROUTES.PLATFORM} element={withSuspense(PlatformOrganizationsPage)} /> */}
       <Route path={ROUTES.ID_CARD_VERIFY} element={withSuspense(PublicVerificationPage)} />
 
       {/* Protected Application Routes wrapped in AppLayout */}

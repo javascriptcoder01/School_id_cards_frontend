@@ -41,9 +41,8 @@ describe('DASHBOARD ROLE ACCESS & TENANT ISOLATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Super Administrator Control Plane')).toBeInTheDocument();
-      expect(screen.getByText('Affiliated Colleges')).toBeInTheDocument();
-      expect(screen.getByText('Register College')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('Revenue')).toBeInTheDocument();
     });
 
     // Should NOT see college-specific widgets
@@ -102,10 +101,8 @@ describe('DASHBOARD ROLE ACCESS & TENANT ISOLATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('College Administrator Workspace')).toBeInTheDocument();
-      expect(screen.getByText('Total Students')).toBeInTheDocument();
-      expect(screen.getByText('Add Student')).toBeInTheDocument();
-      expect(screen.getByText('Bulk Import')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('ID Card Payments')).toBeInTheDocument();
     });
 
     // Should NOT see super admin quick actions

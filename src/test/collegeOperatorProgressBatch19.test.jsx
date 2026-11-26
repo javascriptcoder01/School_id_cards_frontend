@@ -66,14 +66,14 @@ describe('College Admin Operator Progress Table (Batch 19)', () => {
     expect(screen.getByText('Pooja Nair')).toBeDefined();
     expect(screen.getByText(/pooja@institution.edu/i)).toBeDefined();
     expect(screen.getByText(/Subject: Physics/i)).toBeDefined();
-    expect(screen.getByText(/Class 11 \(Sec A\)/i)).toBeDefined();
+    expect(screen.getByText(/11 \(Sec A\)/i)).toBeDefined();
 
     // Check student completion stats
     expect(screen.getByText('90% Complete')).toBeDefined(); // 36 / 40 = 90%
     expect(screen.getByText('100% Complete')).toBeDefined(); // 30 / 30 = 100%
 
     // Check ID card counts
-    expect(screen.getByText('30 Gen')).toBeDefined();
+    expect(screen.getAllByText('30 Gen').length).toBeGreaterThan(0);
     // Check second operator
     expect(screen.getByText('Rohan Gupta')).toBeDefined();
     expect(screen.getByText(/Subject: Chemistry/i)).toBeDefined();

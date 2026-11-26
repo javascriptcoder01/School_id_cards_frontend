@@ -34,7 +34,7 @@ export const OperatorProgressTable = ({ operators = [], isLoading = false }) => 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {operators.map((op) => {
+            {operators.map((op, rowIndex) => {
               const studentStats = op.students || {};
               const idStats = op.idCards || {};
               const printStats = op.printRequests || {};
@@ -54,7 +54,7 @@ export const OperatorProgressTable = ({ operators = [], isLoading = false }) => 
               const percent = totalStudents > 0 ? Math.round((completeStudents / totalStudents) * 100) : 0;
 
               return (
-                <tr key={op.operatorId || op.id || op.email} className="hover:bg-slate-50/80 transition-colors">
+                <tr key={`${op.operatorId || op.operator?.id || op.id || op.email || "op"}-${op.assignment?.className ?? ""}-${op.assignment?.sectionName ?? ""}-${rowIndex}`} className="hover:bg-slate-50/80 transition-colors">
                   {/* Operator Info */}
                   <td className="py-4 px-4 sm:px-6">
                     <div className="flex items-center gap-3">

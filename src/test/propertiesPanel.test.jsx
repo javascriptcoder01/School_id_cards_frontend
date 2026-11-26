@@ -24,7 +24,8 @@ describe('PROPERTIES PANEL COMPONENT', () => {
       />
     );
 
-    expect(screen.getByText('Properties Inspector')).toBeInTheDocument();
+    expect(screen.getByText('Properties')).toBeInTheDocument();
+    expect(screen.getByText(/Select an element on the card/i)).toBeInTheDocument();
   });
 
   it('2. Renders photo coordinate inputs when photo is selected', () => {
@@ -39,8 +40,8 @@ describe('PROPERTIES PANEL COMPONENT', () => {
       />
     );
 
-    expect(screen.getByText('Photo Box Properties')).toBeInTheDocument();
-    expect(screen.getByText('X Position (mm)')).toBeInTheDocument();
+    expect(screen.getByText('Student Photo')).toBeInTheDocument();
+    expect(screen.getByText('Photo fit')).toBeInTheDocument();
   });
 
   it('3. Renders field typography & coordinates when field is selected', () => {
@@ -55,9 +56,7 @@ describe('PROPERTIES PANEL COMPONENT', () => {
       />
     );
 
-    expect(screen.getByText('Student Name')).toBeInTheDocument();
-    expect(screen.getByText('Display Label')).toBeInTheDocument();
-    expect(screen.getByText('Font Size (pt)')).toBeInTheDocument();
+    expect(screen.getByText('Label & Icon')).toBeInTheDocument();
   });
 
   it('4. Calls onRemoveField when delete button clicked', () => {

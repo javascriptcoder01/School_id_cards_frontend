@@ -34,7 +34,8 @@ describe('BATCH 16 — FINAL RELEASE SECURITY & DATA SANITIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Super Administrator Control Plane')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('Revenue')).toBeInTheDocument();
     });
 
     expect(container.innerHTML).not.toContain(sensitiveToken);

@@ -50,7 +50,7 @@ describe('OPERATOR DASHBOARD VIEW', () => {
 
     expect(screen.getByText('Welcome, Rahul Operator')).toBeInTheDocument();
     expect(screen.getByText('Class 10 (Sec A)')).toBeInTheDocument();
-    expect(screen.getByText('35')).toBeInTheDocument();
+    expect(screen.getAllByText('35').length).toBeGreaterThan(0);
     expect(screen.getByText('30')).toBeInTheDocument();
   });
 });

@@ -112,7 +112,8 @@ describe('ROUTE-LEVEL LAZY LOADING & SUSPENSE BOUNDARIES', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Super Administrator Control Plane')).toBeInTheDocument();
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
+      expect(screen.getByText('Revenue')).toBeInTheDocument();
     });
   });
 });

@@ -48,7 +48,7 @@ describe('OPERATOR STUDENT SCOPE & COMPLETION METRICS', () => {
     expect(screen.getByText(/Operator Assignment Scope/i)).toBeInTheDocument();
     expect(screen.getByText(/Mathematics/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Class and Section are automatically assigned from your Operator profile/i)
+      screen.getByText(/automatically assigned to your authorized class and section/i)
     ).toBeInTheDocument();
   });
 
@@ -121,8 +121,8 @@ describe('OPERATOR STUDENT SCOPE & COMPLETION METRICS', () => {
     const res = computeStudentCompletion(incompleteStudent);
     expect(res.isComplete).toBe(false);
     expect(res.percentage).toBe(60);
-    expect(res.missingFields).toContain('Section');
-    expect(res.missingFields).toContain('Photo');
+    expect(res.missingFields).toContain('section');
+    expect(res.missingFields).toContain('photo');
 
     render(<StudentCompletionMetric student={incompleteStudent} showDetail={true} />);
     expect(screen.getByText(/PENDING \(60%\)/i)).toBeInTheDocument();

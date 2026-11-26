@@ -61,7 +61,7 @@ describe('ACCOUNT ROUTING & ACCESS CONTROL', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: 'My Account Settings' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'My Account' })).toBeInTheDocument();
     });
   });
 
@@ -86,7 +86,7 @@ describe('ACCOUNT ROUTING & ACCESS CONTROL', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: 'My Account Settings' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'My Account' })).toBeInTheDocument();
     });
   });
 
@@ -111,7 +111,7 @@ describe('ACCOUNT ROUTING & ACCESS CONTROL', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: 'My Account Settings' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'My Account' })).toBeInTheDocument();
     });
   });
 

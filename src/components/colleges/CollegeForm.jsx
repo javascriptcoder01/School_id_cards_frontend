@@ -431,12 +431,15 @@ export const CollegeForm = ({
               id="college-code"
               type="text"
               value={formData.code}
-              disabled={isLoading}
+              disabled={isLoading || isEdit}
+              readOnly={isEdit}
+              title={isEdit ? 'The college code is the Key Code and cannot be changed' : undefined}
               onChange={(e) => handleChange('code', e.target.value)}
               placeholder="e.g. SXCE01"
               className={`w-full px-4 py-2.5 font-mono bg-slate-50 border rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all ${errors.code ? 'border-rose-400 focus:ring-rose-400' : 'border-slate-200'
                 }`}
             />
+            {isEdit && <p className="text-xs text-slate-500 mt-1.5">The code is the school's Key Code and the prefix of its request numbers, so it cannot be changed.</p>}
             {errors.code && <p className="text-xs text-rose-500 mt-1.5 font-medium">{errors.code}</p>}
           </div>
 

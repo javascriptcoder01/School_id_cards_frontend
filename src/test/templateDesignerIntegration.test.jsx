@@ -13,7 +13,8 @@ describe('TEMPLATE DESIGNER INTEGRATION', () => {
     vi.restoreAllMocks();
   });
 
-  it('1. CreateTemplatePage renders visual designer and tabs', async () => {
+  // OBSOLETE: the designer was rebuilt (theme gallery, server-rendered preview); it no longer has the old tabs / in-DOM Student Photo box.
+  it.skip('1. CreateTemplatePage renders visual designer and tabs', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'u1', role: 'COLLEGE_ADMIN' },
@@ -48,7 +49,8 @@ describe('TEMPLATE DESIGNER INTEGRATION', () => {
     );
   });
 
-  it('2. EditTemplatePage populates existing template into visual designer canvas', async () => {
+  // OBSOLETE: same as test 1 - the old visual designer canvas no longer exists.
+  it.skip('2. EditTemplatePage populates existing template into visual designer canvas', async () => {
     const mockTemplate = {
       id: 'tmpl_100',
       name: 'Existing Campus Card',

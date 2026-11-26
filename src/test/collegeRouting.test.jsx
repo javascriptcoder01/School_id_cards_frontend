@@ -42,8 +42,8 @@ describe('GROUP G — COLLEGE ROUTING & AUTHORIZATION', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Colleges Directory')).toBeInTheDocument();
-      expect(screen.getByText('Add College')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Colleges/ })).toBeInTheDocument();
+      expect(screen.getByText('Add college')).toBeInTheDocument();
       expect(screen.getByText('Delhi College')).toBeInTheDocument();
     });
   });

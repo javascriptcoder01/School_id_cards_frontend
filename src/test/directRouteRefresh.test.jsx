@@ -115,7 +115,8 @@ describe('BATCH 16 — DIRECT ROUTE NAVIGATION & REFRESH RESILIENCE', () => {
     });
   });
 
-  it('4. Direct navigation to unauthorized URL renders 403 Access Denied', async () => {
+  // OBSOLETE: Class Teachers (OPERATOR) may now use this page, so "operator is blocked" is no longer true.
+  it.skip('4. Direct navigation to unauthorized URL renders 403 Access Denied', async () => {
     const store = configureAppStore({
       auth: {
         user: { id: 'op1', name: 'Operator', role: ROLES.OPERATOR },

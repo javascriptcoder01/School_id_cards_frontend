@@ -24,6 +24,8 @@ describe('ACCOUNT API SERVICE', () => {
       email: 'jane@stanford.edu',
       role: 'COLLEGE_ADMIN',
       collegeId: 'col_500',
+      collegeName: null,
+      collegeCode: null,
       isActive: true,
     });
   });

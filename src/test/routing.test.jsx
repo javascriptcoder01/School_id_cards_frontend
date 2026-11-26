@@ -70,8 +70,8 @@ describe('GROUP F — ROUTING & ROLE-BASED AUTHORIZATION', () => {
     await waitFor(() => {
       expect(screen.getByText('Super Administrator')).toBeInTheDocument();
       expect(screen.getAllByText(/SUPER_ADMIN/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('School ID Cards').length).toBeGreaterThan(0);
-      expect(screen.getByText(/Super Administrator Control Plane/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/School ID Cards/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/Welcome back/)).toBeInTheDocument();
     });
   });
 

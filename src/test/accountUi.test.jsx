@@ -23,23 +23,23 @@ describe('ACCOUNT UI COMPONENTS', () => {
 
     expect(screen.getAllByText('Sarah Connor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('sarah@school.edu').length).toBeGreaterThan(0);
-    expect(screen.getByText('SUPER_ADMIN')).toBeInTheDocument();
-    expect(screen.getByText('Platform Wide (Global)')).toBeInTheDocument();
-    expect(screen.getByText('Active & Verified')).toBeInTheDocument();
+    expect(screen.getAllByText('Role').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Access').length).toBeGreaterThan(0); // platform-wide user: no school
+    expect(screen.getAllByText('Active').length).toBeGreaterThan(0);
   });
 
   it('2. AccountProfileCard renders fallback when profile is empty', () => {
     render(<AccountProfileCard profile={null} />);
-    expect(screen.getByText('Profile details not available.')).toBeInTheDocument();
+    expect(screen.getByText('Profile not available.')).toBeInTheDocument();
   });
 
   it('3. AccountSecurityCard renders security policies and triggers onLogoutClick', () => {
     const onLogoutClick = vi.fn();
     render(<AccountSecurityCard onLogoutClick={onLogoutClick} />);
 
-    expect(screen.getByText('Security & Session Management')).toBeInTheDocument();
-    expect(screen.getByText(/Institutional Account Governance/i)).toBeInTheDocument();
-    expect(screen.getByText(/Authentication Protocol/i)).toBeInTheDocument();
+    expect(screen.getByText('Security')).toBeInTheDocument();
+    expect(screen.getByText('Current session')).toBeInTheDocument();
+    expect(screen.getByText('Password & role')).toBeInTheDocument();
 
     const logoutBtn = screen.getByRole('button', { name: /Sign Out/i });
     fireEvent.click(logoutBtn);
@@ -76,7 +76,7 @@ describe('ACCOUNT UI COMPONENTS', () => {
       </Provider>
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: 'My Account Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'My Account' })).toBeInTheDocument();
     expect(screen.getAllByText('Admin User').length).toBeGreaterThan(0);
 
     // Click sign out button in security card
@@ -84,7 +84,7 @@ describe('ACCOUNT UI COMPONENTS', () => {
     fireEvent.click(signOutBtn);
 
     // Confirm dialog should appear
-    expect(screen.getByText('Sign Out of Session')).toBeInTheDocument();
+    expect(screen.getByText('Sign out?')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Stay Logged In' })).toBeInTheDocument();
 
     // Confirm sign out

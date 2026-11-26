@@ -77,6 +77,7 @@ describe('ID CARD GENERATION REDUX SAGA', () => {
     expect(generator.next(mockResponse).value).toEqual(
       put(createGenerationSucceeded({ id: 'g1', status: 'PENDING' }))
     );
+    generator.next(); // the success notification
     expect(generator.next().done).toBe(true);
     expect(onSuccess).toHaveBeenCalledWith({ id: 'g1', status: 'PENDING' });
   });
@@ -94,6 +95,7 @@ describe('ID CARD GENERATION REDUX SAGA', () => {
     expect(generator.next(mockResponse).value).toEqual(
       put(createBulkGenerationSucceeded({ id: 'g2', status: 'PENDING' }))
     );
+    generator.next(); // the success notification
     expect(generator.next().done).toBe(true);
     expect(onSuccess).toHaveBeenCalledWith({ id: 'g2', status: 'PENDING' });
   });
@@ -109,6 +111,7 @@ describe('ID CARD GENERATION REDUX SAGA', () => {
     expect(generator.next(mockResponse).value).toEqual(
       put(processGenerationSucceeded({ id: 'g1', status: 'PROCESSING' }))
     );
+    generator.next(); // the success notification
     expect(generator.next().done).toBe(true);
     expect(onSuccess).toHaveBeenCalledWith({ id: 'g1', status: 'PROCESSING' });
   });
