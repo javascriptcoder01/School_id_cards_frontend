@@ -11,6 +11,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // <root>/packages/theme-engine (monorepo, next to frontend/) or inside the backend repo
 // (<root>/School_id_cards/packages/theme-engine). Use whichever exists, so the app builds in both layouts.
 const THEME_ENGINE_CANDIDATES = [
+  path.resolve(here, 'packages/theme-engine'), // vendored copy inside frontend/ (used by Netlify, which builds frontend/ alone)
   path.resolve(here, '../packages/theme-engine'),
   path.resolve(here, '../School_id_cards/packages/theme-engine'),
   path.resolve(here, '../backend/packages/theme-engine'),

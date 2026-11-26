@@ -1,0 +1,31 @@
+{
+  "name": "@app/theme-engine",
+  "version": "1.0.0",
+  "description": "Pure theme renderer shared by Backend and Frontend (colour roles + background layers → SVG)",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "sideEffects": false,
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"__tests__/*.test.js\""
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "constants.js",
+    "renderLayers.js",
+    "palette.js",
+    "migrations.js",
+    "printCheck.js",
+    "stableStringify.js",
+    "README.md"
+  ],
+  "types": "./index.d.ts"
+}

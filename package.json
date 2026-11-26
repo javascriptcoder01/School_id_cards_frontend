@@ -41,7 +41,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@app/theme-engine": "file:../packages/theme-engine",
+    "@app/theme-engine": "file:./packages/theme-engine",
     "@reduxjs/toolkit": "^2.12.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/core": "3.31.4",
